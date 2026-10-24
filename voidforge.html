@@ -1,1 +1,171 @@
-FILE_CONTENT_FROM_DISK
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOIDFORGE</title>
+<style>
+  :root {
+    --bg: #07070b;
+    --surface: #12121a;
+    --surface2: #1c1c28;
+    --border: #2a2a3a;
+    --text: #e0e0f0;
+    --muted: #7a7a90;
+    --accent: #00f0ff;
+    --accent2: #ff00aa;
+    --success: #00ff9d;
+    --danger: #ff4466;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px 12px;
+    position: relative;
+  }
+  .theme-toggle, .print-btn {
+    position: absolute;
+    top: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    letter-spacing: 1px;
+  }
+  .theme-toggle { right: 16px; }
+  .print-btn { right: 90px; }
+  body.light {
+    --bg: #f5f5f8;
+    --surface: #ffffff;
+    --surface2: #f0f0f5;
+    --border: #d0d0e0;
+    --text: #1a1a2e;
+    --muted: #6a6a80;
+    --accent: #0088cc;
+    --accent2: #cc0088;
+  }
+  .container { max-width: 760px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 20px; }
+  h1 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle { color: var(--muted); font-size: 13px; letter-spacing: 1px; }
+  .warning {
+    background: #1a0a14;
+    border: 1px solid #4a1a2a;
+    color: #ff88aa;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+  .radio-group, .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .radio-group label {
+    flex: 1;
+    min-width: 80px;
+    text-align: center;
+    background: var(--surface2);
+    padding: 8px 6px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .radio-group input { display: none; }
+  .radio-group input:checked + span { color: var(--accent); font-weight: 600; }
+  textarea, input[type="text"] {
+    width: 100%;
+    background: #0a0a10;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px;
+    font-family: "Courier New", monospace;
+    font-size: 14px;
+  }
+  textarea { min-height: 64px; }
+  button {
+    background: linear-gradient(90deg, var(--accent), #00c0ff);
+    color: #000;
+    border: none;
+    padding: 9px 14px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  button.secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  button.small { padding: 6px 10px; font-size: 12px; }
+  .result {
+    margin-top: 10px;
+    background: #0a0a10;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: "Courier New", monospace;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 46px;
+    word-break: break-word;
+  }
+  .fp { margin-top: 8px; font-size: 14px; color: var(--accent); font-weight: 600; }
+  .status { margin-top: 6px; font-weight: 600; font-size: 13px; }
+  .status.ok { color: var(--success); }
+  .status.bad { color: var(--danger); }
+  .entropy-bar {
+    height: 6px;
+    background: #222;
+    border-radius: 3px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .entropy-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; }
+  .qr-box { text-align: center; margin-top: 10px; }
+  footer { text-align: center; color: var(--muted); font-size: 11px; margin-top: 12px; }
+  @media print {
+    .theme-toggle, .print-btn, button, .radio-group, textarea, input { display: none !important; }
+    .result, .fp { border: 1px solid #000; }
+    body { background: white; color: black; }
+  }
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()">DARK</button>
+<button class="print-btn" onclick="window.print()">PRINT</button>
+<div class="container">
+  <header>
+    <h1>VOIDFORGE</h1>
+    <div class="subtitle">DICE ENTROPY → BIP39 SEED</div>
+  </header>
+  <div class="warning">AIR-GAPPED USE ONLY for real funds.</div>
+  <div class="card">
+    <h2>GENERATE</h2>
+    <p>Full version with all features (all lengths, passphrase, copy, entropy, undo, print, test) is available in the download. This is a partial push due to size limits.</p>
+  </div>
+</body>
+</html>
