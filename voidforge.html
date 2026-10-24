@@ -132,16 +132,17 @@
     background: linear-gradient(90deg, var(--accent), #00c0ff);
     color: #000;
     border: none;
-    padding: 9px 14px;
+    padding: 11px 16px;
     border-radius: 8px;
     font-weight: 700;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 14px;
   }
   button.secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
   button.small { padding: 6px 10px; font-size: 12px; }
   .result {
     margin-top: 10px;
+    transition: background 0.3s;
     background: #0a0a10;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -153,7 +154,7 @@
     min-height: 46px;
     word-break: break-word;
   }
-  .fp { margin-top: 8px; font-size: 14px; color: var(--accent); font-weight: 600; }
+  .fp { margin-top: 12px; font-size: 18px; color: var(--accent); font-weight: 700; letter-spacing: 1px; }
   .status { margin-top: 6px; font-weight: 600; font-size: 13px; }
   .status.ok { color: var(--success); }
   .status.bad { color: var(--danger); }
@@ -165,6 +166,9 @@
     overflow: hidden;
   }
   .entropy-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; }
+  .entropy-status.fair { color: var(--success); }
+  .entropy-status.ok { color: #ffaa00; }
+  .entropy-status.bad { color: var(--danger); }
   footer { text-align: center; color: var(--muted); font-size: 11px; margin-top: 12px; }
   @media print {
     .theme-toggle, .print-btn, button, .radio-group, textarea, input { display: none !important; }
@@ -212,7 +216,7 @@
     </div>
     <textarea id="rolls" placeholder="Dice rolls (1-6)..."></textarea>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
-      <div id="rollCount" style="font-size:12px;color:#7a7a90;">0 rolls</div>
+      <div id="rollCount" style="font-size:13px;color:#7a7a90;font-weight:600;">0 / 50 rolls</div>
       <button class="secondary small" onclick="undoRoll()">UNDO</button>
     </div>
     <div class="entropy-bar"><div class="entropy-fill" id="entropyFill"></div></div>
@@ -228,8 +232,8 @@
     </div>
     <div class="result" id="genResult">—</div>
     <div class="btn-row" style="margin-top:6px;">
-      <button class="secondary small" onclick="copyResult()">COPY SEED</button>
-      <button class="secondary small" onclick="copyFingerprint()">COPY FINGERPRINT</button>
+      <button class="secondary small" onclick="copyResult(); showCopied(this)">COPY SEED</button>
+      <button class="secondary small" onclick="copyFingerprint(); showCopied(this)">COPY FINGERPRINT</button>
       <button class="secondary small" onclick="downloadSeed()">DOWNLOAD</button>
     </div>
     <div class="fp" id="fingerprint"></div>
@@ -372,6 +376,11 @@ setTimeout(() => {
 }, 50);
 }
 
+function showCopied(btn){
+  const original = btn.textContent;
+  btn.textContent = "COPIED!";
+  setTimeout(() => btn.textContent = original, 1200);
+}
 function copyResult(){
   const t = document.getElementById("genResult").textContent.split("\n")[0];
   if(t && t!=="—") navigator.clipboard.writeText(t).then(()=>alert("Seed copied"));
@@ -472,6 +481,10 @@ function downloadSeed() {
 }
 
 updateCount();
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("rolls").focus();
+});
 </script>
 </body>
 </html>
