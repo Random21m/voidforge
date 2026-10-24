@@ -196,7 +196,9 @@
     <button onclick="downloadTool()" style="background:#00ff9d; color:#000; font-weight:700;">DOWNLOAD FOR USB</button>
   </div>
   <div class="warning">
-    AIR-GAPPED USE ONLY for real funds. Never enter a real seed on a connected device.
+    AIR-GAPPED USE ONLY for real funds.<br>
+    Never enter a real seed on a connected device.<br>
+    Always verify with a second offline tool before trusting real Bitcoin.
   </div>
 
   <div class="card">
@@ -218,6 +220,7 @@
     <input type="text" id="passphrase" placeholder="Optional BIP39 passphrase (advanced)" style="margin-top:8px;">
     <input type="text" id="note" placeholder="Optional note (e.g. casino dice, date)" style="margin-top:6px;">
     <div id="rollHistory" style="font-size:11px;color:#7a7a90;margin-top:6px;min-height:16px;"></div>
+    <div id="diceVisual" style="font-size:20px; letter-spacing:4px; margin-top:4px; min-height:28px;"></div>
     <div class="btn-row">
       <button onclick="generate()">FORGE SEED</button>
       <button class="secondary" onclick="clearAll()">CLEAR</button>
@@ -361,6 +364,8 @@ function copyFingerprint(){
 function updateRollHistory(rolls){
   const recent = rolls.slice(-12);
   document.getElementById("rollHistory").textContent = "Recent rolls: " + recent.split("").join(" ");
+  const dice = {"1":"⚀","2":"⚁","3":"⚂","4":"⚃","5":"⚄","6":"⚅"};
+  document.getElementById("diceVisual").textContent = recent.split("").map(r => dice[r] || "").join(" ");
 }
 
 function clearAll(){
