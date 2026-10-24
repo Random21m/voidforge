@@ -438,7 +438,7 @@ async function verify(){
     if(!(w in WORD_MAP)){ st.textContent="Unknown word: "+w; st.className="status bad"; return; }
   }
   const bits = words.map(w=>WORD_MAP[w].toString(2).padStart(11,"0")).join("");
-  const cLen = (words.length*11)/32;
+  const cLen = Math.floor((words.length*11)/32);
   const eBits = bits.length - cLen;
   const eStr = bits.slice(0,eBits);
   const cStr = bits.slice(eBits);
