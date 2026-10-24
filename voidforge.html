@@ -183,12 +183,19 @@
 <div class="container">
   <header>
     <div class="logo">
-      <svg width="56" height="56" viewBox="0 0 64 64" fill="none">
-        <rect x="8" y="8" width="48" height="48" rx="8" stroke="#00f0ff" stroke-width="2"/>
-        <circle cx="20" cy="20" r="3" fill="#00f0ff"/>
-        <circle cx="32" cy="32" r="3" fill="#ff00aa"/>
-        <circle cx="44" cy="44" r="3" fill="#00f0ff"/>
-        <path d="M16 40 L28 28 L36 36 L48 20" stroke="#00f0ff" stroke-width="1.5" fill="none"/>
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <defs>
+          <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#00f0ff"/>
+            <stop offset="100%" stop-color="#ff00aa"/>
+          </linearGradient>
+        </defs>
+        <rect x="6" y="6" width="52" height="52" rx="12" stroke="url(#g)" stroke-width="2.5"/>
+        <circle cx="20" cy="22" r="3.5" fill="#00f0ff"/>
+        <circle cx="32" cy="32" r="4" fill="#ff00aa"/>
+        <circle cx="44" cy="42" r="3.5" fill="#00f0ff"/>
+        <path d="M14 46 L26 30 L34 38 L50 18" stroke="url(#g)" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <circle cx="32" cy="32" r="18" stroke="url(#g)" stroke-width="0.5" opacity="0.4"/>
       </svg>
     </div>
     <h1>VOIDFORGE</h1>
