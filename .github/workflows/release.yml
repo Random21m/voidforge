@@ -1,0 +1,51 @@
+# When a release is published (or you run this by hand for an existing tag), this workflow:
+#   1. checks that the tagged voidforge.html matches SHA256SUMS and passes all tests,
+#   2. records a signed GitHub build-provenance attestation for voidforge.html and SHA256SUMS,
+#   3. attaches both files to the release.
+# It proves WHICH repo, commit and workflow the files came from. It does not make the code safe;
+# that still depends on review. Verify with:  gh attestation verify voidforge.html --repo Random21m/voidforge
+name: release
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attest (for example v1.2.2)"
+        required: true
+permissions:
+  contents: write       # attach files to the release
+  id-token: write       # sign the attestation
+  attestations: write   # store the attestation
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: Check the tag name
+        run: |
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "Unexpected tag name: $TAG" >&2; exit 1 ;;
+          esac
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+      - name: Tests
+        run: npm test
+      - name: Tagged file matches SHA256SUMS
+        run: sha256sum -c SHA256SUMS
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            voidforge.html
+            SHA256SUMS
+      - name: Attach files to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" voidforge.html SHA256SUMS --clobber

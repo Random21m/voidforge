@@ -12,6 +12,8 @@ VOIDFORGE is meant to be read. The security-relevant code is a few hundred lines
 | Outputs | `generate` ~658, `downloadTool` ~788, print/download | Seed or passphrase leaving the page unexpectedly. |
 | Network | whole file | `fetch`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, external `src`/`href`, CSP meta (line 5). |
 
+Tests worth reading too: `tests/oracle.test.mjs` compares the seed math with `@scure` on random inputs, and `tests/mutation.test.mjs` shows which deliberate breaks the in-page self-test catches and which only the CI probe catches.
+
 Independent checks anyone can run: compare with SeedSigner's `tools/mnemonic.py`, or Ian Coleman's BIP39 tool run offline ("Base 10"/"Hex" mode for dice, "Binary" for coin flips).
 
 Known limits: the randomness meter only catches lazy input; the curve code is not constant-time; coin-mode test vectors come from an independent implementation of SeedSigner's method (SeedSigner publishes none); Coldcard is untested; tested in Chromium but not Firefox or Safari.

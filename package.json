@@ -1,0 +1,15 @@
+{
+  "name": "voidforge-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Test dependencies for VOIDFORGE (the tool itself has none: it is one HTML file).",
+  "license": "MIT",
+  "scripts": {
+    "test": "node tests/test.js && node tests/oracle.test.mjs && node tests/mutation.test.mjs"
+  },
+  "devDependencies": {
+    "@scure/bip32": "^1.7.0",
+    "@scure/bip39": "^1.6.0",
+    "jsdom": "^26.0.0"
+  }
+}

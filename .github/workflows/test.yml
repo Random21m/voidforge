@@ -1,5 +1,7 @@
 name: test
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -7,7 +9,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
-      - run: npm install --no-save jsdom
-      - run: node tests/test.js
+      - run: npm ci
+      - name: Unit, oracle and mutation tests
+        run: npm test
       - name: SHA256SUMS matches voidforge.html
         run: sha256sum -c SHA256SUMS

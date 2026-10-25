@@ -9,7 +9,7 @@ Offline dice- and coin-based BIP39 seed phrase generator (12 or 24 words). One H
 **Use it only on an offline (air-gapped) computer.** Download `voidforge.html` from a release (see [RELEASING.md](RELEASING.md)), check its SHA256, copy it to a USB stick, open it, and confirm the green "SELF-TEST PASSED" badge. Full documentation is inside the file (ABOUT & DOCS card).
 
 - Method: `SHA256(rolls or flips as text)` → BIP39. Matches SeedSigner's published dice examples; coin mode uses SeedSigner's method (1/0 string).
-- Tests: `npm install jsdom && node tests/test.js`
+- Tests: `npm ci && npm test` (unit tests, differential tests against `@scure/bip39` and `@scure/bip32`, and mutation tests that break the code on purpose to prove the safety net catches it)
 - Want to review it? See [REVIEW.md](REVIEW.md).
 - Do not host this as a web page (no GitHub Pages). Download-only.
 - License: MIT
