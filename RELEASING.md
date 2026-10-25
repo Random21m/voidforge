@@ -23,5 +23,5 @@ gh attestation verify voidforge.html --repo Random21m/voidforge     # needs the 
 The attestation proves the file came from this repository's release workflow at a specific commit. It does not prove the code is safe; that depends on review. Verify the file you downloaded, not the copy saved by the in-page "DOWNLOAD FOR USB" button (the browser re-serializes the page, so its hash differs).
 
 ## Current build
-`voidforge.html` v1.3.0, SHA256: `57c76e9696af0148e4b2333eedcd01245b275745d61b1bdfc25d742d58a1a4e2`
+`voidforge.html` v1.3.1, SHA256: `ca2353ccc9a7a1e80bcc5104407681c59cbfc37c86c3b1fb484fb11aa28e2cb6`
 (Recompute after any edit.)

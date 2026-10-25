@@ -211,6 +211,9 @@
 <div class="container">
   <div id="onlineWarn" role="alert"></div>
   <div id="fatalWarn" role="alert"></div>
+  <div id="noJs" role="alert" style="background:#ff4466; color:#000; font-weight:700; font-size:13px; text-align:center; padding:10px 12px; border-radius:10px; margin-bottom:14px;">
+    This page&rsquo;s script is NOT running, so nothing below works. Open voidforge.html itself in a current desktop browser (Safari 14+, Chrome, Firefox) with JavaScript on. File previews (Quick Look, email, phone Files) and old browsers block it. Do not use it for real funds until the green SELF-TEST PASSED badge appears. This tool is meant for an offline computer, not a phone.
+  </div>
   <div id="netTag" role="status"></div>
   <div id="selfTestBadge" role="status"></div>
   <header>
@@ -241,7 +244,7 @@
       </svg>
     </div>
     <h1>VOIDFORGE</h1>
-    <div class="subtitle">DICE ENTROPY → BIP39 SEED</div>
+    <div class="subtitle">DICE / COIN ENTROPY → BIP39 SEED</div>
   </header>
 
   
@@ -266,6 +269,7 @@
       <label><input type="radio" name="mode" value="coin" onchange="onModeChange()"><span>Coin (1/0)</span></label>
     </div>
     <textarea id="rolls" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Dice: rolls 1-6. Coin: flips as 1 and 0."></textarea>
+    <div id="coinHint" style="display:none; font-size:12px; margin-top:6px; color:var(--muted);">Pick which side is 1 and which is 0 (the usual choice: heads = 1, tails = 0) and keep it the same for every flip. Only the 1/0 string is used, so any consistent choice is fine, but you cannot get the mapping back from the words. Write down the exact string or your mapping with your backup.</div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
       <div id="rollCount" style="font-size:13px;color:#7a7a90;font-weight:600;">0 / 50 rolls</div>
       <button class="secondary small" onclick="undoRoll()">UNDO</button>
@@ -315,7 +319,7 @@
       <ol>
         <li>Copy this single file to a USB stick and open it on an <b>air-gapped</b> computer.</li>
         <li>Press <b>SELF-TEST</b> and confirm it says all tests passed.</li>
-        <li>Choose <b>Dice</b> or <b>Coin</b>, enter your physical rolls or flips, and press <b>FORGE SEED</b>.</li>
+        <li>Choose <b>Dice</b> or <b>Coin</b>, enter your physical rolls or flips, and press <b>FORGE SEED</b>. For coins, decide which side is 1 and which is 0 (heads = 1, tails = 0 is the usual choice), use it for every flip, and record the exact 1/0 string with your backup.</li>
         <li>Compare the words and the master fingerprint with a second independent offline tool before trusting real funds.</li>
       </ol>
     </details>
@@ -344,7 +348,7 @@
     <details>
       <summary>Security notes</summary>
       <ul>
-        <li>Only use this offline. Never type a real seed into a phone, website or online tool.</li>
+        <li>Only use this offline, on a computer. Never type a real seed into a phone, website or online tool; phones and file previews often will not run this page at all.</li>
         <li>The randomness meter checks face counts, long runs, repeating or stepping patterns and periodic repeats. It is advisory only: it catches lazy input, not subtle bias, and cannot prove your dice or coin are good. If it flags a pattern, FORGE SEED asks before continuing.</li>
         <li>A Content-Security-Policy built into this file tells the browser to block all network access, as a second line of defense. It does not replace using an offline computer.</li>
         <li>This page contains no links, and switching between dice and coin clears the entered rolls (after asking).</li>
@@ -358,6 +362,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.3.1</b> &mdash; Header now says DICE / COIN. Added a clear red notice that shows whenever the page&rsquo;s script is not running (file previews, old browsers, JavaScript off), a coin-mode hint explaining which side is 1 or 0 and to record the string, and a not-for-phones note. Seed generation is unchanged.</li>
         <li><b>1.3.0</b> &mdash; Added an always-visible NETWORK: ONLINE/OFFLINE tag, an &ldquo;&asymp; bits of entropy if rolls are fair&rdquo; line, a passphrase-normalization test in the self-test (26 tests), and a note on what the self-test cannot catch. Seed generation is unchanged: the same rolls give the same words and fingerprint as 1.2.x.</li>
         <li><b>1.2.2</b> &mdash; Added SEND TO VERIFY, which moves the generated words into the VERIFY box inside the page (no clipboard). Note this only re-checks the words you just made with the same code; for an independent check, write the words down and enter them in a second tool.</li>
         <li><b>1.2.1</b> &mdash; Wording fixes: coin mode says &ldquo;flips&rdquo; in the length message; shorter passphrase hint. No change to seed generation.</li>
@@ -372,7 +377,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.3.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.3.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -868,6 +873,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function updateLabels(){
   const mode = document.querySelector('input[name="mode"]:checked')?.value || "dice";
+  const ch = document.getElementById("coinHint"); if(ch) ch.style.display = mode === "coin" ? "block" : "none";
   const dice = {12:50,24:99};
   const coin = {12:128,24:256};
   const map = mode === "coin" ? coin : dice;
@@ -878,6 +884,9 @@ function updateLabels(){
   });
   updateCount();
 }
+updateLabels();
+// Reached only if the whole script parsed and ran: hide the "script is not running" notice.
+document.getElementById("noJs").style.display = "none";
 
 </script>
 </body>

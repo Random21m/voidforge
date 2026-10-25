@@ -8,6 +8,16 @@ Offline dice- and coin-based BIP39 seed phrase generator (12 or 24 words). One H
 
 **Use it only on an offline (air-gapped) computer.** Download `voidforge.html` from a release (see [RELEASING.md](RELEASING.md)), check its SHA256, copy it to a USB stick, open it, and confirm the green "SELF-TEST PASSED" badge. Full documentation is inside the file (ABOUT & DOCS card).
 
+## Quick start
+
+1. Download `voidforge.html` from the [latest release](../../releases/latest) and check it: `sha256sum -c SHA256SUMS`.
+2. Copy it to a USB stick and open it in a desktop browser (Safari 14+, Chrome or Firefox) on an **offline computer**. Do not use a phone: phones and file previews often will not run the page, and a phone is the wrong place for a seed anyway.
+3. Confirm the green **SELF-TEST PASSED (26/26)** badge and the **NETWORK: OFFLINE** tag. A red notice saying the script is not running means the page did not start; do not use it.
+4. Choose 12 or 24 words and Dice or Coin, enter your physical rolls or flips, and press FORGE SEED.
+5. Write the words down, then compare the words and the master fingerprint with a second independent offline tool before trusting real funds.
+
+**Coin flips:** decide which side is 1 and which is 0 (the usual choice is heads = 1, tails = 0), use it for every flip, and keep the exact 1/0 string with your backup. Only the string is hashed, so any consistent choice works, but the mapping cannot be recovered from the words.
+
 - Method: `SHA256(rolls or flips as text)` → BIP39. Matches SeedSigner's published dice examples; coin mode uses SeedSigner's method (1/0 string).
 - Tests: `npm ci && npm test` (unit tests, differential tests against `@scure/bip39` and `@scure/bip32`, and mutation tests that break the code on purpose to prove the safety net catches it)
 - Want to review it? See [REVIEW.md](REVIEW.md).
