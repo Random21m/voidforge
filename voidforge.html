@@ -53,6 +53,7 @@
   }
   body.light textarea,
   body.light input[type="text"],
+  body.light input[type="password"],
   body.light .result {
     background: #ffffff;
     color: #1c1e26;
@@ -117,7 +118,7 @@
   }
   .radio-group input { display: none; }
   .radio-group input:checked + span { color: var(--accent); font-weight: 600; }
-  textarea, input[type="text"] {
+  textarea, input[type="text"], input[type="password"] {
     width: 100%;
     background: #0a0a10;
     border: 1px solid var(--border);
@@ -181,13 +182,19 @@
     .theme-toggle, .print-btn, button, .radio-group, textarea, input { display: none !important; }
     .result, .fp { border: 1px solid #000; }
     body { background: white; color: black; }
+    body.print-seed * { visibility: hidden !important; }
+    body.print-seed #printOnly, body.print-seed #printOnly * { visibility: visible !important; }
+    body.print-seed #printOnly { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 24px; font-family: monospace; font-size: 16px; color: #000; background: #fff; white-space: pre-wrap; }
   }
+  #printOnly { display: none; }
+  #onlineWarn { display: none; background: var(--danger); color: #000; font-weight: 700; font-size: 13px; text-align: center; padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
 </style>
 </head>
 <body>
 <button class="theme-toggle" onclick="toggleTheme()">DARK</button>
-<button class="print-btn" onclick="window.print()">PRINT</button>
+<button class="print-btn" onclick="printSeed()">PRINT SEED</button>
 <div class="container">
+  <div id="onlineWarn" role="alert"></div>
   <header>
     <div class="logo">
       <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
@@ -243,15 +250,18 @@
       <label><input type="radio" name="mode" value="dice" checked onchange="updateLabels()"><span>Dice (1-6)</span></label>
       <label><input type="radio" name="mode" value="coin" onchange="updateLabels()"><span>Coin (1/0)</span></label>
     </div>
-    <textarea id="rolls" placeholder="Dice mode: enter rolls 1-6. Coin mode: enter flips as 1 and 0 (pick a side to be 1)..."></textarea>
+    <textarea id="rolls" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Dice mode: enter rolls 1-6. Coin mode: enter flips as 1 and 0 (pick a side to be 1)..."></textarea>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
       <div id="rollCount" style="font-size:13px;color:#7a7a90;font-weight:600;">0 / 50 rolls</div>
       <button class="secondary small" onclick="undoRoll()">UNDO</button>
     </div>
     <div class="entropy-bar"><div class="entropy-fill" id="entropyFill"></div></div>
     <div id="entropyStatus" style="font-size:12px; margin-top:4px; font-weight:600;"></div>
-    <input type="text" id="passphrase" placeholder="Optional BIP39 passphrase (not part of the 12/24 words; record it separately)" style="margin-top:8px;">
-    <input type="text" id="note" placeholder="Optional note (only for you; not used in the seed)" style="margin-top:6px;">
+    <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
+      <input type="password" id="passphrase" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Optional BIP39 passphrase (not part of the 12/24 words; record it separately)" style="flex:1; min-width:0;">
+      <button type="button" class="secondary small" onclick="togglePassphrase(this)">SHOW</button>
+    </div>
+    <input type="text" id="note" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Optional note (only for you; not used in the seed)" style="margin-top:6px;">
     <div id="rollHistory" style="font-size:11px;color:#7a7a90;margin-top:6px;min-height:16px;"></div>
     <div id="diceVisual" style="font-size:20px; letter-spacing:4px; margin-top:4px; min-height:28px;"></div>
     <div class="btn-row">
@@ -261,18 +271,19 @@
     </div>
     <div class="result" id="genResult">—</div>
     <div class="btn-row" style="margin-top:6px;">
-      <button class="secondary small" onclick="copyResult(); showCopied(this)">COPY SEED</button>
-      <button class="secondary small" onclick="copyFingerprint(); showCopied(this)">COPY FINGERPRINT</button>
+      <button class="secondary small" onclick="copyResult(this)">COPY SEED</button>
+      <button class="secondary small" onclick="copyFingerprint(this)">COPY FINGERPRINT</button>
       <button class="secondary small" onclick="downloadSeed()">DOWNLOAD</button>
     </div>
     <div class="fp" id="fingerprint"></div>
+    <div id="printOnly"></div>
     <div class="status" id="testResults" style="white-space:pre-wrap; font-family:monospace; font-size:11px; font-weight:400;"></div>
     
   </div>
 
   <div class="card">
     <h2>VERIFY</h2>
-    <textarea id="phrase" placeholder="Paste seed phrase to verify..."></textarea>
+    <textarea id="phrase" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Paste seed phrase to verify..."></textarea>
     <div class="btn-row">
       <button onclick="verify()">VERIFY</button>
     </div>
@@ -320,7 +331,10 @@
       <ul>
         <li>Only use this offline. Never type a real seed into a phone, website or online tool.</li>
         <li>The fairness meter is advisory only; it cannot prove your dice or coin are good.</li>
-        <li>DOWNLOAD FOR USB saves a clean copy of this page and never includes a generated seed. DOWNLOAD (seed) writes your seed and rolls to a plain-text file, so only use it on a trusted offline machine.</li>
+        <li>The red "appears to be online" banner is a hint from the browser, not proof. A machine can be connected without the browser knowing, so physically disconnect it.</li>
+        <li>Text boxes turn off spellcheck, autofill and autocorrect so the browser doesn&rsquo;t keep what you type. The passphrase is masked, and is never shown with, copied with, printed with or saved with the words.</li>
+        <li>COPY SEED and PRINT SEED ask for confirmation because the clipboard and print spooler can retain your seed.</li>
+        <li>DOWNLOAD FOR USB saves a clean copy of this page and never includes a generated seed. It is re-serialized by the browser, so its file hash will not match the original; to verify a hash, copy the original file instead. DOWNLOAD (seed) writes your seed and rolls to a plain-text file, so only use it on a trusted offline machine.</li>
         <li>No independent security audit has been done. Use at your own risk. MIT licensed.</li>
       </ul>
     </details>
@@ -590,7 +604,7 @@ async function generate(){
   }
   const mnemonic = await rollsToMnemonic(rolls, wc);
   const pass = document.getElementById("passphrase").value;
-  document.getElementById("genResult").textContent = mnemonic + (pass ? "\n\nPassphrase: " + pass : "");
+  document.getElementById("genResult").textContent = mnemonic + (pass ? "\n\nPassphrase: used (" + Array.from(pass).length + " characters, not shown here)" : "");
   const fpEl = document.getElementById("fingerprint");
   fpEl.textContent = "Master fingerprint: computing...";
   try {
@@ -606,13 +620,52 @@ function showCopied(btn){
   btn.textContent = "COPIED!";
   setTimeout(() => btn.textContent = original, 1200);
 }
-function copyResult(){
-  const t = document.getElementById("genResult").textContent.split("\n")[0];
-  if(t && t!=="—") navigator.clipboard.writeText(t).then(()=>alert("Seed copied"));
+function safeCopy(text){
+  if(!navigator.clipboard) return Promise.reject(new Error("no clipboard"));
+  return navigator.clipboard.writeText(text);
 }
-function copyFingerprint(){
+function copyResult(btn){
+  const t = document.getElementById("genResult").textContent.split("\n")[0];
+  if(!t || t==="—" || t.startsWith("Need exactly")) return;
+  if(!confirm("Copying puts your seed on the system clipboard, where clipboard managers or other apps may keep it. This page will try to clear the clipboard after 30 seconds. Copy anyway?")) return;
+  safeCopy(t).then(()=>{
+    showCopied(btn);
+    setTimeout(()=>{ safeCopy("").catch(()=>{}); }, 30000);
+  }).catch(()=>alert("Copy failed. Select the words and copy them manually."));
+}
+function copyFingerprint(btn){
   const m = document.getElementById("fingerprint").textContent.match(/: ([0-9a-f]{8})/);
-  if(m) navigator.clipboard.writeText(m[1]).then(()=>alert("Fingerprint copied"));
+  if(!m) return;
+  safeCopy(m[1]).then(()=>showCopied(btn)).catch(()=>alert("Copy failed. Select the fingerprint and copy it manually."));
+}
+function togglePassphrase(btn){
+  const el = document.getElementById("passphrase");
+  const show = el.type === "password";
+  el.type = show ? "text" : "password";
+  btn.textContent = show ? "HIDE" : "SHOW";
+}
+function printSeed(){
+  const phrase = document.getElementById("genResult").textContent.split("\n")[0];
+  if(!phrase || phrase==="—" || phrase.startsWith("Need exactly")) return alert("Generate a seed first");
+  if(!confirm("Printing sends your seed to a printer and its spooler. Only print on a trusted offline computer with a directly connected printer. The passphrase is never printed. Continue?")) return;
+  const po = document.getElementById("printOnly");
+  po.textContent = "VOIDFORGE\n\n" + phrase + "\n\n" + document.getElementById("fingerprint").textContent;
+  document.body.classList.add("print-seed");
+  let done = false;
+  const cleanup = () => { if(done) return; done = true; document.body.classList.remove("print-seed"); po.textContent = ""; };
+  window.addEventListener("afterprint", cleanup, {once:true});
+  setTimeout(cleanup, 120000);
+  window.print();
+}
+function updateOnlineWarning(){
+  const el = document.getElementById("onlineWarn");
+  if(navigator.onLine){
+    el.style.display = "block";
+    el.textContent = "WARNING: this device appears to be ONLINE. Do not generate or enter a seed for real funds on a connected computer. Disconnect (unplug / airplane mode) and reload this file.";
+  } else {
+    el.style.display = "none";
+    el.textContent = "";
+  }
 }
 
 function updateRollHistory(rolls){
@@ -623,15 +676,20 @@ function updateRollHistory(rolls){
 }
 
 function clearAll(){
-  if(!confirm("Clear all rolls and results?")) return;
+  if(!confirm("Clear all rolls, results, the verify box and (if the browser allows) the clipboard?")) return;
   document.getElementById("rolls").value="";
   document.getElementById("passphrase").value="";
+  document.getElementById("passphrase").type="password";
+  document.querySelectorAll("button").forEach(b=>{ if(b.textContent==="HIDE") b.textContent="SHOW"; });
   document.getElementById("note").value="";
+  document.getElementById("phrase").value="";
+  document.getElementById("verifyStatus").textContent="";
+  document.getElementById("testResults").textContent="";
   document.getElementById("genResult").textContent="—";
   document.getElementById("fingerprint").textContent="";
-  
   document.getElementById("rollHistory").textContent="";
   document.getElementById("diceVisual").textContent="";
+  safeCopy("").catch(()=>{});
   updateCount();
 }
 
@@ -672,17 +730,21 @@ function downloadTool() {
 
 function downloadSeed() {
   const text = document.getElementById("genResult").textContent;
-  if (!text || text === "—") return alert("Generate a seed first");
+  if (!text || text === "—" || text.startsWith("Need exactly")) return alert("Generate a seed first");
+  if (!confirm("This saves your seed and rolls to a PLAIN-TEXT file. Only do this on a trusted offline computer. The passphrase is not saved. Continue?")) return;
   const rolls = document.getElementById("rolls").value;
-  const full = text + "\n\nRolls: " + rolls;
+  const full = text + "\n\n" + document.getElementById("fingerprint").textContent + "\n\nInput: " + rolls;
   const blob = new Blob([full], {type: "text/plain"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "voidforge-seed.txt";
   a.click();
-  URL.revokeObjectURL(a.href);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+window.addEventListener("online", updateOnlineWarning);
+window.addEventListener("offline", updateOnlineWarning);
+updateOnlineWarning();
 updateCount();
 
 document.addEventListener("DOMContentLoaded", () => {
