@@ -224,17 +224,17 @@
 
   <div class="card">
     <h2>GENERATE</h2>
-    <div class="radio-group">
-      <label><input type="radio" name="words" value="12" checked><span>12 (50)</span></label>
-      <label><input type="radio" name="words" value="15"><span>15 (62)</span></label>
-      <label><input type="radio" name="words" value="18"><span>18 (75)</span></label>
-      <label><input type="radio" name="words" value="21"><span>21 (87)</span></label>
-      <label><input type="radio" name="words" value="24"><span>24 (99)</span></label>
+    <div class="radio-group" id="wordRadios">
+      <label><input type="radio" name="words" value="12" checked onchange="updateLabels()"><span id="lbl12">12 (50)</span></label>
+      <label><input type="radio" name="words" value="15" onchange="updateLabels()"><span id="lbl15">15 (62)</span></label>
+      <label><input type="radio" name="words" value="18" onchange="updateLabels()"><span id="lbl18">18 (75)</span></label>
+      <label><input type="radio" name="words" value="21" onchange="updateLabels()"><span id="lbl21">21 (87)</span></label>
+      <label><input type="radio" name="words" value="24" onchange="updateLabels()"><span id="lbl24">24 (99)</span></label>
     </div>
 
     <div class="radio-group" style="margin-top:8px;">
-      <label><input type="radio" name="mode" value="dice" checked onchange="updateCount()"><span>Dice (1-6)</span></label>
-      <label><input type="radio" name="mode" value="coin" onchange="updateCount()"><span>Coin (H/T)</span></label>
+      <label><input type="radio" name="mode" value="dice" checked onchange="updateLabels()"><span>Dice (1-6)</span></label>
+      <label><input type="radio" name="mode" value="coin" onchange="updateLabels()"><span>Coin (H/T)</span></label>
     </div>
     <textarea id="rolls" placeholder="Enter dice rolls (1-6) or coin flips (H/T)..."></textarea>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
@@ -520,6 +520,20 @@ updateCount();
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("rolls").focus();
 });
+
+function updateLabels(){
+  const mode = document.querySelector('input[name="mode"]:checked')?.value || "dice";
+  const dice = {12:50,15:62,18:75,21:87,24:99};
+  const coin = {12:128,15:160,18:192,21:224,24:256};
+  const map = mode === "coin" ? coin : dice;
+  const unit = mode === "coin" ? "flips" : "rolls";
+  [12,15,18,21,24].forEach(w => {
+    const el = document.getElementById("lbl"+w);
+    if(el) el.textContent = w + " (" + map[w] + ")";
+  });
+  updateCount();
+}
+
 </script>
 </body>
 </html>
