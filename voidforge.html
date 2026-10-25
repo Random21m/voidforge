@@ -193,6 +193,10 @@
   }
   #printOnly { display: none; }
   #fatalWarn { display: none; background: var(--danger); color: #000; font-weight: 700; font-size: 13px; text-align: center; padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
+  #netTag { font-size: 12px; font-weight: 700; text-align: center; margin-bottom: 6px; }
+  #netTag.on { color: var(--danger); }
+  #netTag.off { color: var(--success); }
+  body.light #netTag.off { color: #0a7a46; }
   #selfTestBadge { font-size: 12px; font-weight: 700; text-align: center; margin-bottom: 12px; color: var(--muted); }
   #selfTestBadge.ok { color: var(--success); }
   #selfTestBadge.bad { color: var(--danger); }
@@ -207,6 +211,7 @@
 <div class="container">
   <div id="onlineWarn" role="alert"></div>
   <div id="fatalWarn" role="alert"></div>
+  <div id="netTag" role="status"></div>
   <div id="selfTestBadge" role="status"></div>
   <header>
     <div class="logo">
@@ -267,6 +272,7 @@
     </div>
     <div class="entropy-bar"><div class="entropy-fill" id="entropyFill"></div></div>
     <div id="entropyStatus" style="font-size:12px; margin-top:4px; font-weight:600;"></div>
+    <div id="bitsNote" style="font-size:12px; margin-top:4px; color:var(--muted);"></div>
     <div id="ignoredNote" style="font-size:12px; margin-top:4px; font-weight:600; color:var(--danger);"></div>
     <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
       <input type="password" id="passphrase" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Optional passphrase" style="flex:1; min-width:0;">
@@ -332,7 +338,8 @@
     </details>
     <details>
       <summary>What SELF-TEST checks</summary>
-      <p>It runs automatically every time the page loads; if any test fails, seed generation is disabled and a red banner appears. Press SELF-TEST to see the full list. It checks: the BIP39 wordlist hash; official BIP39 entropy vectors (12 to 24 words); SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
+      <p>It runs automatically every time the page loads; if any test fails, seed generation is disabled and a red banner appears. Press SELF-TEST to see the full list. It checks: the BIP39 wordlist hash; official BIP39 entropy vectors (12 to 24 words); SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; passphrase normalization; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
+      <p><b>What the self-test cannot catch:</b> it only runs known answers through this same file, so it can miss a bug on inputs it does not cover, and a tampered file could simply fake a pass. It does not replace checking the file&rsquo;s SHA256 against the release, and it does not replace comparing your words and fingerprint in a second independent tool. The network tag at the top reads the browser&rsquo;s online flag only; it cannot prove the machine is air-gapped.</p>
     </details>
     <details>
       <summary>Security notes</summary>
@@ -351,6 +358,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.3.0</b> &mdash; Added an always-visible NETWORK: ONLINE/OFFLINE tag, an &ldquo;&asymp; bits of entropy if rolls are fair&rdquo; line, a passphrase-normalization test in the self-test (26 tests), and a note on what the self-test cannot catch. Seed generation is unchanged: the same rolls give the same words and fingerprint as 1.2.x.</li>
         <li><b>1.2.2</b> &mdash; Added SEND TO VERIFY, which moves the generated words into the VERIFY box inside the page (no clipboard). Note this only re-checks the words you just made with the same code; for an independent check, write the words down and enter them in a second tool.</li>
         <li><b>1.2.1</b> &mdash; Wording fixes: coin mode says &ldquo;flips&rdquo; in the length message; shorter passphrase hint. No change to seed generation.</li>
         <li><b>1.2.0</b> &mdash; Only 12- and 24-word seeds are generated (removed the VOIDFORGE-only 15/18/21-word lengths) and the COPY SEED button is removed. <b>Recovery notes:</b> a 15/18/21-word seed from an earlier version is SHA256(rolls) truncated to 20/24/28 bytes, then converted to BIP39. An H/T coin seed from 1.0 is SHA256 of the exact H/T letter string, truncated to 16 or 32 bytes. <b>If you funded a seed made by an earlier version in one of those modes, move the funds to a fresh 12- or 24-word seed.</b></li>
@@ -364,7 +372,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.2.2 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.3.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -466,6 +474,10 @@ function updateCount(){
     fillEl.style.width = "30%"; fillEl.style.background = "#ff4466";
     statusEl.textContent = "Looks non-random: " + an.problems.join("; "); statusEl.style.color = "#ff4466";
   }
+  const bits = isCoin ? rolls.length : rolls.length * Math.log2(6);
+  document.getElementById("bitsNote").textContent = rolls.length
+    ? "\u2248 " + Math.floor(bits) + " bits of entropy IF every " + (isCoin ? "flip" : "roll") + " was fair and independent (a 12-word seed uses 128, a 24-word seed 256). Bad dice or habits mean less."
+    : "";
   updateRollHistory(rolls);
 }
 document.getElementById("rolls").oninput = updateCount;
@@ -629,6 +641,7 @@ async function runSelfTests(auto){
   eq("BIP39 seed (passphrase TREZOR)", async()=>hex(await mnemonicToSeed("abandon ".repeat(11)+"about","TREZOR")),
      "c55257c360c07c72029aebc1b53c05ed0362ada38ead3e3e9efa3708e53495531f09a6987599d18264c1e1c92f2cf141630c7a3c4ab7c81b2f001698e7463b04");
   eq("'abandon..about' + TREZOR fingerprint", ()=>mnemonicFingerprint("abandon ".repeat(11)+"about","TREZOR"),"b4e3f5ed");
+  eq("passphrase is NFKD-normalized (composed vs decomposed accent)", async()=>(await mnemonicFingerprint("abandon ".repeat(11)+"about","caf\u00e9"))+"/"+(await mnemonicFingerprint("abandon ".repeat(11)+"about","cafe\u0301")), "75902abe/75902abe");
   eq("BIP32 test vector 1 fingerprint", ()=>fingerprintFromSeed(fromHex("000102030405060708090a0b0c0d0e0f")),"3442193e");
   // RIPEMD-160 standard vectors
   const rmd=s=>hex(ripemd160(new TextEncoder().encode(s)));
@@ -725,6 +738,11 @@ function printSeed(){
 }
 function updateOnlineWarning(){
   const el = document.getElementById("onlineWarn");
+  const tag = document.getElementById("netTag");
+  if(tag){
+    tag.className = navigator.onLine ? "on" : "off";
+    tag.textContent = navigator.onLine ? "NETWORK: ONLINE (browser reports a connection)" : "NETWORK: OFFLINE (browser reports no connection; this cannot prove the machine is air-gapped)";
+  }
   if(navigator.onLine){
     el.style.display = "block";
     el.textContent = "WARNING: this device appears to be ONLINE. Do not generate or enter a seed for real funds on a connected computer. Disconnect (unplug / airplane mode) and reload this file.";
