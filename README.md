@@ -1,8 +1,8 @@
 # VOIDFORGE
 
-**Offline dice-based BIP39 Bitcoin seed phrase generator.**
+**Offline dice- and coin-based BIP39 Bitcoin seed phrase generator.**
 
-A single-file HTML tool that turns physical dice rolls into a standard BIP39 mnemonic. Runs completely offline in any modern browser. Designed for air-gapped use.
+A single-file HTML tool that turns physical dice rolls or coin flips into a standard BIP39 mnemonic. Runs completely offline in any modern browser. Designed for air-gapped use.
 
 ## ⚠️ CRITICAL SECURITY WARNING
 
@@ -16,10 +16,16 @@ A single-file HTML tool that turns physical dice rolls into a standard BIP39 mne
 
 ## Features
 
-- Generate 12-word (50 rolls) or 24-word (99 rolls) BIP39 seeds
+- Generate 12/15/18/21/24-word BIP39 seeds
+- **Dice mode** (1–6) or **Coin mode** (H/T)
+- Entropy fairness feedback
+- Visual dice faces / recent rolls
+- Optional note and roll history
 - Verify any BIP39 seed phrase (word validity + checksum)
+- Master fingerprint display (verify offline)
+- Download for USB
+- Dark/light mode
 - Cyberpunk UI with custom SVG logo
-- SeedSigner / Coldcard compatible dice method (SHA256 of the roll string)
 - Zero dependencies — pure HTML + JavaScript
 - Works from a USB stick on Windows, macOS, or Linux
 
@@ -28,20 +34,26 @@ A single-file HTML tool that turns physical dice rolls into a standard BIP39 mne
 1. Download or clone this repository.
 2. Copy `voidforge.html` (or `index.html`) to a USB stick.
 3. On an **air-gapped** computer, double-click the file to open it in your browser.
-4. Enter your physical dice rolls (digits 1–6) and generate or verify a seed.
+4. Choose **Dice** or **Coin** mode.
+5. Enter your physical rolls (digits 1–6) or flips (H/T) and generate or verify a seed.
 
 No internet connection is required after you have the file.
 
 ## Method
 
 ```
-SHA256(roll_string) → entropy bytes → BIP39 mnemonic + checksum
+SHA256(input_string) → entropy bytes → BIP39 mnemonic + checksum
 ```
 
-- 50 rolls → first 16 bytes of the hash → 12-word seed (128-bit)
-- 99 rolls → full 32-byte hash → 24-word seed (256-bit)
+**Dice mode**
+- 50 rolls → 12-word seed
+- 99 rolls → 24-word seed
 
-This matches the dice-only generation used by SeedSigner and Coldcard.
+**Coin mode**
+- 128 flips → 12-word seed
+- 256 flips → 24-word seed
+
+This matches the dice-only generation approach used by SeedSigner and Coldcard (SHA256 of the raw input string).
 
 ## License
 
