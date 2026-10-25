@@ -16,6 +16,8 @@ Offline dice- and coin-based BIP39 seed phrase generator (12 or 24 words). One H
 4. Choose 12 or 24 words and Dice or Coin, enter your physical rolls or flips, and press FORGE SEED.
 5. Write the words down, then compare the words and the master fingerprint with a second independent offline tool before trusting real funds.
 
+**Browser testing:** checked in Chromium (automated and manual) and Firefox (manual, v1.3.1). Safari has not been confirmed yet; it should work (the page needs Safari 14 or newer) but treat it as untested until you see the green self-test badge. Phones are not supported.
+
 **Coin flips:** decide which side is 1 and which is 0 (the usual choice is heads = 1, tails = 0), use it for every flip, and keep the exact 1/0 string with your backup. Only the string is hashed, so any consistent choice works, but the mapping cannot be recovered from the words.
 
 - Method: `SHA256(rolls or flips as text)` → BIP39. Matches SeedSigner's published dice examples; coin mode uses SeedSigner's method (1/0 string).
