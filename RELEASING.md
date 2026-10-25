@@ -1,7 +1,7 @@
 # Releasing and verifying VOIDFORGE
 
 ## Do not host it as a live web page
-VOIDFORGE must run offline. Do **not** enable GitHub Pages or any hosting for this repo, and delete the old redirect `index.html` so nothing in the repo points people at an online copy. Distribute only a downloaded release file.
+VOIDFORGE must run offline. Do **not** enable GitHub Pages or any hosting for this repo, and do not add an `index.html` or any page that points people at an online copy. Distribute only a downloaded release file.
 
 ## For maintainers: cutting a release
 1. Edit `voidforge.html`; bump the version in the footer and changelog card.
