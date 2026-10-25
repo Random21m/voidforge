@@ -1,0 +1,21 @@
+# Review guide
+
+VOIDFORGE is meant to be read. The security-relevant code is a few hundred lines in `voidforge.html`. Line numbers are for v1.2.1.
+
+| What | Where | Look for |
+|---|---|---|
+| BIP39 wordlist | line ~370 | Any changed word. The self-test hashes it against the official `english.txt` (`2f5eed53...dbda`); verify that hash yourself. |
+| Roll to mnemonic | `rollsToMnemonic` ~574, `entropyToMnemonic` ~487 | Entropy truncation, checksum bits, anything that mixes in other data (time, `Math.random`). |
+| Input cleaning | `clean` ~399 | Anything that alters or drops valid input. |
+| Fingerprint | `ripemd160` ~506, `eadd`/`emul` ~545, `mnemonicToSeed` ~554, `fingerprintFromSeed` ~561 | Correctness only; it does not affect the seed. Not constant-time (offline use). |
+| Self-test and gate | `runSelfTests` ~595, `gateOk` ~803 | Known-answer vectors are real; failure disables the tool. |
+| Outputs | `generate` ~656, `downloadTool` ~777, print/download | Seed or passphrase leaving the page unexpectedly. |
+| Network | whole file | `fetch`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, external `src`/`href`, CSP meta (line 5). |
+
+Independent checks anyone can run: compare with SeedSigner's `tools/mnemonic.py`, or Ian Coleman's BIP39 tool run offline ("Base 10"/"Hex" mode for dice, "Binary" for coin flips).
+
+Known limits: the randomness meter only catches lazy input; the curve code is not constant-time; coin-mode test vectors come from an independent implementation of SeedSigner's method (SeedSigner publishes none); Coldcard is untested; tested in Chromium but not Firefox or Safari.
+
+## Asking for a review (copy and adapt)
+
+> Hi, I wrote VOIDFORGE, a single-file offline dice/coin to BIP39 seed generator (github.com/Random21m/voidforge). It is meant to be read, not trusted. Could you spend about an hour on REVIEW.md's table? Priorities: (1) is the wordlist exactly the official one, (2) does anything besides SHA256 of the typed rolls influence the seed, (3) is there any way the seed or passphrase leaves the page. I would also welcome a second opinion on whether it is worth publishing at all. I will credit you in the changelog if you want, and I will not describe it as audited unless you say I may.
