@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VOIDFORGE</title>
 
@@ -187,6 +189,11 @@
     body.print-seed #printOnly { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 24px; font-family: monospace; font-size: 16px; color: #000; background: #fff; white-space: pre-wrap; }
   }
   #printOnly { display: none; }
+  #fatalWarn { display: none; background: var(--danger); color: #000; font-weight: 700; font-size: 13px; text-align: center; padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
+  #selfTestBadge { font-size: 12px; font-weight: 700; text-align: center; margin-bottom: 12px; color: var(--muted); }
+  #selfTestBadge.ok { color: var(--success); }
+  #selfTestBadge.bad { color: var(--danger); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
   #onlineWarn { display: none; background: var(--danger); color: #000; font-weight: 700; font-size: 13px; text-align: center; padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
 </style>
 </head>
@@ -195,6 +202,8 @@
 <button class="print-btn" onclick="printSeed()">PRINT SEED</button>
 <div class="container">
   <div id="onlineWarn" role="alert"></div>
+  <div id="fatalWarn" role="alert"></div>
+  <div id="selfTestBadge" role="status"></div>
   <header>
     <div class="logo">
       <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
@@ -240,15 +249,16 @@
     <h2>GENERATE</h2>
     <div class="radio-group" id="wordRadios">
       <label><input type="radio" name="words" value="12" checked onchange="updateLabels()"><span id="lbl12">12 (50)</span></label>
-      <label><input type="radio" name="words" value="15" onchange="updateLabels()"><span id="lbl15">15 (62)</span></label>
-      <label><input type="radio" name="words" value="18" onchange="updateLabels()"><span id="lbl18">18 (75)</span></label>
-      <label><input type="radio" name="words" value="21" onchange="updateLabels()"><span id="lbl21">21 (87)</span></label>
+      <label><input type="radio" name="words" value="15" onchange="updateLabels()"><span id="lbl15">15* (62)</span></label>
+      <label><input type="radio" name="words" value="18" onchange="updateLabels()"><span id="lbl18">18* (75)</span></label>
+      <label><input type="radio" name="words" value="21" onchange="updateLabels()"><span id="lbl21">21* (87)</span></label>
       <label><input type="radio" name="words" value="24" onchange="updateLabels()"><span id="lbl24">24 (99)</span></label>
     </div>
+    <div style="font-size:11px; color:var(--muted); margin:-4px 0 8px;">* VOIDFORGE-only lengths: SeedSigner and other tools cannot reproduce 15/18/21-word seeds from the same rolls. For portability use 12 or 24.</div>
 
     <div class="radio-group" style="margin-top:8px;">
-      <label><input type="radio" name="mode" value="dice" checked onchange="updateLabels()"><span>Dice (1-6)</span></label>
-      <label><input type="radio" name="mode" value="coin" onchange="updateLabels()"><span>Coin (1/0)</span></label>
+      <label><input type="radio" name="mode" value="dice" checked onchange="onModeChange()"><span>Dice (1-6)</span></label>
+      <label><input type="radio" name="mode" value="coin" onchange="onModeChange()"><span>Coin (1/0)</span></label>
     </div>
     <textarea id="rolls" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Dice mode: enter rolls 1-6. Coin mode: enter flips as 1 and 0 (pick a side to be 1)..."></textarea>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
@@ -257,6 +267,7 @@
     </div>
     <div class="entropy-bar"><div class="entropy-fill" id="entropyFill"></div></div>
     <div id="entropyStatus" style="font-size:12px; margin-top:4px; font-weight:600;"></div>
+    <div id="ignoredNote" style="font-size:12px; margin-top:4px; font-weight:600; color:var(--danger);"></div>
     <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
       <input type="password" id="passphrase" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Optional BIP39 passphrase (not part of the 12/24 words; record it separately)" style="flex:1; min-width:0;">
       <button type="button" class="secondary small" onclick="togglePassphrase(this)">SHOW</button>
@@ -265,7 +276,7 @@
     <div id="rollHistory" style="font-size:11px;color:#7a7a90;margin-top:6px;min-height:16px;"></div>
     <div id="diceVisual" style="font-size:20px; letter-spacing:4px; margin-top:4px; min-height:28px;"></div>
     <div class="btn-row">
-      <button onclick="generate()">FORGE SEED</button>
+      <button id="forgeBtn" onclick="generate()" disabled>FORGE SEED</button>
       <button class="secondary" onclick="clearAll()">CLEAR</button>
       <button class="secondary small" onclick="runSelfTests()">SELF-TEST</button>
     </div>
@@ -285,7 +296,7 @@
     <h2>VERIFY</h2>
     <textarea id="phrase" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Paste seed phrase to verify..."></textarea>
     <div class="btn-row">
-      <button onclick="verify()">VERIFY</button>
+      <button id="verifyBtn" onclick="verify()" disabled>VERIFY</button>
     </div>
     <div class="status" id="verifyStatus"></div>
   </div>
@@ -324,13 +335,15 @@
     </details>
     <details>
       <summary>What SELF-TEST checks</summary>
-      <p>The BIP39 wordlist hash; official BIP39 vectors for 12/15/18/21/24 words; SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
+      <p>It runs automatically every time the page loads; if any test fails, seed generation is disabled and a red banner appears. Press SELF-TEST to see the full list. It checks: the BIP39 wordlist hash; official BIP39 vectors for 12/15/18/21/24 words; SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
     </details>
     <details>
       <summary>Security notes</summary>
       <ul>
         <li>Only use this offline. Never type a real seed into a phone, website or online tool.</li>
-        <li>The fairness meter is advisory only; it cannot prove your dice or coin are good.</li>
+        <li>The randomness meter checks face counts, long runs, repeating or stepping patterns and periodic repeats. It is advisory only: it catches lazy input, not subtle bias, and cannot prove your dice or coin are good. If it flags a pattern, FORGE SEED asks before continuing.</li>
+        <li>A Content-Security-Policy built into this file tells the browser to block all network access, as a second line of defense. It does not replace using an offline computer.</li>
+        <li>This page contains no links, and switching between dice and coin clears the entered rolls (after asking).</li>
         <li>The red "appears to be online" banner is a hint from the browser, not proof. A machine can be connected without the browser knowing, so physically disconnect it.</li>
         <li>Text boxes turn off spellcheck, autofill and autocorrect so the browser doesn&rsquo;t keep what you type. The passphrase is masked, and is never shown with, copied with, printed with or saved with the words.</li>
         <li>COPY SEED and PRINT SEED ask for confirmation because the clipboard and print spooler can retain your seed.</li>
@@ -338,14 +351,19 @@
         <li>No independent security audit has been done. Use at your own risk. MIT licensed.</li>
       </ul>
     </details>
+    <details>
+      <summary>Changelog</summary>
+      <ul>
+        <li><b>1.1.0</b> &mdash; Coin mode now takes <code>1</code>/<code>0</code> and hashes that string, matching SeedSigner&rsquo;s method. <b>Breaking:</b> seeds made with the old H/T coin mode cannot be rebuilt in this version; to recover one, SHA256 the exact H/T string yourself, take the first 16 or 32 bytes, and convert to BIP39. Also added: real master fingerprint, automatic self-test that gates the tool, pattern-aware randomness checks, offline warning, masked passphrase, safer copy/print/download/clear, Content-Security-Policy, and labels for VOIDFORGE-only seed lengths.</li>
+        <li><b>1.0</b> &mdash; Initial release (dice and H/T coin modes).</li>
+      </ul>
+    </details>
   </div>
 
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <a href="https://github.com/Random21m/voidforge" target="_blank" style="color:#00f0ff; text-decoration:none; font-size:12px; margin-top:6px; display:inline-block;">
-      ★ GitHub
-    </a>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.1.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -364,11 +382,58 @@ function getMode(){
   return document.querySelector('input[name="mode"]:checked')?.value || "dice";
 }
 
+let lastMode = "dice";
+function onModeChange(){
+  const m = getMode();
+  if(m === lastMode) return;
+  const box = document.getElementById("rolls");
+  if(box.value.trim() && !confirm("Switching between dice and coin clears the rolls you entered. Switch anyway?")){
+    const prev = document.querySelector('input[name="mode"][value="' + lastMode + '"]');
+    if(prev) prev.checked = true;
+    return;
+  }
+  box.value = "";
+  lastMode = m;
+  updateLabels();
+}
+
 function clean(s){
   if(document.querySelector('input[name="mode"]:checked') && document.querySelector('input[name="mode"]:checked').value==="coin"){
     return s.replace(/[^01]/g,"");
   }
   return s.replace(/[^1-6]/g,"");
+}
+
+// Randomness sanity check for typed-in rolls/flips. Advisory: it catches lazy patterns, not subtle bias.
+function analyzeRolls(str, isCoin){
+  const k = isCoin ? 2 : 6, n = str.length, minN = isCoin ? 20 : 30;
+  if(n < minN) return {level:"wait", msg:"Keep going... (checks start at " + minN + ")", problems:[]};
+  const v = Array.from(str, c => isCoin ? +c : (+c - 1));
+  const problems = [];
+  let level = "ok";
+  // 1. face counts: chi-square, warn at p<0.05, flag at p<0.001
+  const exp = n / k; let chi = 0;
+  for(let f=0; f<k; f++){ let c=0; for(const x of v) if(x===f) c++; chi += (c-exp)*(c-exp)/exp; }
+  const crit = isCoin ? [3.84, 10.83] : [11.07, 20.52];
+  if(chi >= crit[1]){ level="bad"; problems.push("face counts are heavily skewed"); }
+  else if(chi >= crit[0]) level = "warn";
+  // 2. longest run of identical results (chance of flagging a fair sequence is about 0.1%)
+  let run=1, best=1;
+  for(let i=1;i<n;i++){ run = v[i]===v[i-1] ? run+1 : 1; if(run>best) best=run; }
+  const maxRun = Math.ceil(Math.log(1000*n)/Math.log(k)) + 1;
+  if(best >= maxRun){ level="bad"; problems.push("a run of " + best + " identical results"); }
+  // 3. constant step between neighbours (repeats, counting up/down, alternating)
+  const steps = new Array(k).fill(0);
+  for(let i=0;i<n-1;i++) steps[((v[i+1]-v[i])%k + k)%k]++;
+  const m = n-1, sd1 = Math.sqrt(m*(1/k)*(1-1/k));
+  if(Math.max(...steps) > m/k + 4.5*sd1){ level="bad"; problems.push("a repeating or stepping pattern"); }
+  // 4. repeats every p results
+  for(let p=2; p<=12 && p<=n/3; p++){
+    let match=0; for(let i=0;i+p<n;i++) if(v[i]===v[i+p]) match++;
+    const t=n-p, sd=Math.sqrt(t*(1/k)*(1-1/k));
+    if(match > t/k + 4.5*sd){ level="bad"; problems.push("the sequence repeats every " + p); break; }
+  }
+  return {level, problems, chi};
 }
 
 function updateCount(){
@@ -377,36 +442,28 @@ function updateCount(){
   const need = getNeeded(wc);
   const unit = (document.querySelector('input[name="mode"]:checked')?.value==="coin") ? "flips" : "rolls";
   document.getElementById("rollCount").textContent = n + " / " + need + " " + unit;
-  // Entropy fairness check (chi-square goodness of fit; advisory only)
-  const rolls = clean(document.getElementById("rolls").value);
+  const isCoin = getMode() === "coin";
+  const rawVal = document.getElementById("rolls").value;
+  const allowedRe = isCoin ? /[01]/ : /[1-6]/;
+  const ignored = Array.from(rawVal.replace(/\s+/g,"")).filter(c => !allowedRe.test(c));
+  document.getElementById("ignoredNote").textContent = ignored.length
+    ? "Ignored " + ignored.length + " invalid character" + (ignored.length>1?"s":"") + " (" + Array.from(new Set(ignored)).slice(0,10).join(" ") + "): only " + (isCoin ? "1 and 0" : "1-6") + " count."
+    : "";
+  const rolls = clean(rawVal);
   const statusEl = document.getElementById("entropyStatus");
   const fillEl = document.getElementById("entropyFill");
-  const isCoin = getMode() === "coin";
-  const faces = isCoin ? ["0","1"] : ["1","2","3","4","5","6"];
-  const minN = isCoin ? 20 : 30;
-  // critical values: p=0.05 and p=0.01 (1 dof for coin, 5 dof for dice)
-  const crit = isCoin ? [3.84, 6.63] : [11.07, 15.09];
-  if (rolls.length < minN) {
-    statusEl.textContent = "Keep going... (fairness check starts at " + minN + ")";
-    statusEl.style.color = "#7a7a90";
-    fillEl.style.width = "0%";
+  const an = analyzeRolls(rolls, isCoin);
+  if (an.level === "wait") {
+    statusEl.textContent = an.msg; statusEl.style.color = "#7a7a90"; fillEl.style.width = "0%";
+  } else if (an.level === "ok") {
+    fillEl.style.width = "100%"; fillEl.style.background = "#00ff9d";
+    statusEl.textContent = "No obvious problems (this check cannot prove your dice or coin are random)"; statusEl.style.color = "#00ff9d";
+  } else if (an.level === "warn") {
+    fillEl.style.width = "60%"; fillEl.style.background = "#ffaa00";
+    statusEl.textContent = "Slightly unusual counts (can happen by chance)"; statusEl.style.color = "#ffaa00";
   } else {
-    const expected = rolls.length / faces.length;
-    let chi = 0;
-    for (const f of faces) {
-      const c = rolls.split(f).length - 1;
-      chi += Math.pow(c - expected, 2) / expected;
-    }
-    if (chi < crit[0]) {
-      fillEl.style.width = "100%"; fillEl.style.background = "#00ff9d";
-      statusEl.textContent = "Distribution looks fair"; statusEl.style.color = "#00ff9d";
-    } else if (chi < crit[1]) {
-      fillEl.style.width = "60%"; fillEl.style.background = "#ffaa00";
-      statusEl.textContent = "Slightly unusual distribution (can happen by chance)"; statusEl.style.color = "#ffaa00";
-    } else {
-      fillEl.style.width = "30%"; fillEl.style.background = "#ff4466";
-      statusEl.textContent = "Distribution looks biased — check your dice/coin"; statusEl.style.color = "#ff4466";
-    }
+    fillEl.style.width = "30%"; fillEl.style.background = "#ff4466";
+    statusEl.textContent = "Looks non-random: " + an.problems.join("; "); statusEl.style.color = "#ff4466";
   }
   updateRollHistory(rolls);
 }
@@ -535,9 +592,10 @@ async function checkPhrase(phrase){
 }
 
 // ================= SELF-TEST: known-answer tests from independent sources =================
-async function runSelfTests(){
+async function runSelfTests(auto){
   const out=document.getElementById("testResults");
-  out.className="status"; out.textContent="Running self-test...";
+  if(!CRYPTO_OK){ out.className="status bad"; out.textContent="This browser cannot run the cryptography this tool needs (crypto.subtle / BigInt)."; return {all:false,pass:0,total:0}; }
+  if(!auto){ out.className="status"; out.textContent="Running self-test..."; }
   const Z=n=>"00".repeat(n), F=n=>"ff".repeat(n);
   const T=[];
   const eq=(name,get,want)=>T.push({name,get,want});
@@ -588,11 +646,15 @@ async function runSelfTests(){
     lines.push((ok?"PASS  ":"FAIL  ")+t.name+(ok?"":err+"\n      got:  "+got+"\n      want: "+t.want));
   }
   const all = pass===T.length;
-  out.className = "status " + (all?"ok":"bad");
-  out.textContent = (all?"ALL "+T.length+" TESTS PASSED":pass+" / "+T.length+" passed - DO NOT USE THIS FILE")+"\n"+lines.join("\n");
+  if(!auto || !all){
+    out.className = "status " + (all?"ok":"bad");
+    out.textContent = (all?"ALL "+T.length+" TESTS PASSED":pass+" / "+T.length+" passed - DO NOT USE THIS FILE")+"\n"+lines.join("\n");
+  }
+  return {all, pass, total:T.length};
 }
 
 async function generate(){
+  if(!gateOk()) return;
   const rolls = clean(document.getElementById("rolls").value);
   const wc = parseInt(document.querySelector('input[name="words"]:checked').value);
   const need = getNeeded(wc);
@@ -602,6 +664,8 @@ async function generate(){
     
     return;
   }
+  const an = analyzeRolls(rolls, getMode()==="coin");
+  if(an.level==="bad" && !confirm("Your input looks non-random (" + an.problems.join("; ") + "). A seed made from it may be weak. Forge anyway?")) return;
   const mnemonic = await rollsToMnemonic(rolls, wc);
   const pass = document.getElementById("passphrase").value;
   document.getElementById("genResult").textContent = mnemonic + (pass ? "\n\nPassphrase: used (" + Array.from(pass).length + " characters, not shown here)" : "");
@@ -694,6 +758,7 @@ function clearAll(){
 }
 
 async function verify(){
+  if(!gateOk()) return;
   const st = document.getElementById("verifyStatus");
   const r = await checkPhrase(document.getElementById("phrase").value);
   st.className = "status " + (r.ok ? "ok" : "bad");
@@ -742,6 +807,36 @@ function downloadSeed() {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+const CRYPTO_OK = typeof BigInt === "function" && !!(window.crypto && window.crypto.subtle);
+let selfTestState = "pending";
+function gateOk(){
+  if(!CRYPTO_OK){ alert("This browser cannot run the cryptography this tool needs. Try a current Firefox or Chrome."); return false; }
+  if(selfTestState !== "pass"){ alert(selfTestState === "pending" ? "The self-test is still running. Try again in a moment." : "The self-test FAILED, so this file is disabled. Do not use it for real funds."); return false; }
+  return true;
+}
+function setGate(state, text, cls){
+  selfTestState = state;
+  const b = document.getElementById("selfTestBadge"); b.textContent = text; b.className = cls || "";
+  const on = state === "pass";
+  document.getElementById("forgeBtn").disabled = !on;
+  document.getElementById("verifyBtn").disabled = !on;
+}
+window.selfTestDone = (async function(){
+  if(!CRYPTO_OK){
+    const f = document.getElementById("fatalWarn"); f.style.display = "block";
+    f.textContent = "This browser cannot run the cryptography this tool needs (crypto.subtle / BigInt are unavailable). Open this file in a current Firefox or Chrome. Seed generation is disabled.";
+    setGate("fail", "SELF-TEST NOT RUN: unsupported browser", "bad"); return;
+  }
+  setGate("pending", "Self-test running...", "");
+  try {
+    const r = await runSelfTests(true);
+    if(r.all) setGate("pass", "SELF-TEST PASSED (" + r.pass + "/" + r.total + ")", "ok");
+    else setGate("fail", "SELF-TEST FAILED (" + r.pass + "/" + r.total + "): do not use this file", "bad");
+  } catch(e){
+    setGate("fail", "SELF-TEST ERROR: do not use this file (" + e.message + ")", "bad");
+  }
+})();
+
 window.addEventListener("online", updateOnlineWarning);
 window.addEventListener("offline", updateOnlineWarning);
 updateOnlineWarning();
@@ -759,7 +854,7 @@ function updateLabels(){
   const unit = mode === "coin" ? "flips" : "rolls";
   [12,15,18,21,24].forEach(w => {
     const el = document.getElementById("lbl"+w);
-    if(el) el.textContent = w + " (" + map[w] + ")";
+    if(el) el.textContent = w + ([15,18,21].includes(w) ? "*" : "") + " (" + map[w] + ")";
   });
   updateCount();
 }
