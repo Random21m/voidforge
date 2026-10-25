@@ -269,7 +269,7 @@
     <div id="entropyStatus" style="font-size:12px; margin-top:4px; font-weight:600;"></div>
     <div id="ignoredNote" style="font-size:12px; margin-top:4px; font-weight:600; color:var(--danger);"></div>
     <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
-      <input type="password" id="passphrase" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Optional passphrase (extra, not a seed word)" style="flex:1; min-width:0;">
+      <input type="password" id="passphrase" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Optional passphrase" style="flex:1; min-width:0;">
       <button type="button" class="secondary small" onclick="togglePassphrase(this)">SHOW</button>
     </div>
     <input type="text" id="note" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Optional note (not used in the seed)" style="margin-top:6px;">
@@ -350,6 +350,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.2.1</b> &mdash; Wording fixes: coin mode says &ldquo;flips&rdquo; in the length message; shorter passphrase hint. No change to seed generation.</li>
         <li><b>1.2.0</b> &mdash; Only 12- and 24-word seeds are generated (removed the VOIDFORGE-only 15/18/21-word lengths) and the COPY SEED button is removed. <b>Recovery notes:</b> a 15/18/21-word seed from an earlier version is SHA256(rolls) truncated to 20/24/28 bytes, then converted to BIP39. An H/T coin seed from 1.0 is SHA256 of the exact H/T letter string, truncated to 16 or 32 bytes. <b>If you funded a seed made by an earlier version in one of those modes, move the funds to a fresh 12- or 24-word seed.</b></li>
         <li><b>1.1.1</b> &mdash; Layout fixes found in a real-browser test: top buttons no longer cover the warning banner, light-theme secondary buttons are readable, shorter input hints. No change to seed generation.</li>
         <li><b>1.1.0</b> &mdash; Coin mode now takes <code>1</code>/<code>0</code> and hashes that string, matching SeedSigner&rsquo;s method. <b>Breaking:</b> seeds made with the old H/T coin mode cannot be rebuilt in this version; to recover one, SHA256 the exact H/T string yourself, take the first 16 or 32 bytes, and convert to BIP39. Also added: real master fingerprint, automatic self-test that gates the tool, pattern-aware randomness checks, offline warning, masked passphrase, safer copy/print/download/clear, Content-Security-Policy, and labels for VOIDFORGE-only seed lengths.</li>
@@ -361,7 +362,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.2.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.2.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -658,7 +659,7 @@ async function generate(){
   const wc = parseInt(document.querySelector('input[name="words"]:checked').value);
   const need = getNeeded(wc);
   if(rolls.length!==need){
-    document.getElementById("genResult").textContent = "Need exactly "+need+" rolls (you have "+rolls.length+")";
+    document.getElementById("genResult").textContent = "Need exactly "+need+(getMode()==="coin"?" flips":" rolls")+" (you have "+rolls.length+")";
     document.getElementById("fingerprint").textContent = "";
     
     return;
