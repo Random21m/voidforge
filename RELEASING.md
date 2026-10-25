@@ -12,7 +12,7 @@ VOIDFORGE must run offline. Do **not** enable GitHub Pages or any hosting for th
    - If it fails, or for an older release, run it by hand: Actions, `release`, Run workflow, enter the tag.
 6. Optional: sign the tag with GPG (`git tag -s`) if you have a key you use regularly. Do not let it block a release.
 
-Known limits of the release workflow: it has to run on GitHub to be proven, and it uses version tags (`@v4`, `@v2`) for actions rather than commit hashes. Pin them to commit hashes before relying on it for high-value releases.
+Workflow actions are pinned to full commit hashes (version in the trailing comment), so a moved tag cannot change what runs. To update one, look up the new tag's commit with `git ls-remote --tags https://github.com/actions/<name>` and change the hash and comment together. The release workflow has run successfully on GitHub for v1.3.0.
 
 ## For users: verifying a download
 Do this on a machine you trust, then move the file by USB.
