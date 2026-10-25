@@ -169,6 +169,13 @@
   .entropy-status.fair { color: var(--success); }
   .entropy-status.ok { color: #ffaa00; }
   .entropy-status.bad { color: var(--danger); }
+  #about details { margin-bottom: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; line-height: 1.5; }
+  #about summary { cursor: pointer; font-weight: 600; }
+  #about p, #about ol, #about ul, #about table { margin-top: 8px; }
+  #about ol, #about ul { padding-left: 20px; }
+  #about code { font-family: monospace; font-size: 12px; color: var(--accent); word-break: break-word; }
+  #about table { border-collapse: collapse; width: 100%; }
+  #about th, #about td { border: 1px solid var(--border); padding: 4px 8px; text-align: center; }
   footer { text-align: center; color: var(--muted); font-size: 11px; margin-top: 12px; }
   @media print {
     .theme-toggle, .print-btn, button, .radio-group, textarea, input { display: none !important; }
@@ -234,23 +241,23 @@
 
     <div class="radio-group" style="margin-top:8px;">
       <label><input type="radio" name="mode" value="dice" checked onchange="updateLabels()"><span>Dice (1-6)</span></label>
-      <label><input type="radio" name="mode" value="coin" onchange="updateLabels()"><span>Coin (H/T)</span></label>
+      <label><input type="radio" name="mode" value="coin" onchange="updateLabels()"><span>Coin (1/0)</span></label>
     </div>
-    <textarea id="rolls" placeholder="Enter dice rolls (1-6) or coin flips (H/T)..."></textarea>
+    <textarea id="rolls" placeholder="Dice mode: enter rolls 1-6. Coin mode: enter flips as 1 and 0 (pick a side to be 1)..."></textarea>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
       <div id="rollCount" style="font-size:13px;color:#7a7a90;font-weight:600;">0 / 50 rolls</div>
       <button class="secondary small" onclick="undoRoll()">UNDO</button>
     </div>
     <div class="entropy-bar"><div class="entropy-fill" id="entropyFill"></div></div>
     <div id="entropyStatus" style="font-size:12px; margin-top:4px; font-weight:600;"></div>
-    <input type="text" id="passphrase" placeholder="Optional BIP39 passphrase (advanced)" style="margin-top:8px;">
-    <input type="text" id="note" placeholder="Optional note (e.g. casino dice, date)" style="margin-top:6px;">
+    <input type="text" id="passphrase" placeholder="Optional BIP39 passphrase (not part of the 12/24 words; record it separately)" style="margin-top:8px;">
+    <input type="text" id="note" placeholder="Optional note (only for you; not used in the seed)" style="margin-top:6px;">
     <div id="rollHistory" style="font-size:11px;color:#7a7a90;margin-top:6px;min-height:16px;"></div>
     <div id="diceVisual" style="font-size:20px; letter-spacing:4px; margin-top:4px; min-height:28px;"></div>
     <div class="btn-row">
       <button onclick="generate()">FORGE SEED</button>
       <button class="secondary" onclick="clearAll()">CLEAR</button>
-      <button class="secondary small" onclick="runTest()">TEST</button>
+      <button class="secondary small" onclick="runSelfTests()">SELF-TEST</button>
     </div>
     <div class="result" id="genResult">—</div>
     <div class="btn-row" style="margin-top:6px;">
@@ -259,6 +266,7 @@
       <button class="secondary small" onclick="downloadSeed()">DOWNLOAD</button>
     </div>
     <div class="fp" id="fingerprint"></div>
+    <div class="status" id="testResults" style="white-space:pre-wrap; font-family:monospace; font-size:11px; font-weight:400;"></div>
     
   </div>
 
@@ -271,9 +279,56 @@
     <div class="status" id="verifyStatus"></div>
   </div>
 
+
+  <div class="card" id="about">
+    <h2>ABOUT &amp; DOCS</h2>
+    <details>
+      <summary>How to use</summary>
+      <ol>
+        <li>Copy this single file to a USB stick and open it on an <b>air-gapped</b> computer.</li>
+        <li>Press <b>SELF-TEST</b> and confirm it says all tests passed.</li>
+        <li>Choose <b>Dice</b> or <b>Coin</b>, enter your physical rolls or flips, and press <b>FORGE SEED</b>.</li>
+        <li>Compare the words and the master fingerprint with a second independent offline tool before trusting real funds.</li>
+      </ol>
+    </details>
+    <details>
+      <summary>Method</summary>
+      <p><code>SHA256(input string) &rarr; first 16/20/24/28/32 bytes &rarr; BIP39 mnemonic + checksum</code></p>
+      <table>
+        <tr><th>Words</th><th>Dice rolls (1&ndash;6)</th><th>Coin flips (1/0)</th></tr>
+        <tr><td>12</td><td>50</td><td>128</td></tr>
+        <tr><td>15</td><td>62</td><td>160</td></tr>
+        <tr><td>18</td><td>75</td><td>192</td></tr>
+        <tr><td>21</td><td>87</td><td>224</td></tr>
+        <tr><td>24</td><td>99</td><td>256</td></tr>
+      </table>
+      <p>The roll or flip string is hashed as plain text. Dice are digits 1&ndash;6; coin flips are the characters <code>1</code> and <code>0</code> (choose which side counts as 1 and keep the exact string). This is the same method SeedSigner uses for its 12/24-word dice and coin-flip modes, and VOIDFORGE reproduces SeedSigner&rsquo;s published dice examples. Coldcard is documented to use the same dice approach but has not been tested here. The 15/18/21-word lengths are VOIDFORGE&rsquo;s own extension of the same scheme.</p>
+    </details>
+    <details>
+      <summary>Master fingerprint</summary>
+      <p><code>PBKDF2-HMAC-SHA512(mnemonic, "mnemonic"+passphrase, 2048) &rarr; seed</code><br>
+         <code>HMAC-SHA512("Bitcoin seed", seed) &rarr; master private key</code><br>
+         <code>secp256k1 pubkey &rarr; RIPEMD160(SHA256(pubkey)) &rarr; first 4 bytes</code></p>
+      <p>RIPEMD-160 and secp256k1 are implemented in this file (no libraries). The curve code is not constant-time, which is fine offline but another reason never to run this on a networked or shared computer. The fingerprint includes the optional BIP39 passphrase; the VERIFY box shows it without one.</p>
+    </details>
+    <details>
+      <summary>What SELF-TEST checks</summary>
+      <p>The BIP39 wordlist hash; official BIP39 vectors for 12/15/18/21/24 words; SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
+    </details>
+    <details>
+      <summary>Security notes</summary>
+      <ul>
+        <li>Only use this offline. Never type a real seed into a phone, website or online tool.</li>
+        <li>The fairness meter is advisory only; it cannot prove your dice or coin are good.</li>
+        <li>DOWNLOAD FOR USB saves a clean copy of this page and never includes a generated seed. DOWNLOAD (seed) writes your seed and rolls to a plain-text file, so only use it on a trusted offline machine.</li>
+        <li>No independent security audit has been done. Use at your own risk. MIT licensed.</li>
+      </ul>
+    </details>
+  </div>
+
   <footer>
-    SHA256(rolls) → BIP39 • Compatible with SeedSigner & Coldcard dice-only mode<br>
-    Enter dice rolls (1-6), generate the seed, then verify the fingerprint offline in Sparrow or Electrum<br>
+    SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
+    Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
     <a href="https://github.com/Random21m/voidforge" target="_blank" style="color:#00f0ff; text-decoration:none; font-size:12px; margin-top:6px; display:inline-block;">
       ★ GitHub
     </a>
@@ -289,9 +344,15 @@ function getNeeded(wc){
   return {12:50,15:62,18:75,21:87,24:99}[wc];
 }
 
+// Snapshot of the page before any input exists; DOWNLOAD FOR USB saves this, never the live page.
+const PRISTINE_HTML = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+function getMode(){
+  return document.querySelector('input[name="mode"]:checked')?.value || "dice";
+}
+
 function clean(s){
   if(document.querySelector('input[name="mode"]:checked') && document.querySelector('input[name="mode"]:checked').value==="coin"){
-    return s.toUpperCase().replace(/[^HT]/g,"");
+    return s.replace(/[^01]/g,"");
   }
   return s.replace(/[^1-6]/g,"");
 }
@@ -302,39 +363,38 @@ function updateCount(){
   const need = getNeeded(wc);
   const unit = (document.querySelector('input[name="mode"]:checked')?.value==="coin") ? "flips" : "rolls";
   document.getElementById("rollCount").textContent = n + " / " + need + " " + unit;
-  // Entropy fairness check
+  // Entropy fairness check (chi-square goodness of fit; advisory only)
   const rolls = clean(document.getElementById("rolls").value);
   const statusEl = document.getElementById("entropyStatus");
   const fillEl = document.getElementById("entropyFill");
-  if (rolls.length < 10) {
-    statusEl.textContent = "Keep rolling...";
+  const isCoin = getMode() === "coin";
+  const faces = isCoin ? ["0","1"] : ["1","2","3","4","5","6"];
+  const minN = isCoin ? 20 : 30;
+  // critical values: p=0.05 and p=0.01 (1 dof for coin, 5 dof for dice)
+  const crit = isCoin ? [3.84, 6.63] : [11.07, 15.09];
+  if (rolls.length < minN) {
+    statusEl.textContent = "Keep going... (fairness check starts at " + minN + ")";
     statusEl.style.color = "#7a7a90";
     fillEl.style.width = "0%";
   } else {
-    // Count frequency of each face
-    const counts = [0,0,0,0,0,0];
-    for (const r of rolls) counts[parseInt(r)-1]++;
-    const expected = rolls.length / 6;
+    const expected = rolls.length / faces.length;
     let chi = 0;
-    for (const c of counts) chi += Math.pow(c - expected, 2) / expected;
-    // Rough fairness score (lower chi = fairer)
-    let score = Math.max(0, 100 - chi * 8);
-    score = Math.min(100, score);
-    fillEl.style.width = score + "%";
-    if (score >= 75) {
-      fillEl.style.background = "#00ff9d";
-      statusEl.textContent = "Entropy looks fair";
-      statusEl.style.color = "#00ff9d";
-    } else if (score >= 50) {
-      fillEl.style.background = "#ffaa00";
-      statusEl.textContent = "Entropy is acceptable";
-      statusEl.style.color = "#ffaa00";
+    for (const f of faces) {
+      const c = rolls.split(f).length - 1;
+      chi += Math.pow(c - expected, 2) / expected;
+    }
+    if (chi < crit[0]) {
+      fillEl.style.width = "100%"; fillEl.style.background = "#00ff9d";
+      statusEl.textContent = "Distribution looks fair"; statusEl.style.color = "#00ff9d";
+    } else if (chi < crit[1]) {
+      fillEl.style.width = "60%"; fillEl.style.background = "#ffaa00";
+      statusEl.textContent = "Slightly unusual distribution (can happen by chance)"; statusEl.style.color = "#ffaa00";
     } else {
-      fillEl.style.background = "#ff4466";
-      statusEl.textContent = "Entropy looks biased — consider re-rolling";
-      statusEl.style.color = "#ff4466";
+      fillEl.style.width = "30%"; fillEl.style.background = "#ff4466";
+      statusEl.textContent = "Distribution looks biased — check your dice/coin"; statusEl.style.color = "#ff4466";
     }
   }
+  updateRollHistory(rolls);
 }
 document.getElementById("rolls").oninput = updateCount;
 document.querySelectorAll('input[name="words"]').forEach(r=>r.onchange=updateCount);
@@ -367,6 +427,157 @@ async function entropyToMnemonic(entropy){
   return words.join(" ");
 }
 
+
+// ================= Master fingerprint (BIP39 seed -> BIP32 master key -> hash160) =================
+// Self-contained: RIPEMD-160 and secp256k1 are implemented below (no libraries). Verified by SELF-TEST.
+function hex(b){ return Array.from(b).map(x=>x.toString(16).padStart(2,"0")).join(""); }
+function fromHex(h){ const o=new Uint8Array(h.length/2); for(let i=0;i<o.length;i++) o[i]=parseInt(h.substr(i*2,2),16); return o; }
+
+function ripemd160(msg){
+  const rol=(x,n)=>((x<<n)|(x>>>(32-n)))>>>0;
+  const R1=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];
+  const R2=[5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];
+  const S1=[11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];
+  const S2=[8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11];
+  const K1=[0x00000000,0x5A827999,0x6ED9EBA1,0x8F1BBCDC,0xA953FD4E];
+  const K2=[0x50A28BE6,0x5C4DD124,0x6D703EF3,0x7A6D76E9,0x00000000];
+  const f=(j,x,y,z)=> j<16 ? (x^y^z)>>>0 : j<32 ? ((x&y)|(~x&z))>>>0 : j<48 ? ((x|~y)^z)>>>0 : j<64 ? ((x&z)|(y&~z))>>>0 : (x^(y|~z))>>>0;
+  const len=msg.length, padLen=((len+9+63)>>6)<<6;
+  const m=new Uint8Array(padLen); m.set(msg); m[len]=0x80;
+  const dv=new DataView(m.buffer);
+  dv.setUint32(padLen-8,(len*8)>>>0,true); dv.setUint32(padLen-4,Math.floor(len/0x20000000),true);
+  let h0=0x67452301,h1=0xEFCDAB89,h2=0x98BADCFE,h3=0x10325476,h4=0xC3D2E1F0;
+  for(let off=0;off<padLen;off+=64){
+    const X=[]; for(let i=0;i<16;i++) X.push(dv.getUint32(off+i*4,true));
+    let a=h0,b=h1,c=h2,d=h3,e=h4, a2=h0,b2=h1,c2=h2,d2=h3,e2=h4;
+    for(let j=0;j<80;j++){
+      let t=(rol((a+f(j,b,c,d)+X[R1[j]]+K1[j>>4])>>>0,S1[j])+e)>>>0;
+      a=e; e=d; d=rol(c,10); c=b; b=t;
+      t=(rol((a2+f(79-j,b2,c2,d2)+X[R2[j]]+K2[j>>4])>>>0,S2[j])+e2)>>>0;
+      a2=e2; e2=d2; d2=rol(c2,10); c2=b2; b2=t;
+    }
+    const t=(h1+c+d2)>>>0; h1=(h2+d+e2)>>>0; h2=(h3+e+a2)>>>0; h3=(h4+a+b2)>>>0; h4=(h0+b+c2)>>>0; h0=t;
+  }
+  const out=new Uint8Array(20), ov=new DataView(out.buffer);
+  [h0,h1,h2,h3,h4].forEach((v,i)=>ov.setUint32(i*4,v,true));
+  return out;
+}
+
+// secp256k1 (affine, BigInt). Not constant-time: intended for an offline machine only.
+const SP=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2Fn;
+const SN=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;
+const SG=[0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n,
+          0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n];
+const emod=(a)=>((a%SP)+SP)%SP;
+function einv(a){ let r0=emod(a), r1=SP, s0=1n, s1=0n;
+  while(r1!==0n){ const q=r0/r1; [r0,r1]=[r1,r0-q*r1]; [s0,s1]=[s1,s0-q*s1]; }
+  return emod(s0); }
+function eadd(p,q){
+  if(!p) return q; if(!q) return p;
+  let l;
+  if(p[0]===q[0]){ if(emod(p[1]+q[1])===0n) return null; l=emod(3n*p[0]*p[0]*einv(2n*p[1])); }
+  else l=emod((q[1]-p[1])*einv(q[0]-p[0]));
+  const x=emod(l*l-p[0]-q[0]); return [x, emod(l*(p[0]-x)-p[1])];
+}
+function emul(k,p){ let r=null, a=p; while(k>0n){ if(k&1n) r=eadd(r,a); a=eadd(a,a); k>>=1n; } return r; }
+
+async function mnemonicToSeed(mnemonic, passphrase){
+  const enc=new TextEncoder();
+  const key=await crypto.subtle.importKey("raw",enc.encode(mnemonic.normalize("NFKD")),"PBKDF2",false,["deriveBits"]);
+  const bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-512",iterations:2048,
+    salt:enc.encode("mnemonic"+(passphrase||"").normalize("NFKD"))},key,512);
+  return new Uint8Array(bits);
+}
+async function fingerprintFromSeed(seed){
+  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode("Bitcoin seed"),{name:"HMAC",hash:"SHA-512"},false,["sign"]);
+  const I=new Uint8Array(await crypto.subtle.sign("HMAC",key,seed));
+  const k=BigInt("0x"+hex(I.slice(0,32)));
+  if(k===0n || k>=SN) throw new Error("Invalid master key");
+  const P=emul(k,SG);
+  const pub=new Uint8Array(33); pub[0]=(P[1]&1n)?3:2; pub.set(fromHex(P[0].toString(16).padStart(64,"0")),1);
+  return hex(ripemd160(await sha256bytes(pub)).slice(0,4));
+}
+async function sha256bytes(b){ return new Uint8Array(await crypto.subtle.digest("SHA-256", b)); }
+async function mnemonicFingerprint(mnemonic, passphrase){ return fingerprintFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
+
+// Pure helpers shared by the UI and the self-test
+async function rollsToMnemonic(rolls, wc){
+  const entLen = {12:16,15:20,18:24,21:28,24:32}[wc];
+  const digest = await sha256(rolls);
+  return entropyToMnemonic(digest.slice(0, entLen));
+}
+async function checkPhrase(phrase){
+  const words = phrase.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if(![12,15,18,21,24].includes(words.length)) return {ok:false, msg:"Invalid length"};
+  for(const w of words){ if(!(w in WORD_MAP)) return {ok:false, msg:"Unknown word: "+w}; }
+  const bits = words.map(w=>WORD_MAP[w].toString(2).padStart(11,"0")).join("");
+  const cLen = Math.floor((words.length*11)/32);
+  const eBits = bits.length - cLen;
+  const eBytes = new Uint8Array(eBits/8);
+  for(let i=0;i<eBytes.length;i++) eBytes[i]=parseInt(bits.slice(i*8,(i+1)*8),2);
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", eBytes));
+  if(bits.slice(eBits)!==bytesToBits(h).slice(0,cLen)) return {ok:false, msg:"Checksum failed"};
+  return {ok:true, msg:"Valid "+words.length+"-word BIP39 phrase", mnemonic:words.join(" ")};
+}
+
+// ================= SELF-TEST: known-answer tests from independent sources =================
+async function runSelfTests(){
+  const out=document.getElementById("testResults");
+  out.className="status"; out.textContent="Running self-test...";
+  const Z=n=>"00".repeat(n), F=n=>"ff".repeat(n);
+  const T=[];
+  const eq=(name,get,want)=>T.push({name,get,want});
+  // wordlist integrity (SHA256 of the official english.txt)
+  eq("BIP39 wordlist SHA256", async()=>hex(await sha256bytes(new TextEncoder().encode(WORDLIST.join("\n")+"\n"))),
+     "2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2ed3b24dbda");
+  // BIP39 entropy -> mnemonic (official vectors + all-zero / all-ff for each length)
+  [["00".repeat(16),"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"],
+   ["7f".repeat(16),"legal winner thank year wave sausage worth useful legal winner thank yellow"],
+   [F(16),"zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong"],
+   [Z(20),"abandon ".repeat(14)+"address"],
+   [Z(24),"abandon ".repeat(17)+"agent"],
+   [Z(28),"abandon ".repeat(20)+"admit"],
+   [Z(32),"abandon ".repeat(23)+"art"],
+   [F(32),"zoo ".repeat(23)+"vote"]
+  ].forEach(([e,m])=>eq("entropy "+(e.length*4)+"-bit ("+e.slice(0,2)+"...) -> "+m.split(" ").length+" words, last '"+m.split(" ").pop()+"'", ()=>entropyToMnemonic(fromHex(e)), m));
+  // SeedSigner docs (dice_verification.md): SHA256(roll string), first 16/32 bytes
+  const R50="65515223131652132161133154444123616466443112153441";
+  const R99=R50+"5633526456254462245546236542364246312613322234612";
+  eq("SeedSigner 50 dice rolls -> 12 words", ()=>rollsToMnemonic(R50,12),"hole luggage safe present express tragic orbit shed switch metal identify path");
+  eq("SeedSigner 99 dice rolls -> 24 words", ()=>rollsToMnemonic(R99,24),"eyebrow obvious such suggest poet seven breeze blame virtual frown dynamic donor harsh pigeon express broccoli easy apology scatter force recipe shadow claim radio");
+  const C128="01001110000101011011111010111010111101101111110000011010011111111011000111011111011101110110111001010001000001100110010101001110";
+  const C256="0010011101010101011101001000110011000010110100001011001010001001011000101011000011010000011101001000101010001011110010010101001010010100001011011010100011011111111111000001101000101101111100100101011101011101111001111011000001110101000001011010110001011000";
+  eq("coin flips 128 (1/0) -> 12 words", ()=>rollsToMnemonic(C128,12),"trigger soccer priority image feature romance whisper jar crush sleep super potato");
+  eq("coin flips 256 (1/0) -> 24 words", ()=>rollsToMnemonic(C256,24),"supply kitten pigeon wealth myth execute add huge mention during defense universe fresh absurd possible hen social glad capital early narrow erode december fall");
+  // fingerprints
+  eq("SeedSigner 50-roll master fingerprint", async()=>mnemonicFingerprint(await rollsToMnemonic(R50,12),""),"8d9cced8");
+  eq("'abandon..about' master fingerprint", ()=>mnemonicFingerprint("abandon ".repeat(11)+"about",""),"73c5da0a");
+  eq("BIP39 seed (passphrase TREZOR)", async()=>hex(await mnemonicToSeed("abandon ".repeat(11)+"about","TREZOR")),
+     "c55257c360c07c72029aebc1b53c05ed0362ada38ead3e3e9efa3708e53495531f09a6987599d18264c1e1c92f2cf141630c7a3c4ab7c81b2f001698e7463b04");
+  eq("'abandon..about' + TREZOR fingerprint", ()=>mnemonicFingerprint("abandon ".repeat(11)+"about","TREZOR"),"b4e3f5ed");
+  eq("BIP32 test vector 1 fingerprint", ()=>fingerprintFromSeed(fromHex("000102030405060708090a0b0c0d0e0f")),"3442193e");
+  // RIPEMD-160 standard vectors
+  const rmd=s=>hex(ripemd160(new TextEncoder().encode(s)));
+  eq("RIPEMD-160 empty", ()=>rmd(""),"9c1185a5c5e9fc54612808977ee8f548b2258d31");
+  eq("RIPEMD-160 'abc'", ()=>rmd("abc"),"8eb208f7e05d987a9b044a8e98c6b087f15a0bfc");
+  eq("RIPEMD-160 'message digest'", ()=>rmd("message digest"),"5d0689ef49d2fae572b881b123a85ffa21595f36");
+  eq("RIPEMD-160 'a' x 100", ()=>rmd("a".repeat(100)),"fdcd0faf7faa5b59f4b5757dc8bc901091880461");
+  // phrase checker
+  eq("checkPhrase accepts valid", async()=>(await checkPhrase("abandon ".repeat(11)+"about")).ok, true);
+  eq("checkPhrase rejects bad checksum", async()=>(await checkPhrase("abandon ".repeat(12))).ok, false);
+  eq("checkPhrase rejects unknown word", async()=>(await checkPhrase("abandon ".repeat(11)+"zzzz")).ok, false);
+  let pass=0, lines=[];
+  for(const t of T){
+    let got, err="";
+    try{ got=await t.get(); }catch(e){ got="ERROR"; err=" ("+e.message+")"; }
+    const ok = got===t.want; if(ok) pass++;
+    lines.push((ok?"PASS  ":"FAIL  ")+t.name+(ok?"":err+"\n      got:  "+got+"\n      want: "+t.want));
+  }
+  const all = pass===T.length;
+  out.className = "status " + (all?"ok":"bad");
+  out.textContent = (all?"ALL "+T.length+" TESTS PASSED":pass+" / "+T.length+" passed - DO NOT USE THIS FILE")+"\n"+lines.join("\n");
+}
+
 async function generate(){
   const rolls = clean(document.getElementById("rolls").value);
   const wc = parseInt(document.querySelector('input[name="words"]:checked').value);
@@ -377,38 +588,17 @@ async function generate(){
     
     return;
   }
-  const digest = await sha256(rolls);
-  const entLen = {12:16,15:20,18:24,21:28,24:32}[wc];
-  const entropy = digest.slice(0, entLen);
-  const mnemonic = await entropyToMnemonic(entropy);
+  const mnemonic = await rollsToMnemonic(rolls, wc);
   const pass = document.getElementById("passphrase").value;
   document.getElementById("genResult").textContent = mnemonic + (pass ? "\n\nPassphrase: " + pass : "");
-
-  // Approximate fingerprint note (full secp256k1 derivation is heavy for pure browser)
-  document.getElementById("fingerprint").textContent = "Master fingerprint: (verify offline in Sparrow or Electrum)";
-  // Simple QR placeholder
-  
-  '<div style="margin-top:10px;text-align:center;">' +
-  '<div style="font-size:11px;color:#7a7a90;margin-top:8px;">Scan with SeedSigner or another offline tool</div>' +
-  '</div>';
-// Simple placeholder QR drawing (real QR library would replace this)
-setTimeout(() => {
-  if (canvas) {
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0,0,180,180);
-    ctx.fillStyle = "#fff";
-    // Draw a simple pattern representing QR (not scannable)
-    for(let i=0;i<8;i++){
-      for(let j=0;j<8;j++){
-        if((i+j)%2===0) ctx.fillRect(10+i*20, 10+j*20, 16, 16);
-      }
-    }
-    ctx.fillStyle = "#000";
-    ctx.font = "10px sans-serif";
-    ctx.fillText("QR", 75, 95);
+  const fpEl = document.getElementById("fingerprint");
+  fpEl.textContent = "Master fingerprint: computing...";
+  try {
+    const fp = await mnemonicFingerprint(mnemonic, pass);
+    fpEl.textContent = "Master fingerprint: " + fp + (pass ? " (with passphrase)" : "");
+  } catch(e) {
+    fpEl.textContent = "Master fingerprint unavailable: " + e.message;
   }
-}, 50);
 }
 
 function showCopied(btn){
@@ -421,15 +611,14 @@ function copyResult(){
   if(t && t!=="—") navigator.clipboard.writeText(t).then(()=>alert("Seed copied"));
 }
 function copyFingerprint(){
-  const t = document.getElementById("fingerprint").textContent;
-  if(t) navigator.clipboard.writeText(t).then(()=>alert("Fingerprint copied"));
+  const m = document.getElementById("fingerprint").textContent.match(/: ([0-9a-f]{8})/);
+  if(m) navigator.clipboard.writeText(m[1]).then(()=>alert("Fingerprint copied"));
 }
-
 
 function updateRollHistory(rolls){
   const recent = rolls.slice(-12);
   document.getElementById("rollHistory").textContent = "Recent rolls: " + recent.split("").join(" ");
-  const dice = getMode()==="coin" ? {"H":"H","T":"T"} : {"1":"⚀","2":"⚁","3":"⚂","4":"⚃","5":"⚄","6":"⚅"};
+  const dice = getMode()==="coin" ? {"1":"1","0":"0"} : {"1":"⚀","2":"⚁","3":"⚂","4":"⚃","5":"⚄","6":"⚅"};
   document.getElementById("diceVisual").textContent = recent.split("").map(r => dice[r] || "").join(" ");
 }
 
@@ -442,41 +631,18 @@ function clearAll(){
   document.getElementById("fingerprint").textContent="";
   
   document.getElementById("rollHistory").textContent="";
+  document.getElementById("diceVisual").textContent="";
   updateCount();
 }
 
 async function verify(){
-  const phrase = document.getElementById("phrase").value.trim().toLowerCase();
-  const words = phrase.split(/\s+/).filter(Boolean);
   const st = document.getElementById("verifyStatus");
-  if(![12,15,18,21,24].includes(words.length)){
-    st.textContent="Invalid length"; st.className="status bad"; return;
+  const r = await checkPhrase(document.getElementById("phrase").value);
+  st.className = "status " + (r.ok ? "ok" : "bad");
+  st.textContent = r.msg;
+  if(r.ok){
+    try { st.textContent += " | master fingerprint (no passphrase): " + await mnemonicFingerprint(r.mnemonic, ""); } catch(e) {}
   }
-  for(const w of words){
-    if(!(w in WORD_MAP)){ st.textContent="Unknown word: "+w; st.className="status bad"; return; }
-  }
-  const bits = words.map(w=>WORD_MAP[w].toString(2).padStart(11,"0")).join("");
-  const cLen = Math.floor((words.length*11)/32);
-  const eBits = bits.length - cLen;
-  const eStr = bits.slice(0,eBits);
-  const cStr = bits.slice(eBits);
-  const eBytes = new Uint8Array(eBits/8);
-  for(let i=0;i<eBytes.length;i++) eBytes[i]=parseInt(eStr.slice(i*8,(i+1)*8),2);
-  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", eBytes));
-  const expected = bytesToBits(h).slice(0,cLen);
-  if(cStr===expected){
-    st.textContent="Valid "+words.length+"-word BIP39 phrase"; st.className="status ok";
-  } else {
-    st.textContent="Checksum failed"; st.className="status bad";
-  }
-}
-
-function runTest(){
-  // Simple known test: 50 rolls of "1" should produce a deterministic seed
-  document.getElementById("rolls").value = "1".repeat(50);
-  document.querySelector('input[value="12"]').checked = true;
-  updateCount();
-  alert("Test rolls loaded (50 ones). Click FORGE SEED to generate.");
 }
 
 function toggleTheme() {
@@ -484,22 +650,24 @@ function toggleTheme() {
   const btn = document.querySelector(".theme-toggle");
   const isLight = document.body.classList.contains("light");
   btn.textContent = isLight ? "LIGHT" : "DARK";
-  localStorage.setItem("voidforge-theme", isLight ? "light" : "dark");
+  try { localStorage.setItem("voidforge-theme", isLight ? "light" : "dark"); } catch(e) {}
 }
-if (localStorage.getItem("voidforge-theme") === "light") {
+let savedTheme = null;
+try { savedTheme = localStorage.getItem("voidforge-theme"); } catch(e) {}
+if (savedTheme === "light") {
   document.body.classList.add("light");
   document.querySelector(".theme-toggle").textContent = "LIGHT";
 }
 
 
 function downloadTool() {
-  const html = document.documentElement.outerHTML;
-  const blob = new Blob([html], {type: "text/html"});
+  // Uses the page as it was at load time, so a generated seed can never leak into the copy.
+  const blob = new Blob([PRISTINE_HTML], {type: "text/html"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "voidforge.html";
   a.click();
-  URL.revokeObjectURL(a.href);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 function downloadSeed() {
