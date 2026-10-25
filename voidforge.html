@@ -282,6 +282,7 @@
     </div>
     <div class="result" id="genResult">—</div>
     <div class="btn-row" style="margin-top:6px;">
+      <button class="secondary small" onclick="sendToVerify()">SEND TO VERIFY</button>
       <button class="secondary small" onclick="copyFingerprint(this)">COPY FINGERPRINT</button>
       <button class="secondary small" onclick="downloadSeed()">DOWNLOAD</button>
     </div>
@@ -293,7 +294,7 @@
 
   <div class="card">
     <h2>VERIFY</h2>
-    <textarea id="phrase" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Paste seed phrase to verify..."></textarea>
+    <textarea id="phrase" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Type or paste a seed phrase to verify..."></textarea>
     <div class="btn-row">
       <button id="verifyBtn" onclick="verify()" disabled>VERIFY</button>
     </div>
@@ -342,7 +343,7 @@
         <li>This page contains no links, and switching between dice and coin clears the entered rolls (after asking).</li>
         <li>The red "appears to be online" banner is a hint from the browser, not proof. A machine can be connected without the browser knowing, so physically disconnect it.</li>
         <li>Text boxes turn off spellcheck, autofill and autocorrect so the browser doesn&rsquo;t keep what you type. The passphrase is masked, and is never shown with, copied with, printed with or saved with the words.</li>
-        <li>There is deliberately no "copy seed" button: write the words down by hand. The clipboard is where seeds most often leak. PRINT SEED and DOWNLOAD ask for confirmation because the print spooler and your disk can retain the seed.</li>
+        <li>There is deliberately no "copy seed" button. SEND TO VERIFY moves the words to the VERIFY box without the clipboard, but that only re-runs the same code. For a real check, write the words down by hand and type them into a second tool. The clipboard is where seeds most often leak. PRINT SEED and DOWNLOAD ask for confirmation because the print spooler and your disk can retain the seed.</li>
         <li>DOWNLOAD FOR USB saves a clean copy of this page and never includes a generated seed. It is re-serialized by the browser, so its file hash will not match the original; to verify a hash, copy the original file instead. DOWNLOAD (seed) writes your seed and rolls to a plain-text file, so only use it on a trusted offline machine.</li>
         <li>No independent security audit has been done. Use at your own risk. MIT licensed.</li>
       </ul>
@@ -350,6 +351,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.2.2</b> &mdash; Added SEND TO VERIFY, which moves the generated words into the VERIFY box inside the page (no clipboard). Note this only re-checks the words you just made with the same code; for an independent check, write the words down and enter them in a second tool.</li>
         <li><b>1.2.1</b> &mdash; Wording fixes: coin mode says &ldquo;flips&rdquo; in the length message; shorter passphrase hint. No change to seed generation.</li>
         <li><b>1.2.0</b> &mdash; Only 12- and 24-word seeds are generated (removed the VOIDFORGE-only 15/18/21-word lengths) and the COPY SEED button is removed. <b>Recovery notes:</b> a 15/18/21-word seed from an earlier version is SHA256(rolls) truncated to 20/24/28 bytes, then converted to BIP39. An H/T coin seed from 1.0 is SHA256 of the exact H/T letter string, truncated to 16 or 32 bytes. <b>If you funded a seed made by an earlier version in one of those modes, move the funds to a fresh 12- or 24-word seed.</b></li>
         <li><b>1.1.1</b> &mdash; Layout fixes found in a real-browser test: top buttons no longer cover the warning banner, light-theme secondary buttons are readable, shorter input hints. No change to seed generation.</li>
@@ -362,7 +364,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.2.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.2.2 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -687,6 +689,15 @@ function showCopied(btn){
 function safeCopy(text){
   if(!navigator.clipboard) return Promise.reject(new Error("no clipboard"));
   return navigator.clipboard.writeText(text);
+}
+// Moves the generated words into the VERIFY box inside the page (no clipboard involved) and checks them.
+async function sendToVerify(){
+  const words = document.getElementById("genResult").textContent.split("\n")[0].trim();
+  if(!words || words==="—" || words.startsWith("Need exactly")) return alert("Generate a seed first");
+  const box = document.getElementById("phrase");
+  box.value = words;
+  await verify();
+  if(box.scrollIntoView) box.scrollIntoView({behavior:"smooth", block:"center"});
 }
 function copyFingerprint(btn){
   const m = document.getElementById("fingerprint").textContent.match(/: ([0-9a-f]{8})/);

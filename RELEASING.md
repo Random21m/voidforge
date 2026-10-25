@@ -9,10 +9,10 @@ VOIDFORGE must run offline. Do **not** enable GitHub Pages or any hosting for th
 3. `sha256sum voidforge.html > SHA256SUMS` and paste the hash into the release notes.
 4. Tag the release. If you have a GPG key you use regularly, sign everything:
    ```
-   git tag -s v1.2.1 -m "VOIDFORGE 1.2.1"
+   git tag -s v1.2.2 -m "VOIDFORGE 1.2.2"
    gpg --armor --detach-sign SHA256SUMS
    ```
-   If you do not, use `git tag -a v1.2.1 -m "VOIDFORGE 1.2.1"` and rely on the published SHA256 for now. Add signing later; do not let it block a release.
+   If you do not, use `git tag -a v1.2.2 -m "VOIDFORGE 1.2.2"` and rely on the published SHA256 for now. Add signing later; do not let it block a release.
 5. Create a GitHub release attaching `voidforge.html` and `SHA256SUMS` (plus `SHA256SUMS.asc` if signed).
 
 ## For users: verifying a download
@@ -22,5 +22,5 @@ sha256sum -c SHA256SUMS          # and, if signed: gpg --verify SHA256SUMS.asc S
 Do this on a machine you trust, then move the file by USB. Verify the file you downloaded, not the copy saved by the in-page "DOWNLOAD FOR USB" button (the browser re-serializes the page, so its hash differs).
 
 ## Current build
-`voidforge.html` v1.2.1, SHA256: `104d55175ac219b108a6c79207521f037642a27c2a86edff71cff863595118e8`
+`voidforge.html` v1.2.2, SHA256: `56fa3401688749df95d847c61435922ec1bf89d9a44b5863ec458cb620c76cc6`
 (Recompute after any edit.)

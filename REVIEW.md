@@ -1,15 +1,15 @@
 # Review guide
 
-VOIDFORGE is meant to be read. The security-relevant code is a few hundred lines in `voidforge.html`. Line numbers are for v1.2.1.
+VOIDFORGE is meant to be read. The security-relevant code is a few hundred lines in `voidforge.html`. Line numbers are for v1.2.2.
 
 | What | Where | Look for |
 |---|---|---|
-| BIP39 wordlist | line ~370 | Any changed word. The self-test hashes it against the official `english.txt` (`2f5eed53...dbda`); verify that hash yourself. |
-| Roll to mnemonic | `rollsToMnemonic` ~574, `entropyToMnemonic` ~487 | Entropy truncation, checksum bits, anything that mixes in other data (time, `Math.random`). |
-| Input cleaning | `clean` ~399 | Anything that alters or drops valid input. |
-| Fingerprint | `ripemd160` ~506, `eadd`/`emul` ~545, `mnemonicToSeed` ~554, `fingerprintFromSeed` ~561 | Correctness only; it does not affect the seed. Not constant-time (offline use). |
-| Self-test and gate | `runSelfTests` ~595, `gateOk` ~803 | Known-answer vectors are real; failure disables the tool. |
-| Outputs | `generate` ~656, `downloadTool` ~777, print/download | Seed or passphrase leaving the page unexpectedly. |
+| BIP39 wordlist | line ~372 | Any changed word. The self-test hashes it against the official `english.txt` (`2f5eed53...dbda`); verify that hash yourself. |
+| Roll to mnemonic | `rollsToMnemonic` ~576, `entropyToMnemonic` ~489 | Entropy truncation, checksum bits, anything that mixes in other data (time, `Math.random`). |
+| Input cleaning | `clean` ~401 | Anything that alters or drops valid input. |
+| Fingerprint | `ripemd160` ~508, `eadd`/`emul` ~547, `mnemonicToSeed` ~556, `fingerprintFromSeed` ~563 | Correctness only; it does not affect the seed. Not constant-time (offline use). |
+| Self-test and gate | `runSelfTests` ~597, `gateOk` ~814 | Known-answer vectors are real; failure disables the tool. |
+| Outputs | `generate` ~658, `downloadTool` ~788, print/download | Seed or passphrase leaving the page unexpectedly. |
 | Network | whole file | `fetch`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, external `src`/`href`, CSP meta (line 5). |
 
 Independent checks anyone can run: compare with SeedSigner's `tools/mnemonic.py`, or Ian Coleman's BIP39 tool run offline ("Base 10"/"Hex" mode for dice, "Binary" for coin flips).
