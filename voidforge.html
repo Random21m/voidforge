@@ -253,12 +253,8 @@
     <h2>GENERATE</h2>
     <div class="radio-group" id="wordRadios">
       <label><input type="radio" name="words" value="12" checked onchange="updateLabels()"><span id="lbl12">12 (50)</span></label>
-      <label><input type="radio" name="words" value="15" onchange="updateLabels()"><span id="lbl15">15* (62)</span></label>
-      <label><input type="radio" name="words" value="18" onchange="updateLabels()"><span id="lbl18">18* (75)</span></label>
-      <label><input type="radio" name="words" value="21" onchange="updateLabels()"><span id="lbl21">21* (87)</span></label>
       <label><input type="radio" name="words" value="24" onchange="updateLabels()"><span id="lbl24">24 (99)</span></label>
     </div>
-    <div style="font-size:11px; color:var(--muted); margin:-4px 0 8px;">* VOIDFORGE-only lengths: SeedSigner and other tools cannot reproduce 15/18/21-word seeds from the same rolls. For portability use 12 or 24.</div>
 
     <div class="radio-group" style="margin-top:8px;">
       <label><input type="radio" name="mode" value="dice" checked onchange="onModeChange()"><span>Dice (1-6)</span></label>
@@ -286,7 +282,6 @@
     </div>
     <div class="result" id="genResult">—</div>
     <div class="btn-row" style="margin-top:6px;">
-      <button class="secondary small" onclick="copyResult(this)">COPY SEED</button>
       <button class="secondary small" onclick="copyFingerprint(this)">COPY FINGERPRINT</button>
       <button class="secondary small" onclick="downloadSeed()">DOWNLOAD</button>
     </div>
@@ -319,16 +314,13 @@
     </details>
     <details>
       <summary>Method</summary>
-      <p><code>SHA256(input string) &rarr; first 16/20/24/28/32 bytes &rarr; BIP39 mnemonic + checksum</code></p>
+      <p><code>SHA256(input string) &rarr; first 16 bytes (12 words) or 32 bytes (24 words) &rarr; BIP39 mnemonic + checksum</code></p>
       <table>
         <tr><th>Words</th><th>Dice rolls (1&ndash;6)</th><th>Coin flips (1/0)</th></tr>
         <tr><td>12</td><td>50</td><td>128</td></tr>
-        <tr><td>15</td><td>62</td><td>160</td></tr>
-        <tr><td>18</td><td>75</td><td>192</td></tr>
-        <tr><td>21</td><td>87</td><td>224</td></tr>
         <tr><td>24</td><td>99</td><td>256</td></tr>
       </table>
-      <p>The roll or flip string is hashed as plain text. Dice are digits 1&ndash;6; coin flips are the characters <code>1</code> and <code>0</code> (choose which side counts as 1 and keep the exact string). This is the same method SeedSigner uses for its 12/24-word dice and coin-flip modes, and VOIDFORGE reproduces SeedSigner&rsquo;s published dice examples. Coldcard is documented to use the same dice approach but has not been tested here. The 15/18/21-word lengths are VOIDFORGE&rsquo;s own extension of the same scheme.</p>
+      <p>The roll or flip string is hashed as plain text. Dice are digits 1&ndash;6; coin flips are the characters <code>1</code> and <code>0</code> (choose which side counts as 1 and keep the exact string). This is the same method SeedSigner uses for its 12/24-word dice and coin-flip modes, and VOIDFORGE reproduces SeedSigner&rsquo;s published dice examples. Coldcard is documented to use the same dice approach but has not been tested here. Only 12- and 24-word seeds are generated, so every seed can be reproduced by SeedSigner-style tools. The VERIFY box still accepts 12, 15, 18, 21 and 24-word phrases from other tools.</p>
     </details>
     <details>
       <summary>Master fingerprint</summary>
@@ -339,7 +331,7 @@
     </details>
     <details>
       <summary>What SELF-TEST checks</summary>
-      <p>It runs automatically every time the page loads; if any test fails, seed generation is disabled and a red banner appears. Press SELF-TEST to see the full list. It checks: the BIP39 wordlist hash; official BIP39 vectors for 12/15/18/21/24 words; SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
+      <p>It runs automatically every time the page loads; if any test fails, seed generation is disabled and a red banner appears. Press SELF-TEST to see the full list. It checks: the BIP39 wordlist hash; official BIP39 entropy vectors (12 to 24 words); SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
     </details>
     <details>
       <summary>Security notes</summary>
@@ -350,7 +342,7 @@
         <li>This page contains no links, and switching between dice and coin clears the entered rolls (after asking).</li>
         <li>The red "appears to be online" banner is a hint from the browser, not proof. A machine can be connected without the browser knowing, so physically disconnect it.</li>
         <li>Text boxes turn off spellcheck, autofill and autocorrect so the browser doesn&rsquo;t keep what you type. The passphrase is masked, and is never shown with, copied with, printed with or saved with the words.</li>
-        <li>COPY SEED and PRINT SEED ask for confirmation because the clipboard and print spooler can retain your seed.</li>
+        <li>There is deliberately no "copy seed" button: write the words down by hand. The clipboard is where seeds most often leak. PRINT SEED and DOWNLOAD ask for confirmation because the print spooler and your disk can retain the seed.</li>
         <li>DOWNLOAD FOR USB saves a clean copy of this page and never includes a generated seed. It is re-serialized by the browser, so its file hash will not match the original; to verify a hash, copy the original file instead. DOWNLOAD (seed) writes your seed and rolls to a plain-text file, so only use it on a trusted offline machine.</li>
         <li>No independent security audit has been done. Use at your own risk. MIT licensed.</li>
       </ul>
@@ -358,6 +350,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.2.0</b> &mdash; Only 12- and 24-word seeds are generated (removed the VOIDFORGE-only 15/18/21-word lengths) and the COPY SEED button is removed. <b>Recovery notes:</b> a 15/18/21-word seed from an earlier version is SHA256(rolls) truncated to 20/24/28 bytes, then converted to BIP39. An H/T coin seed from 1.0 is SHA256 of the exact H/T letter string, truncated to 16 or 32 bytes. <b>If you funded a seed made by an earlier version in one of those modes, move the funds to a fresh 12- or 24-word seed.</b></li>
         <li><b>1.1.1</b> &mdash; Layout fixes found in a real-browser test: top buttons no longer cover the warning banner, light-theme secondary buttons are readable, shorter input hints. No change to seed generation.</li>
         <li><b>1.1.0</b> &mdash; Coin mode now takes <code>1</code>/<code>0</code> and hashes that string, matching SeedSigner&rsquo;s method. <b>Breaking:</b> seeds made with the old H/T coin mode cannot be rebuilt in this version; to recover one, SHA256 the exact H/T string yourself, take the first 16 or 32 bytes, and convert to BIP39. Also added: real master fingerprint, automatic self-test that gates the tool, pattern-aware randomness checks, offline warning, masked passphrase, safer copy/print/download/clear, Content-Security-Policy, and labels for VOIDFORGE-only seed lengths.</li>
         <li><b>1.0</b> &mdash; Initial release (dice and H/T coin modes).</li>
@@ -368,7 +361,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.1.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.2.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -377,8 +370,8 @@ const WORDLIST = ["abandon","ability","able","about","above","absent","absorb","
 const WORD_MAP = Object.fromEntries(WORDLIST.map((w,i)=>[w,i]));
 function getNeeded(wc){
   const mode = document.querySelector('input[name="mode"]:checked')?.value || "dice";
-  if(mode==="coin") return {12:128,15:160,18:192,21:224,24:256}[wc];
-  return {12:50,15:62,18:75,21:87,24:99}[wc];
+  if(mode==="coin") return {12:128,24:256}[wc];
+  return {12:50,24:99}[wc];
 }
 
 // Snapshot of the page before any input exists; DOWNLOAD FOR USB saves this, never the live page.
@@ -578,7 +571,8 @@ async function mnemonicFingerprint(mnemonic, passphrase){ return fingerprintFrom
 
 // Pure helpers shared by the UI and the self-test
 async function rollsToMnemonic(rolls, wc){
-  const entLen = {12:16,15:20,18:24,21:28,24:32}[wc];
+  const entLen = {12:16,24:32}[wc];
+  if(!entLen) throw new Error("Only 12 and 24 words are supported");
   const digest = await sha256(rolls);
   return entropyToMnemonic(digest.slice(0, entLen));
 }
@@ -692,15 +686,6 @@ function showCopied(btn){
 function safeCopy(text){
   if(!navigator.clipboard) return Promise.reject(new Error("no clipboard"));
   return navigator.clipboard.writeText(text);
-}
-function copyResult(btn){
-  const t = document.getElementById("genResult").textContent.split("\n")[0];
-  if(!t || t==="—" || t.startsWith("Need exactly")) return;
-  if(!confirm("Copying puts your seed on the system clipboard, where clipboard managers or other apps may keep it. This page will try to clear the clipboard after 30 seconds. Copy anyway?")) return;
-  safeCopy(t).then(()=>{
-    showCopied(btn);
-    setTimeout(()=>{ safeCopy("").catch(()=>{}); }, 30000);
-  }).catch(()=>alert("Copy failed. Select the words and copy them manually."));
 }
 function copyFingerprint(btn){
   const m = document.getElementById("fingerprint").textContent.match(/: ([0-9a-f]{8})/);
@@ -853,13 +838,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function updateLabels(){
   const mode = document.querySelector('input[name="mode"]:checked')?.value || "dice";
-  const dice = {12:50,15:62,18:75,21:87,24:99};
-  const coin = {12:128,15:160,18:192,21:224,24:256};
+  const dice = {12:50,24:99};
+  const coin = {12:128,24:256};
   const map = mode === "coin" ? coin : dice;
   const unit = mode === "coin" ? "flips" : "rolls";
-  [12,15,18,21,24].forEach(w => {
+  [12,24].forEach(w => {
     const el = document.getElementById("lbl"+w);
-    if(el) el.textContent = w + ([15,18,21].includes(w) ? "*" : "") + " (" + map[w] + ")";
+    if(el) el.textContent = w + " (" + map[w] + ")";
   });
   updateCount();
 }
