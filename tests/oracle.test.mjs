@@ -5,12 +5,20 @@ import nc from 'node:crypto';
 import { entropyToMnemonic, mnemonicToSeedSync, validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { HDKey } from '@scure/bip32';
+import { bech32 } from '@scure/base';
+import { ripemd160 } from '@noble/hashes/ripemd160';
+import { sha256 } from '@noble/hashes/sha256';
 import { loadPage, ready, readHtml, rnd, makeReporter } from './harness.mjs';
 
 const R = makeReporter();
 const w = await ready(loadPage(readHtml()));
 const sha = (s) => new Uint8Array(nc.createHash('sha256').update(s).digest());
 const fpOracle = (mn, pw) => HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).fingerprint.toString(16).padStart(8, '0');
+
+const addrOracle = (mn, pw) => {
+  const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive("m/84'/0'/0'/0/0");
+  return bech32.encode('bc', [0, ...bech32.toWords(ripemd160(sha256(k.publicKey)))]);
+};
 
 // Passphrases chosen to stress NFKD normalisation and odd input.
 const PASS = ['', 'TREZOR', 'correct horse battery staple', 'pässwörd', 'ｆｕｌｌｗｉｄｔｈ', '日本語パスワード', '  spaces  ', 'a'.repeat(200), 'é', 'é', 'ﬁ'];
@@ -41,6 +49,15 @@ for (const bytes of [16, 20, 24, 28, 32]) for (let i = 0; i < 20; i++) {
 }
 R.ok(bad === 0, `${n} random 12/15/18/21/24-word phrases: accepted, fingerprints match (${bad} mismatches)`);
 
+// 2b. first receive address (BIP84 m/84'/0'/0'/0/0) against @scure/bip32 + @scure/base + @noble/hashes
+bad = 0; n = 0;
+for (const bytes of [16, 20, 24, 28, 32]) for (let i = 0; i < 12; i++) {
+  const mn = entropyToMnemonic(new Uint8Array(nc.randomBytes(bytes)), wordlist), pw = PASS[nc.randomInt(PASS.length)];
+  n++;
+  if ((await w.mnemonicFirstAddress(mn, pw)) !== addrOracle(mn, pw)) { bad++; console.log('ADDR MISMATCH', bytes, JSON.stringify(pw), mn); }
+}
+R.ok(bad === 0, `${n} random phrases (all lengths, odd passphrases): first receive address matches the independent libraries (${bad} mismatches)`);
+
 // 3. phrase checker agrees with @scure on valid, corrupted, and random phrases
 bad = 0; n = 0;
 for (let i = 0; i < 300; i++) {
@@ -63,12 +80,13 @@ for (let i = 0; i < 6; i++) {
   const radio = w.document.querySelector(`input[name=mode][value=${coin ? 'coin' : 'dice'}]`); radio.checked = true; radio.onchange();
   const wr = w.document.querySelector(`input[name=words][value="${words}"]`); wr.checked = true; wr.onchange();
   const rolls = rnd(len, coin ? 2 : 6); $('rolls').value = rolls; $('rolls').oninput();
-  const pw = PASS[nc.randomInt(PASS.length)]; $('passphrase').value = pw;
+  const pw = PASS[nc.randomInt(PASS.length)]; $('passphrase').value = pw; $('passphrase2').value = pw;
   await w.generate();
   const want = entropyToMnemonic(sha(rolls).slice(0, words === 12 ? 16 : 32), wordlist);
   const fp = ($('fingerprint').textContent.match(/: ([0-9a-f]{8})/) || [])[1];
-  if ($('genResult').textContent.split('\n')[0] !== want || fp !== fpOracle(want, pw)) { bad++; console.log('UI MISMATCH', coin, words); }
+  const ad = ($('address').textContent.match(/: (bc1[0-9a-z]+)/) || [])[1];
+  if ($('genResult').textContent.split('\n')[0] !== want || fp !== fpOracle(want, pw) || ad !== addrOracle(want, pw)) { bad++; console.log('UI MISMATCH', coin, words); }
 }
-R.ok(bad === 0, `6 end-to-end UI runs match @scure (${bad} mismatches)`);
+R.ok(bad === 0, `6 end-to-end UI runs (words, fingerprint, address) match the independent libraries (${bad} mismatches)`);
 
 R.done('oracle');

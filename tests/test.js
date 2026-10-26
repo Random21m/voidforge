@@ -41,7 +41,10 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
   ok(/8d9cced8/.test(t.$('fingerprint').textContent),'dice 50 rolls -> SeedSigner fingerprint');
   // --- passphrase: masked, not shown/copied/printed/saved ---
   eq(t.$('passphrase').type,'password','passphrase input is masked');
-  t.$('passphrase').value='TREZOR'; await t.w.generate();
+  t.$('passphrase').value='TREZOR'; t.$('passphrase2').value='TREZORX'; await t.w.generate();
+  ok(/do not match/.test(t.$('genResult').textContent)&&t.$('fingerprint').textContent===''&&t.$('address').textContent==='','mismatched passphrase boxes block FORGE and show no fingerprint or address');
+  t.$('passphrase2').value='TREZOR'; await t.w.generate();
+  ok(/bc1q[0-9a-z]{38}/.test(t.$('address').textContent)&&/\(with passphrase\)/.test(t.$('address').textContent),'first receive address shown (with passphrase)');
   ok(/f00e80ca \(with passphrase\)/.test(t.$('fingerprint').textContent),'fingerprint reflects passphrase');
   ok(!t.$('genResult').textContent.includes('TREZOR'),'passphrase text not shown in result');
   // --- coin mode 1/0 ---
@@ -63,7 +66,7 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
   ok(t.$('passphrase').type==='text'&&btn.textContent==='HIDE','passphrase SHOW toggles visibility');
   t=load(); await t.ready(); t.set(rnd(50)); await t.w.generate();
   // --- print: only words + fingerprint, never passphrase, cleans up ---
-  t=load(); await t.ready(); t.set(rnd(50)); t.$('passphrase').value='SECRETPASS'; await t.w.generate();
+  t=load(); await t.ready(); t.set(rnd(50)); t.$('passphrase').value='SECRETPASS'; t.$('passphrase2').value='SECRETPASS'; await t.w.generate();
   const words=t.$('genResult').textContent.split('\n')[0];
   t.w.printSeed();
   ok(t.st.printed===1&&t.st.printHTML.includes(words)&&!t.st.printHTML.includes('SECRETPASS')&&/print-seed/.test(t.st.printClass),'PRINT SEED prints words+fingerprint only, no passphrase');
@@ -83,6 +86,23 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
   // ===== v1.1 additions =====
   t=load(); await t.ready();
   ok(/SELF-TEST PASSED/.test(t.$('selfTestBadge').textContent)&&!t.$('forgeBtn').disabled&&!t.$('verifyBtn').disabled,'auto self-test runs on load and enables the tool');
+  // v1.4: address, passphrase confirm, tap buttons
+  { t.set('65515223131652132161133154444123616466443112153441'); t.$('passphrase').value=''; t.$('passphrase2').value=''; await t.w.generate();
+    ok(/bc1q[0-9a-z]{38}/.test(t.$('address').textContent),'first receive address is shown after FORGE');
+    ok(!/with passphrase/.test(t.$('address').textContent),'no passphrase label when no passphrase');
+    const st=t.$('genResult').textContent; t.$('passphrase').value='x'; t.$('passphrase2').value=''; await t.w.generate(); ok(/do not match/.test(t.$('genResult').textContent),'passphrase vs empty confirm is a mismatch');
+    t.$('passphrase').value=''; t.$('passphrase2').value='';
+    t.$('phrase').value='abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'; await t.w.verify();
+    ok(/bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu/.test(t.$('verifyStatus').textContent),'VERIFY shows the published BIP84 first address for abandon...about');
+    t.$('rolls').value=''; t.w.updateCount();
+    const taps=[...t.d.querySelectorAll('#tapRow button')]; ok(taps.length===6,'six dice tap buttons in dice mode');
+    taps[0].onclick(); taps[5].onclick(); taps[2].onclick(); eq(t.$('rolls').value,'163','tap buttons append rolls and update the counter'); ok(/3 \/ 50/.test(t.$('rollCount').textContent),'counter updates after taps');
+    const coin=t.d.querySelector('input[name="mode"][value="coin"]'); t.$('rolls').value=''; coin.checked=true; t.w.onModeChange();
+    const ct=[...t.d.querySelectorAll('#tapRow button')]; ok(ct.length===2&&ct[0].textContent==='1'&&ct[1].textContent==='0','coin mode shows 1 and 0 tap buttons');
+    ct[1].onclick(); ct[0].onclick(); eq(t.$('rolls').value,'01','coin taps append flips');
+    const dice=t.d.querySelector('input[name="mode"][value="dice"]'); t.$('rolls').value=''; dice.checked=true; t.w.onModeChange();
+    t.$('passphrase').value='a'; t.$('passphrase2').value='a'; t.w.togglePassphrase(t.d.querySelector('button[onclick^="togglePassphrase"]')); ok(t.$('passphrase').type==='text'&&t.$('passphrase2').type==='text','SHOW reveals both passphrase boxes');
+  }
   // item 1: patterns
   ok(t.$('noJs').style.display==='none','script-not-running notice is hidden once the script has run');
   ok(/DICE \/ COIN ENTROPY/.test(t.d.querySelector('.subtitle').textContent),'header says dice / coin');

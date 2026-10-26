@@ -1,6 +1,6 @@
 # Review guide
 
-VOIDFORGE is meant to be read. The security-relevant code is a few hundred lines in `voidforge.html`. Line numbers are approximate (v1.3.1).
+VOIDFORGE is meant to be read. The security-relevant code is a few hundred lines in `voidforge.html`. Line numbers are approximate (v1.4.0).
 
 | What | Where | Look for |
 |---|---|---|
@@ -8,6 +8,8 @@ VOIDFORGE is meant to be read. The security-relevant code is a few hundred lines
 | Roll to mnemonic | `rollsToMnemonic` ~576, `entropyToMnemonic` ~489 | Entropy truncation, checksum bits, anything that mixes in other data (time, `Math.random`). |
 | Input cleaning | `clean` ~401 | Anything that alters or drops valid input. |
 | Fingerprint | `ripemd160` ~508, `eadd`/`emul` ~547, `mnemonicToSeed` ~556, `fingerprintFromSeed` ~563 | Correctness only; it does not affect the seed. Not constant-time (offline use). |
+| First receive address | `masterFromSeed`, `ckdPriv`, `bech32Encode`, `firstAddressFromSeed` (search these names) | Display only; it does not affect the seed. Check the derivation path (`m/84'/0'/0'/0/0`: 84, 0, 0 hardened, then 0, 0), the mod-n key addition, and that the bech32 checksum constant is 1 (BIP173). Tested against the published BIP84 vector and two independent libraries. |
+| Passphrase confirm and tap buttons | `generate`, `buildTapRow` | The two passphrase boxes must match before forging; tap buttons only append to the roll box. |
 | Self-test and gate | `runSelfTests` ~597, `gateOk` ~814 | Known-answer vectors are real; failure disables the tool. |
 | Outputs | `generate` ~658, `downloadTool` ~788, print/download | Seed or passphrase leaving the page unexpectedly. |
 | Network | whole file | `fetch`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, external `src`/`href`, CSP meta (line 5). |

@@ -15,14 +15,16 @@ Get <code>voidforge.html</code> and <code>SHA256SUMS</code> from the release pag
 
 1. Download `voidforge.html` from the [latest release](../../releases/latest) and check it: `sha256sum -c SHA256SUMS`.
 2. Copy it to a USB stick and open it in a desktop browser (Safari 14+, Chrome or Firefox) on an **offline computer**. Do not use a phone: phones and file previews often will not run the page, and a phone is the wrong place for a seed anyway.
-3. Confirm the green **SELF-TEST PASSED (26/26)** badge and the **NETWORK: OFFLINE** tag. A red notice saying the script is not running means the page did not start; do not use it.
+3. Confirm the green **SELF-TEST PASSED (29/29)** badge and the **NETWORK: OFFLINE** tag. A red notice saying the script is not running means the page did not start; do not use it.
 4. Choose 12 or 24 words and Dice or Coin, enter your physical rolls or flips, and press FORGE SEED.
 5. Write the words down, then compare the words and the master fingerprint with a second independent offline tool before trusting real funds.
 
-**Browser testing:** checked in Chromium (automated and manual), Firefox and Safari (manual, v1.3.1; self-test badge and the published dice example matched). The page needs Safari 14 or newer. Phones are not supported.
+**Browser testing:** checked in Chromium (automated and manual), Firefox and Safari (manual, v1.3.1; v1.4.0 automated in Chromium, not yet re-checked by hand in Firefox and Safari; self-test badge and the published dice example matched). The page needs Safari 14 or newer. Phones are not supported.
 
 **Coin flips:** decide which side is 1 and which is 0 (the usual choice is heads = 1, tails = 0), use it for every flip, and keep the exact 1/0 string with your backup. Only the string is hashed, so any consistent choice works, but the mapping cannot be recovered from the words.
 
+- Shows the master fingerprint **and the first native SegWit (BIP84) receive address** so you can cross-check with a wallet; asks you to type any passphrase twice; tap buttons for dice 1-6 and coin 1/0.
+- Guides: [RECOVERY.md](RECOVERY.md) (what to back up, how to restore) and [SECURITY.md](SECURITY.md) (reporting, known limits).
 - Method: `SHA256(rolls or flips as text)` → BIP39. Matches SeedSigner's published dice examples; coin mode uses SeedSigner's method (1/0 string).
 - Tests: `npm ci && npm test` (unit tests, differential tests against `@scure/bip39` and `@scure/bip32`, and mutation tests that break the code on purpose to prove the safety net catches it)
 - Want to review it? See [REVIEW.md](REVIEW.md).

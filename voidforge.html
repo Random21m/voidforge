@@ -268,6 +268,7 @@
       <label><input type="radio" name="mode" value="dice" checked onchange="onModeChange()"><span>Dice (1-6)</span></label>
       <label><input type="radio" name="mode" value="coin" onchange="onModeChange()"><span>Coin (1/0)</span></label>
     </div>
+    <div id="tapRow" class="radio-group" style="margin-top:8px; margin-bottom:6px;" aria-label="Tap to add a roll or flip"></div>
     <textarea id="rolls" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Dice: rolls 1-6. Coin: flips as 1 and 0."></textarea>
     <div id="coinHint" style="display:none; font-size:12px; margin-top:6px; color:var(--muted);">Pick which side is 1 and which is 0 (the usual choice: heads = 1, tails = 0) and keep it the same for every flip. Only the 1/0 string is used, so any consistent choice is fine, but you cannot get the mapping back from the words. Write down the exact string or your mapping with your backup.</div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
@@ -282,6 +283,7 @@
       <input type="password" id="passphrase" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Optional passphrase" style="flex:1; min-width:0;">
       <button type="button" class="secondary small" onclick="togglePassphrase(this)">SHOW</button>
     </div>
+    <input type="password" id="passphrase2" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Confirm passphrase (must match)" style="margin-top:6px;">
     <input type="text" id="note" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Optional note (not used in the seed)" style="margin-top:6px;">
     <div id="rollHistory" style="font-size:11px;color:#7a7a90;margin-top:6px;min-height:16px;"></div>
     <div id="diceVisual" style="font-size:20px; letter-spacing:4px; margin-top:4px; min-height:28px;"></div>
@@ -294,9 +296,11 @@
     <div class="btn-row" style="margin-top:6px;">
       <button class="secondary small" onclick="sendToVerify()">SEND TO VERIFY</button>
       <button class="secondary small" onclick="copyFingerprint(this)">COPY FINGERPRINT</button>
+      <button class="secondary small" onclick="copyAddress(this)">COPY ADDRESS</button>
       <button class="secondary small" onclick="downloadSeed()">DOWNLOAD</button>
     </div>
     <div class="fp" id="fingerprint"></div>
+    <div id="address" style="margin-top:6px; font-size:13px; word-break:break-all; color:var(--muted);"></div>
     <div id="printOnly"></div>
     <div class="status" id="testResults" style="white-space:pre-wrap; font-family:monospace; font-size:11px; font-weight:400;"></div>
     
@@ -319,7 +323,7 @@
       <ol>
         <li>Copy this single file to a USB stick and open it on an <b>air-gapped</b> computer.</li>
         <li>Press <b>SELF-TEST</b> and confirm it says all tests passed.</li>
-        <li>Choose <b>Dice</b> or <b>Coin</b>, enter your physical rolls or flips, and press <b>FORGE SEED</b>. For coins, decide which side is 1 and which is 0 (heads = 1, tails = 0 is the usual choice), use it for every flip, and record the exact 1/0 string with your backup.</li>
+        <li>Choose <b>Dice</b> or <b>Coin</b>, enter your physical rolls or flips, and press <b>FORGE SEED</b>. For coins, decide which side is 1 and which is 0 (heads = 1, tails = 0 is the usual choice), use it for every flip, and record the exact 1/0 string with your backup. You can type, paste, or tap the buttons above the box.</li>
         <li>Compare the words and the master fingerprint with a second independent offline tool before trusting real funds.</li>
       </ol>
     </details>
@@ -334,15 +338,16 @@
       <p>The roll or flip string is hashed as plain text. Dice are digits 1&ndash;6; coin flips are the characters <code>1</code> and <code>0</code> (choose which side counts as 1 and keep the exact string). This is the same method SeedSigner uses for its 12/24-word dice and coin-flip modes, and VOIDFORGE reproduces SeedSigner&rsquo;s published dice examples. Coldcard is documented to use the same dice approach but has not been tested here. Only 12- and 24-word seeds are generated, so every seed can be reproduced by SeedSigner-style tools. The VERIFY box still accepts 12, 15, 18, 21 and 24-word phrases from other tools.</p>
     </details>
     <details>
-      <summary>Master fingerprint</summary>
+      <summary>Master fingerprint &amp; first address</summary>
       <p><code>PBKDF2-HMAC-SHA512(mnemonic, "mnemonic"+passphrase, 2048) &rarr; seed</code><br>
          <code>HMAC-SHA512("Bitcoin seed", seed) &rarr; master private key</code><br>
          <code>secp256k1 pubkey &rarr; RIPEMD160(SHA256(pubkey)) &rarr; first 4 bytes</code></p>
+      <p><b>First receive address.</b> Also shown is the first Bitcoin mainnet receive address of a standard native SegWit (BIP84) wallet: BIP32 child keys along <code>m/84&rsquo;/0&rsquo;/0&rsquo;/0/0</code>, then <code>RIPEMD160(SHA256(pubkey))</code> encoded as a <code>bc1q&hellip;</code> bech32 address. Use it to cross-check against a wallet that imports the same words (a watch-only wallet is enough): the fingerprint alone is a weak check, a matching first address is a strong one. It is only correct for wallets that use the BIP84 path; other wallet types (legacy, nested SegWit, Taproot) show different addresses. It includes the passphrase if you entered one; the VERIFY box shows it without one.</p>
       <p>RIPEMD-160 and secp256k1 are implemented in this file (no libraries). The curve code is not constant-time, which is fine offline but another reason never to run this on a networked or shared computer. The fingerprint includes the optional BIP39 passphrase; the VERIFY box shows it without one.</p>
     </details>
     <details>
       <summary>What SELF-TEST checks</summary>
-      <p>It runs automatically every time the page loads; if any test fails, seed generation is disabled and a red banner appears. Press SELF-TEST to see the full list. It checks: the BIP39 wordlist hash; official BIP39 entropy vectors (12 to 24 words); SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; passphrase normalization; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
+      <p>It runs automatically every time the page loads; if any test fails, seed generation is disabled and a red banner appears. Press SELF-TEST to see the full list. It checks: the BIP39 wordlist hash; official BIP39 entropy vectors (12 to 24 words); SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; the first receive address (the published BIP84 vector, a second vector from two independent libraries, and the BIP173 bech32 example); passphrase normalization; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
       <p><b>What the self-test cannot catch:</b> it only runs known answers through this same file, so it can miss a bug on inputs it does not cover, and a tampered file could simply fake a pass. It does not replace checking the file&rsquo;s SHA256 against the release, and it does not replace comparing your words and fingerprint in a second independent tool. The network tag at the top reads the browser&rsquo;s online flag only; it cannot prove the machine is air-gapped.</p>
     </details>
     <details>
@@ -362,6 +367,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.4.0</b> &mdash; Added the first receive address (BIP84 native SegWit, <code>bc1q&hellip;</code>) next to the fingerprint, in FORGE and VERIFY, with a COPY ADDRESS button; a second passphrase box that must match (a mistyped passphrase gives a different wallet); tap buttons for dice 1&ndash;6 and coin 1/0; and 3 more self-tests (29 in all) covering address derivation. Seed words and fingerprints are unchanged.</li>
         <li><b>1.3.1</b> &mdash; Header now says DICE / COIN. Added a clear red notice that shows whenever the page&rsquo;s script is not running (file previews, old browsers, JavaScript off), a coin-mode hint explaining which side is 1 or 0 and to record the string, and a not-for-phones note. Seed generation is unchanged.</li>
         <li><b>1.3.0</b> &mdash; Added an always-visible NETWORK: ONLINE/OFFLINE tag, an &ldquo;&asymp; bits of entropy if rolls are fair&rdquo; line, a passphrase-normalization test in the self-test (26 tests), and a note on what the self-test cannot catch. Seed generation is unchanged: the same rolls give the same words and fingerprint as 1.2.x.</li>
         <li><b>1.2.2</b> &mdash; Added SEND TO VERIFY, which moves the generated words into the VERIFY box inside the page (no clipboard). Note this only re-checks the words you just made with the same code; for an independent check, write the words down and enter them in a second tool.</li>
@@ -377,7 +383,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.3.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.4.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -577,15 +583,55 @@ async function mnemonicToSeed(mnemonic, passphrase){
     salt:enc.encode("mnemonic"+(passphrase||"").normalize("NFKD"))},key,512);
   return new Uint8Array(bits);
 }
-async function fingerprintFromSeed(seed){
-  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode("Bitcoin seed"),{name:"HMAC",hash:"SHA-512"},false,["sign"]);
-  const I=new Uint8Array(await crypto.subtle.sign("HMAC",key,seed));
+async function masterFromSeed(seed){
+  const I=await hmac512(new TextEncoder().encode("Bitcoin seed"),seed);
   const k=BigInt("0x"+hex(I.slice(0,32)));
   if(k===0n || k>=SN) throw new Error("Invalid master key");
-  const P=emul(k,SG);
-  const pub=new Uint8Array(33); pub[0]=(P[1]&1n)?3:2; pub.set(fromHex(P[0].toString(16).padStart(64,"0")),1);
-  return hex(ripemd160(await sha256bytes(pub)).slice(0,4));
+  return [k, I.slice(32)];
 }
+async function fingerprintFromSeed(seed){
+  const [k]=await masterFromSeed(seed);
+  return hex(ripemd160(await sha256bytes(pubkeyBytes(k))).slice(0,4));
+}
+// BIP32 private child derivation (CKDpriv) and the BIP84 first receive address (m/84'/0'/0'/0/0, mainnet P2WPKH).
+function pubkeyBytes(k){
+  const P=emul(k,SG); const pub=new Uint8Array(33); pub[0]=(P[1]&1n)?3:2;
+  pub.set(fromHex(P[0].toString(16).padStart(64,"0")),1); return pub;
+}
+async function hmac512(keyBytes, data){
+  const key=await crypto.subtle.importKey("raw",keyBytes,{name:"HMAC",hash:"SHA-512"},false,["sign"]);
+  return new Uint8Array(await crypto.subtle.sign("HMAC",key,data));
+}
+async function ckdPriv(k, chain, index, hardened){
+  const idx=hardened ? (index+0x80000000)>>>0 : index;
+  const data=new Uint8Array(37);
+  if(hardened){ data.set(fromHex(k.toString(16).padStart(64,"0")),1); } else { data.set(pubkeyBytes(k),0); }
+  data.set([(idx>>>24)&255,(idx>>>16)&255,(idx>>>8)&255,idx&255],33);
+  const I=await hmac512(chain,data);
+  const il=BigInt("0x"+hex(I.slice(0,32))), child=(il+k)%SN;
+  if(il>=SN || child===0n) throw new Error("Invalid child key");
+  return [child, I.slice(32)];
+}
+const B32="qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+function bech32Encode(hrp, version, prog){
+  const poly=(v)=>{ const G=[0x3b6a57b2,0x26508e6d,0x1ea119fa,0x3d4233dd,0x2a1462b3]; let c=1;
+    for(const x of v){ const b=c>>>25; c=((c&0x1ffffff)<<5)^x; for(let i=0;i<5;i++) if((b>>i)&1) c^=G[i]; } return c; };
+  const data=[version]; let acc=0, bits=0;
+  for(const byte of prog){ acc=(acc<<8)|byte; bits+=8; while(bits>=5){ bits-=5; data.push((acc>>bits)&31); } acc&=(1<<bits)-1; }
+  if(bits>0) data.push((acc<<(5-bits))&31);
+  const hrpBytes=Array.from(hrp).map(c=>c.charCodeAt(0));
+  const values=hrpBytes.map(c=>c>>5).concat([0],hrpBytes.map(c=>c&31),data,[0,0,0,0,0,0]);
+  const mod=poly(values)^1;
+  for(let i=0;i<6;i++) data.push((mod>>(5*(5-i)))&31);
+  return hrp+"1"+data.map(d=>B32[d]).join("");
+}
+async function firstAddressFromSeed(seed){
+  let [k,c]=await masterFromSeed(seed);
+  for(const [i,h] of [[84,true],[0,true],[0,true],[0,false],[0,false]]) [k,c]=await ckdPriv(k,c,i,h);
+  const h160=ripemd160(await sha256bytes(pubkeyBytes(k)));
+  return bech32Encode("bc",0,h160);
+}
+async function mnemonicFirstAddress(mnemonic, passphrase){ return firstAddressFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
 async function sha256bytes(b){ return new Uint8Array(await crypto.subtle.digest("SHA-256", b)); }
 async function mnemonicFingerprint(mnemonic, passphrase){ return fingerprintFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
 
@@ -647,6 +693,10 @@ async function runSelfTests(auto){
      "c55257c360c07c72029aebc1b53c05ed0362ada38ead3e3e9efa3708e53495531f09a6987599d18264c1e1c92f2cf141630c7a3c4ab7c81b2f001698e7463b04");
   eq("'abandon..about' + TREZOR fingerprint", ()=>mnemonicFingerprint("abandon ".repeat(11)+"about","TREZOR"),"b4e3f5ed");
   eq("passphrase is NFKD-normalized (composed vs decomposed accent)", async()=>(await mnemonicFingerprint("abandon ".repeat(11)+"about","caf\u00e9"))+"/"+(await mnemonicFingerprint("abandon ".repeat(11)+"about","cafe\u0301")), "75902abe/75902abe");
+  // first receive address: BIP84 published vector, a passphrase vector from two independent libraries, and the BIP173 bech32 example
+  eq("BIP84 first address 'abandon..about' (published BIP84 vector)", ()=>mnemonicFirstAddress("abandon ".repeat(11)+"about",""),"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu");
+  eq("first address 'abandon..about' + TREZOR (two independent libraries)", ()=>mnemonicFirstAddress("abandon ".repeat(11)+"about","TREZOR"),"bc1qv5rmq0kt9yz3pm36wvzct7p3x6mtgehjul0feu");
+  eq("bech32 BIP173 example address", ()=>bech32Encode("bc",0,fromHex("751e76e8199196d454941c45d1b3a323f1433bd6")),"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4");
   eq("BIP32 test vector 1 fingerprint", ()=>fingerprintFromSeed(fromHex("000102030405060708090a0b0c0d0e0f")),"3442193e");
   // RIPEMD-160 standard vectors
   const rmd=s=>hex(ripemd160(new TextEncoder().encode(s)));
@@ -681,7 +731,13 @@ async function generate(){
   if(rolls.length!==need){
     document.getElementById("genResult").textContent = "Need exactly "+need+(getMode()==="coin"?" flips":" rolls")+" (you have "+rolls.length+")";
     document.getElementById("fingerprint").textContent = "";
-    
+    document.getElementById("address").textContent = "";
+    return;
+  }
+  if(document.getElementById("passphrase").value !== document.getElementById("passphrase2").value){
+    document.getElementById("genResult").textContent = "The two passphrase boxes do not match. A mistyped passphrase gives a different wallet, so fix them (or clear both) and try again.";
+    document.getElementById("fingerprint").textContent = "";
+    document.getElementById("address").textContent = "";
     return;
   }
   const an = analyzeRolls(rolls, getMode()==="coin");
@@ -689,13 +745,18 @@ async function generate(){
   const mnemonic = await rollsToMnemonic(rolls, wc);
   const pass = document.getElementById("passphrase").value;
   document.getElementById("genResult").textContent = mnemonic + (pass ? "\n\nPassphrase: used (" + Array.from(pass).length + " characters, not shown here)" : "");
-  const fpEl = document.getElementById("fingerprint");
-  fpEl.textContent = "Master fingerprint: computing...";
+  const fpEl = document.getElementById("fingerprint"), adEl = document.getElementById("address");
+  fpEl.textContent = "Master fingerprint: computing..."; adEl.textContent = "";
   try {
     const fp = await mnemonicFingerprint(mnemonic, pass);
     fpEl.textContent = "Master fingerprint: " + fp + (pass ? " (with passphrase)" : "");
   } catch(e) {
     fpEl.textContent = "Master fingerprint unavailable: " + e.message;
+  }
+  try {
+    adEl.textContent = "First receive address (BIP84, m/84'/0'/0'/0/0): " + await mnemonicFirstAddress(mnemonic, pass) + (pass ? " (with passphrase)" : "");
+  } catch(e) {
+    adEl.textContent = "First address unavailable: " + e.message;
   }
 }
 
@@ -722,10 +783,15 @@ function copyFingerprint(btn){
   if(!m) return;
   safeCopy(m[1]).then(()=>showCopied(btn)).catch(()=>alert("Copy failed. Select the fingerprint and copy it manually."));
 }
+function copyAddress(btn){
+  const m = document.getElementById("address").textContent.match(/: (bc1[0-9a-z]+)/);
+  if(!m) return alert("Generate a seed first");
+  safeCopy(m[1]).then(()=>showCopied(btn)).catch(()=>alert("Copy failed. Select the address and copy it manually."));
+}
 function togglePassphrase(btn){
-  const el = document.getElementById("passphrase");
+  const el = document.getElementById("passphrase"), el2 = document.getElementById("passphrase2");
   const show = el.type === "password";
-  el.type = show ? "text" : "password";
+  el.type = el2.type = show ? "text" : "password";
   btn.textContent = show ? "HIDE" : "SHOW";
 }
 function printSeed(){
@@ -733,7 +799,7 @@ function printSeed(){
   if(!phrase || phrase==="—" || phrase.startsWith("Need exactly")) return alert("Generate a seed first");
   if(!confirm("Printing sends your seed to a printer and its spooler. Only print on a trusted offline computer with a directly connected printer. The passphrase is never printed. Continue?")) return;
   const po = document.getElementById("printOnly");
-  po.textContent = "VOIDFORGE\n\n" + phrase + "\n\n" + document.getElementById("fingerprint").textContent;
+  po.textContent = "VOIDFORGE\n\n" + phrase + "\n\n" + document.getElementById("fingerprint").textContent + "\n" + document.getElementById("address").textContent;
   document.body.classList.add("print-seed");
   let done = false;
   const cleanup = () => { if(done) return; done = true; document.body.classList.remove("print-seed"); po.textContent = ""; };
@@ -768,7 +834,9 @@ function clearAll(){
   if(!confirm("Clear all rolls, results, the verify box and (if the browser allows) the clipboard?")) return;
   document.getElementById("rolls").value="";
   document.getElementById("passphrase").value="";
+  document.getElementById("passphrase2").value="";
   document.getElementById("passphrase").type="password";
+  document.getElementById("passphrase2").type="password";
   document.querySelectorAll("button").forEach(b=>{ if(b.textContent==="HIDE") b.textContent="SHOW"; });
   document.getElementById("note").value="";
   document.getElementById("phrase").value="";
@@ -776,6 +844,7 @@ function clearAll(){
   document.getElementById("testResults").textContent="";
   document.getElementById("genResult").textContent="—";
   document.getElementById("fingerprint").textContent="";
+  document.getElementById("address").textContent="";
   document.getElementById("rollHistory").textContent="";
   document.getElementById("diceVisual").textContent="";
   safeCopy("").catch(()=>{});
@@ -790,6 +859,7 @@ async function verify(){
   st.textContent = r.msg;
   if(r.ok){
     try { st.textContent += " | master fingerprint (no passphrase): " + await mnemonicFingerprint(r.mnemonic, ""); } catch(e) {}
+    try { st.textContent += " | first address (no passphrase): " + await mnemonicFirstAddress(r.mnemonic, ""); } catch(e) {}
   }
 }
 
@@ -823,7 +893,7 @@ function downloadSeed() {
   if (!text || text === "—" || text.startsWith("Need exactly")) return alert("Generate a seed first");
   if (!confirm("This saves your seed and rolls to a PLAIN-TEXT file. Only do this on a trusted offline computer. The passphrase is not saved. Continue?")) return;
   const rolls = document.getElementById("rolls").value;
-  const full = text + "\n\n" + document.getElementById("fingerprint").textContent + "\n\nInput: " + rolls;
+  const full = text + "\n\n" + document.getElementById("fingerprint").textContent + "\n" + document.getElementById("address").textContent + "\n\nInput: " + rolls;
   const blob = new Blob([full], {type: "text/plain"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -871,7 +941,22 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("rolls").focus();
 });
 
+function buildTapRow(){
+  const row = document.getElementById("tapRow"), coin = getMode() === "coin";
+  row.textContent = "";
+  const vals = coin ? ["1","0"] : ["1","2","3","4","5","6"], faces = {"1":"\u2680","2":"\u2681","3":"\u2682","4":"\u2683","5":"\u2684","6":"\u2685"};
+  vals.forEach(v => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "secondary small";
+    b.style.cssText = "min-width:44px; min-height:40px; font-size:" + (coin ? "16px" : "18px") + ";";
+    b.textContent = coin ? v : faces[v] + " " + v;
+    b.setAttribute("aria-label", (coin ? "Add flip " : "Add roll ") + v);
+    b.onclick = () => { const el = document.getElementById("rolls"); el.value += v; updateCount(); };
+    row.appendChild(b);
+  });
+}
 function updateLabels(){
+  buildTapRow();
   const mode = document.querySelector('input[name="mode"]:checked')?.value || "dice";
   const ch = document.getElementById("coinHint"); if(ch) ch.style.display = mode === "coin" ? "block" : "none";
   const dice = {12:50,24:99};
