@@ -16,7 +16,7 @@ Get <code>voidforge.html</code> and <code>SHA256SUMS</code> from the release pag
 1. Download `voidforge.html` from the [latest release](../../releases/latest) and check it: `sha256sum -c SHA256SUMS`.
 2. Copy it to a USB stick and open it in a desktop browser (Safari 14+, Chrome or Firefox) on an **offline computer**. Do not use a phone: phones and file previews often will not run the page, and a phone is the wrong place for a seed anyway.
 3. Confirm the green **SELF-TEST PASSED (29/29)** badge and the **NETWORK: OFFLINE** tag. A red notice saying the script is not running means the page did not start; do not use it.
-4. Choose 12 or 24 words and Dice or Coin, enter your physical rolls or flips, and press FORGE SEED.
+4. Choose 12 or 24 words and Dice or Coin, enter your physical rolls or flips (type, paste, or tap the buttons), and press FORGE SEED. The words appear as a numbered grid. A passphrase, if you want one, goes in "Advanced options".
 5. Write the words down, then compare the words and the master fingerprint with a second independent offline tool before trusting real funds.
 
 **Browser testing:** checked in Chromium (automated and manual), Firefox and Safari (manual, v1.3.1; v1.4.0 automated in Chromium, not yet re-checked by hand in Firefox and Safari; self-test badge and the published dice example matched). The page needs Safari 14 or newer. Phones are not supported.

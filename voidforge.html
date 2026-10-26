@@ -18,6 +18,8 @@
     --accent: #00f0ff;
     --accent2: #ff00aa;
     --success: #00ff9d;
+    --warn-text: #ffaa00;
+    --bad-text: #ff4466;
     --danger: #ff4466;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -52,6 +54,8 @@
     --muted: #6b7280;
     --accent: #0066cc;
     --accent2: #cc0066;
+    --warn-text: #9a5b00;
+    --bad-text: #c0143c;
   }
   body.light textarea,
   body.light input[type="text"],
@@ -162,6 +166,8 @@
   }
   .fp { margin-top: 12px; font-size: 18px; color: var(--accent); font-weight: 700; letter-spacing: 1px; }
   .status { margin-top: 6px; font-weight: 600; font-size: 13px; }
+  :root { --ok-text: #00ff9d; }
+  body.light { --ok-text: #0a7a46; }
   .status.ok { color: var(--success); }
   .status.bad { color: var(--danger); }
   .entropy-bar {
@@ -202,6 +208,22 @@
   #selfTestBadge.bad { color: var(--danger); }
   body.light #selfTestBadge.ok, body.light .status.ok { color: #0a7a46; }
   button:disabled { opacity: .4; cursor: not-allowed; }
+  #statusLine { display: flex; justify-content: center; gap: 4px 14px; flex-wrap: wrap; margin-bottom: 12px; }
+  #statusLine #netTag, #statusLine #selfTestBadge { margin: 0; }
+  .steps { font-size: 12px; color: var(--muted); text-align: center; margin-top: 8px; line-height: 1.6; }
+  .result.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; padding: 0; border: 0; margin: -1px; min-height: 0; }
+  #wordGrid { display: none; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 10px; }
+  @media (min-width: 520px) { #wordGrid { grid-template-columns: repeat(3, 1fr); } }
+  .wcell { background: #0a0a10; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-family: "Courier New", monospace; font-size: 16px; display: flex; gap: 8px; align-items: baseline; }
+  .wcell b { color: var(--muted); min-width: 1.9em; text-align: right; font-weight: 600; font-size: 12px; }
+  body.light .wcell { background: #fff; }
+  #passNote, #nextStep { font-size: 13px; margin-top: 8px; }
+  #passNote { color: var(--muted); }
+  #nextStep { color: var(--success); font-weight: 600; }
+  body.light #nextStep { color: #0a7a46; }
+  #advanced { margin-top: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+  #advanced summary { cursor: pointer; font-weight: 600; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   #onlineWarn { display: none; background: var(--danger); color: #000; font-weight: 700; font-size: 13px; text-align: center; padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
 </style>
 </head>
@@ -214,8 +236,10 @@
   <div id="noJs" role="alert" style="background:#ff4466; color:#000; font-weight:700; font-size:13px; text-align:center; padding:10px 12px; border-radius:10px; margin-bottom:14px;">
     This page&rsquo;s script is NOT running, so nothing below works. Open voidforge.html itself in a current desktop browser (Safari 14+, Chrome, Firefox) with JavaScript on. File previews (Quick Look, email, phone Files) and old browsers block it. Do not use it for real funds until the green SELF-TEST PASSED badge appears. This tool is meant for an offline computer, not a phone.
   </div>
-  <div id="netTag" role="status"></div>
-  <div id="selfTestBadge" role="status"></div>
+  <div id="statusLine">
+    <div id="netTag" role="status"></div>
+    <div id="selfTestBadge" role="status"></div>
+  </div>
   <header>
     <div class="logo">
       <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
@@ -245,6 +269,7 @@
     </div>
     <h1>VOIDFORGE</h1>
     <div class="subtitle">DICE / COIN ENTROPY → BIP39 SEED</div>
+    <div class="steps"><b>1</b> Choose length and type &nbsp;&middot;&nbsp; <b>2</b> Enter your rolls or flips &nbsp;&middot;&nbsp; <b>3</b> FORGE SEED and write the words down &nbsp;&middot;&nbsp; <b>4</b> Check your backup</div>
   </header>
 
   
@@ -258,7 +283,7 @@
   </div>
 
   <div class="card">
-    <h2>GENERATE</h2>
+    <h2>1-3 &middot; GENERATE</h2>
     <div class="radio-group" id="wordRadios">
       <label><input type="radio" name="words" value="12" checked onchange="updateLabels()"><span id="lbl12">12 (50)</span></label>
       <label><input type="radio" name="words" value="24" onchange="updateLabels()"><span id="lbl24">24 (99)</span></label>
@@ -272,19 +297,23 @@
     <textarea id="rolls" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Dice: rolls 1-6. Coin: flips as 1 and 0."></textarea>
     <div id="coinHint" style="display:none; font-size:12px; margin-top:6px; color:var(--muted);">Pick which side is 1 and which is 0 (the usual choice: heads = 1, tails = 0) and keep it the same for every flip. Only the 1/0 string is used, so any consistent choice is fine, but you cannot get the mapping back from the words. Write down the exact string or your mapping with your backup.</div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
-      <div id="rollCount" style="font-size:13px;color:#7a7a90;font-weight:600;">0 / 50 rolls</div>
+      <div id="rollCount" aria-live="polite" style="font-size:13px;color:#7a7a90;font-weight:600;">0 / 50 rolls</div>
       <button class="secondary small" onclick="undoRoll()">UNDO</button>
     </div>
     <div class="entropy-bar"><div class="entropy-fill" id="entropyFill"></div></div>
     <div id="entropyStatus" style="font-size:12px; margin-top:4px; font-weight:600;"></div>
     <div id="bitsNote" style="font-size:12px; margin-top:4px; color:var(--muted);"></div>
     <div id="ignoredNote" style="font-size:12px; margin-top:4px; font-weight:600; color:var(--danger);"></div>
-    <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
-      <input type="password" id="passphrase" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Optional passphrase" style="flex:1; min-width:0;">
-      <button type="button" class="secondary small" onclick="togglePassphrase(this)">SHOW</button>
-    </div>
-    <input type="password" id="passphrase2" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Confirm passphrase (must match)" style="margin-top:6px;">
-    <input type="text" id="note" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Optional note (not used in the seed)" style="margin-top:6px;">
+    <details id="advanced">
+      <summary id="advSummary">Advanced options (passphrase, note)</summary>
+      <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
+        <input type="password" id="passphrase" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Optional passphrase" style="flex:1; min-width:0;" oninput="updateAdvSummary()">
+        <button type="button" class="secondary small" onclick="togglePassphrase(this)">SHOW</button>
+      </div>
+      <input type="password" id="passphrase2" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Confirm passphrase (must match)" style="margin-top:6px;" oninput="updateAdvSummary()">
+      <div style="font-size:12px; color:var(--muted); margin-top:6px;">A passphrase makes a different wallet from the same words. Write it down separately: without it the funds cannot be recovered.</div>
+      <input type="text" id="note" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Optional note (not used in the seed)" style="margin-top:6px;">
+    </details>
     <div id="rollHistory" style="font-size:11px;color:#7a7a90;margin-top:6px;min-height:16px;"></div>
     <div id="diceVisual" style="font-size:20px; letter-spacing:4px; margin-top:4px; min-height:28px;"></div>
     <div class="btn-row">
@@ -292,7 +321,10 @@
       <button class="secondary" onclick="clearAll()">CLEAR</button>
       <button class="secondary small" onclick="runSelfTests()">SELF-TEST</button>
     </div>
-    <div class="result" id="genResult">—</div>
+    <div id="wordGrid" aria-hidden="true"></div>
+    <div id="passNote"></div>
+    <div id="nextStep" aria-live="polite"></div>
+    <div class="result" id="genResult" role="status">—</div>
     <div class="btn-row" style="margin-top:6px;">
       <button class="secondary small" onclick="sendToVerify()">SEND TO VERIFY</button>
       <button class="secondary small" onclick="copyFingerprint(this)">COPY FINGERPRINT</button>
@@ -307,18 +339,18 @@
   </div>
 
   <div class="card">
-    <h2>VERIFY</h2>
-    <textarea id="phrase" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Type or paste a seed phrase to verify..."></textarea>
+    <h2>4 &middot; CHECK YOUR BACKUP</h2>
+    <textarea id="phrase" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Type or paste your seed words to check..."></textarea>
     <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
-      <input type="password" id="verifyPass" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Optional passphrase to check" style="flex:1; min-width:0;">
+      <input type="password" id="verifyPass" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Passphrase (only if you used one)" style="flex:1; min-width:0;">
       <button type="button" class="secondary small" onclick="toggleVerifyPassphrase(this)">SHOW</button>
     </div>
-    <input type="text" id="verifyRecorded" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Optional: fingerprint or first address from your backup" style="margin-top:6px;">
+    <input type="text" id="verifyRecorded" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Backup fingerprint/address (optional)" style="margin-top:6px;">
     <div class="btn-row" style="margin-top:8px;">
       <button id="verifyBtn" onclick="verify()" disabled>VERIFY</button>
     </div>
-    <div class="status" id="verifyStatus" style="white-space:pre-wrap; word-break:break-all;"></div>
-    <div class="status" id="verifyMatch" style="word-break:break-word; margin-top:8px;"></div>
+    <div class="status" id="verifyStatus" aria-live="polite" style="white-space:pre-wrap; word-break:break-all;"></div>
+    <div class="status" id="verifyMatch" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
   </div>
 
 
@@ -374,6 +406,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.5.0</b> &mdash; Cleaner layout: the seed words show as a numbered grid (and print numbered); passphrase and note moved into a collapsed &ldquo;Advanced options&rdquo; section that opens itself if the two passphrase boxes do not match and flags when a passphrase is set; one status line for self-test and network; plainer messages (&ldquo;Enter 23 more rolls&rdquo;); numbered steps; better keyboard focus and screen-reader announcements. Fixed: after a passphrase mismatch, SEND TO VERIFY, PRINT and DOWNLOAD could treat the error text as a seed. Seed generation is unchanged.</li>
         <li><b>1.4.2</b> &mdash; VERIFY can now check a fingerprint or first address you wrote down: it says whether it matches the phrase WITHOUT a passphrase, WITH the passphrase you typed, or neither. The result, print and download now state plainly whether a passphrase was used (never the passphrase itself). Seed generation is unchanged.</li>
         <li><b>1.4.1</b> &mdash; VERIFY now has an optional passphrase box and shows the fingerprint and first address both without and with the passphrase, so you can confirm a written-down passphrase reproduces what FORGE showed. The passphrase is never displayed or saved. Seed generation is unchanged.</li>
         <li><b>1.4.0</b> &mdash; Added the first receive address (BIP84 native SegWit, <code>bc1q&hellip;</code>) next to the fingerprint, in FORGE and VERIFY, with a COPY ADDRESS button; a second passphrase box that must match (a mistyped passphrase gives a different wallet); tap buttons for dice 1&ndash;6 and coin 1/0; and 3 more self-tests (29 in all) covering address derivation. Seed words and fingerprints are unchanged.</li>
@@ -392,7 +425,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.4.2 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.5.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -486,13 +519,13 @@ function updateCount(){
     statusEl.textContent = an.msg; statusEl.style.color = "#7a7a90"; fillEl.style.width = "0%";
   } else if (an.level === "ok") {
     fillEl.style.width = "100%"; fillEl.style.background = "#00ff9d";
-    statusEl.textContent = "No obvious problems (this check cannot prove your dice or coin are random)"; statusEl.style.color = "#00ff9d";
+    statusEl.textContent = "No obvious problems (this check cannot prove your dice or coin are random)"; statusEl.style.color = "var(--ok-text)";
   } else if (an.level === "warn") {
     fillEl.style.width = "60%"; fillEl.style.background = "#ffaa00";
-    statusEl.textContent = "Slightly unusual counts (can happen by chance)"; statusEl.style.color = "#ffaa00";
+    statusEl.textContent = "Slightly unusual counts (can happen by chance)"; statusEl.style.color = "var(--warn-text)";
   } else {
     fillEl.style.width = "30%"; fillEl.style.background = "#ff4466";
-    statusEl.textContent = "Looks non-random: " + an.problems.join("; "); statusEl.style.color = "#ff4466";
+    statusEl.textContent = "Looks non-random: " + an.problems.join("; "); statusEl.style.color = "var(--bad-text)";
   }
   const bits = isCoin ? rolls.length : rolls.length * Math.log2(6);
   document.getElementById("bitsNote").textContent = rolls.length
@@ -738,13 +771,15 @@ async function generate(){
   const wc = parseInt(document.querySelector('input[name="words"]:checked').value);
   const need = getNeeded(wc);
   if(rolls.length!==need){
-    document.getElementById("genResult").textContent = "Need exactly "+need+(getMode()==="coin"?" flips":" rolls")+" (you have "+rolls.length+")";
+    const unit = getMode()==="coin" ? "flips" : "rolls", diff = Math.abs(need - rolls.length);
+    setResult(rolls.length < need ? "Enter " + diff + " more " + unit + " (" + rolls.length + " of " + need + ")." : "Remove " + diff + " " + unit + " (" + rolls.length + " of " + need + ").");
     document.getElementById("fingerprint").textContent = "";
     document.getElementById("address").textContent = "";
     return;
   }
   if(document.getElementById("passphrase").value !== document.getElementById("passphrase2").value){
-    document.getElementById("genResult").textContent = "The two passphrase boxes do not match. A mistyped passphrase gives a different wallet, so fix them (or clear both) and try again.";
+    setResult("The two passphrase boxes do not match. A mistyped passphrase gives a different wallet, so fix them (or clear both) and try again.");
+    document.getElementById("advanced").open = true;
     document.getElementById("fingerprint").textContent = "";
     document.getElementById("address").textContent = "";
     return;
@@ -753,7 +788,7 @@ async function generate(){
   if(an.level==="bad" && !confirm("Your input looks non-random (" + an.problems.join("; ") + "). A seed made from it may be weak. Forge anyway?")) return;
   const mnemonic = await rollsToMnemonic(rolls, wc);
   const pass = document.getElementById("passphrase").value;
-  document.getElementById("genResult").textContent = mnemonic + "\n\nPassphrase: " + (pass ? "used (" + Array.from(pass).length + " characters, not shown here)" : "none");
+  setResult(mnemonic + "\n\nPassphrase: " + (pass ? "used (" + Array.from(pass).length + " characters, not shown here)" : "none"), mnemonic.split(" "));
   const fpEl = document.getElementById("fingerprint"), adEl = document.getElementById("address");
   fpEl.textContent = "Master fingerprint: computing..."; adEl.textContent = "";
   try {
@@ -780,8 +815,8 @@ function safeCopy(text){
 }
 // Moves the generated words into the VERIFY box inside the page (no clipboard involved) and checks them.
 async function sendToVerify(){
+  if(!hasSeed()) return alert("Generate a seed first");
   const words = document.getElementById("genResult").textContent.split("\n")[0].trim();
-  if(!words || words==="—" || words.startsWith("Need exactly")) return alert("Generate a seed first");
   const box = document.getElementById("phrase");
   box.value = words;
   await verify();
@@ -820,6 +855,26 @@ function toggleVerifyPassphrase(btn){
   el.type = show ? "text" : "password";
   btn.textContent = show ? "HIDE" : "SHOW";
 }
+function updateAdvSummary(){
+  const has = document.getElementById("passphrase").value !== "" || document.getElementById("passphrase2").value !== "";
+  document.getElementById("advSummary").textContent = "Advanced options (passphrase, note)" + (has ? " \u2014 PASSPHRASE SET" : "");
+}
+// One place that sets the result area. `words` (array) means a real seed is showing.
+function setResult(text, words){
+  const g = document.getElementById("genResult"), grid = document.getElementById("wordGrid");
+  g.textContent = text; grid.textContent = "";
+  if(words){
+    g.dataset.seed = "1"; g.classList.add("sr");
+    words.forEach((w, i) => { const c = document.createElement("div"); c.className = "wcell"; const n = document.createElement("b"); n.textContent = (i + 1) + "."; c.appendChild(n); c.appendChild(document.createTextNode(w)); grid.appendChild(c); });
+    grid.style.display = "grid";
+    document.getElementById("passNote").textContent = text.split("\n").slice(-1)[0];
+    document.getElementById("nextStep").textContent = "Write these " + words.length + " words down in order, then check your backup below. PRINT SEED prints them.";
+  } else {
+    delete g.dataset.seed; g.classList.remove("sr"); grid.style.display = "none";
+    document.getElementById("passNote").textContent = ""; document.getElementById("nextStep").textContent = "";
+  }
+}
+function hasSeed(){ return document.getElementById("genResult").dataset.seed === "1"; }
 function togglePassphrase(btn){
   const el = document.getElementById("passphrase"), el2 = document.getElementById("passphrase2");
   const show = el.type === "password";
@@ -827,11 +882,11 @@ function togglePassphrase(btn){
   btn.textContent = show ? "HIDE" : "SHOW";
 }
 function printSeed(){
+  if(!hasSeed()) return alert("Generate a seed first");
   const phrase = document.getElementById("genResult").textContent.split("\n")[0];
-  if(!phrase || phrase==="—" || phrase.startsWith("Need exactly")) return alert("Generate a seed first");
   if(!confirm("Printing sends your seed to a printer and its spooler. Only print on a trusted offline computer with a directly connected printer. The passphrase is never printed. Continue?")) return;
   const po = document.getElementById("printOnly");
-  po.textContent = "VOIDFORGE\n\n" + phrase + "\n\n" + document.getElementById("fingerprint").textContent + "\n" + document.getElementById("address").textContent + "\n" + passLine("printed");
+  po.textContent = "VOIDFORGE\n\n" + phrase.split(" ").map((w, i) => String(i + 1).padStart(2, " ") + ". " + w).join("\n") + "\n\n" + document.getElementById("fingerprint").textContent + "\n" + document.getElementById("address").textContent + "\n" + passLine("printed");
   document.body.classList.add("print-seed");
   let done = false;
   const cleanup = () => { if(done) return; done = true; document.body.classList.remove("print-seed"); po.textContent = ""; };
@@ -844,11 +899,12 @@ function updateOnlineWarning(){
   const tag = document.getElementById("netTag");
   if(tag){
     tag.className = navigator.onLine ? "on" : "off";
-    tag.textContent = navigator.onLine ? "NETWORK: ONLINE (browser reports a connection)" : "NETWORK: OFFLINE (browser reports no connection; this cannot prove the machine is air-gapped)";
+    tag.textContent = navigator.onLine ? "NETWORK: ONLINE" : "NETWORK: OFFLINE";
+    tag.title = navigator.onLine ? "The browser reports a network connection." : "The browser reports no connection. This cannot prove the machine is air-gapped.";
   }
   if(navigator.onLine){
     el.style.display = "block";
-    el.textContent = "WARNING: this device appears to be ONLINE. Do not generate or enter a seed for real funds on a connected computer. Disconnect (unplug / airplane mode) and reload this file.";
+    el.textContent = "WARNING: this computer looks ONLINE. Do not use real funds on a connected computer. Disconnect (unplug or airplane mode) and reload this file.";
   } else {
     el.style.display = "none";
     el.textContent = "";
@@ -878,7 +934,7 @@ function clearAll(){
   document.getElementById("verifyPass").type="password";
   document.getElementById("verifyStatus").textContent="";
   document.getElementById("testResults").textContent="";
-  document.getElementById("genResult").textContent="—";
+  setResult("\u2014"); updateAdvSummary();
   document.getElementById("fingerprint").textContent="";
   document.getElementById("address").textContent="";
   document.getElementById("rollHistory").textContent="";
@@ -937,8 +993,8 @@ function downloadTool() {
 }
 
 function downloadSeed() {
+  if (!hasSeed()) return alert("Generate a seed first");
   const text = document.getElementById("genResult").textContent;
-  if (!text || text === "—" || text.startsWith("Need exactly")) return alert("Generate a seed first");
   if (!confirm("This saves your seed and rolls to a PLAIN-TEXT file. Only do this on a trusted offline computer. The passphrase is not saved. Continue?")) return;
   const rolls = document.getElementById("rolls").value;
   const full = text + "\n\n" + document.getElementById("fingerprint").textContent + "\n" + document.getElementById("address").textContent + "\n" + passLine("saved") + "\n\nInput: " + rolls;

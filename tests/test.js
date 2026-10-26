@@ -69,7 +69,7 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
   t=load(); await t.ready(); t.set(rnd(50)); t.$('passphrase').value='SECRETPASS'; t.$('passphrase2').value='SECRETPASS'; await t.w.generate();
   const words=t.$('genResult').textContent.split('\n')[0];
   t.w.printSeed();
-  ok(t.st.printed===1&&t.st.printHTML.includes(words)&&!t.st.printHTML.includes('SECRETPASS')&&/print-seed/.test(t.st.printClass),'PRINT SEED prints words+fingerprint only, no passphrase');
+  ok(t.st.printed===1&&words.split(' ').every((w,i)=>t.st.printHTML.includes(String(i+1).padStart(2,' ')+'. '+w))&&!t.st.printHTML.includes('SECRETPASS')&&/print-seed/.test(t.st.printClass),'PRINT SEED prints numbered words + fingerprint only, no passphrase');
   t.w.dispatchEvent(new t.w.Event('afterprint')); ok(t.$('printOnly').textContent===''&&!t.d.body.classList.contains('print-seed'),'print area cleaned up after printing');
   // --- download seed: confirm, no passphrase ---
   t.w.downloadSeed(); const txt=await blobText(t.w,t.st.blob);
@@ -120,6 +120,24 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     ct[1].onclick(); ct[0].onclick(); eq(t.$('rolls').value,'01','coin taps append flips');
     const dice=t.d.querySelector('input[name="mode"][value="dice"]'); t.$('rolls').value=''; dice.checked=true; t.w.onModeChange();
     t.$('passphrase').value='a'; t.$('passphrase2').value='a'; t.w.togglePassphrase(t.d.querySelector('button[onclick^="togglePassphrase"]')); ok(t.$('passphrase').type==='text'&&t.$('passphrase2').type==='text','SHOW reveals both passphrase boxes');
+  }
+  // v1.5.0: layout and clarity
+  { t.set('65515223131652132161133154444123616466443112153441'); t.$('passphrase').value=''; t.$('passphrase2').value=''; await t.w.generate();
+    const cells=[...t.d.querySelectorAll('#wordGrid .wcell')];
+    ok(cells.length===12&&cells[0].textContent==='1.hole'&&cells[11].textContent==='12.path'&&t.$('wordGrid').style.display==='grid','seed words show as a numbered grid');
+    ok(t.$('genResult').classList.contains('sr')&&t.$('genResult').dataset.seed==='1','plain-text result is kept (screen-reader only) and flagged as a seed');
+    ok(/Passphrase: none/.test(t.$('passNote').textContent)&&/Write these 12 words down in order/.test(t.$('nextStep').textContent),'visible passphrase note and next-step line');
+    // mismatch: error shown, grid hidden, advanced opens, error text is NOT treated as a seed
+    t.$('advanced').open=false; t.$('passphrase').value='a'; t.$('passphrase2').value='b'; t.w.updateAdvSummary(); await t.w.generate();
+    ok(t.$('advanced').open===true&&t.$('wordGrid').style.display==='none'&&!t.$('genResult').dataset.seed&&/PASSPHRASE SET/.test(t.$('advSummary').textContent),'mismatch opens Advanced options, hides the grid and flags the passphrase');
+    t.st.alerts.length=0; await t.w.sendToVerify(); t.w.printSeed(); t.w.downloadSeed();
+    ok(t.st.alerts.length===3&&t.$('phrase').value!==t.$('genResult').textContent.split('\n')[0].trim(),'after a mismatch SEND TO VERIFY, PRINT and DOWNLOAD refuse (error text is never used as a seed)');
+    t.$('passphrase').value=''; t.$('passphrase2').value=''; t.w.updateAdvSummary(); ok(!/PASSPHRASE SET/.test(t.$('advSummary').textContent),'advanced summary flag clears');
+    t.$('rolls').value='123'; t.w.updateCount(); await t.w.generate(); eq(t.$('genResult').textContent,'Enter 47 more rolls (3 of 50).','too few rolls: plain message');
+    t.$('rolls').value='1'.repeat(53); t.w.updateCount(); await t.w.generate(); eq(t.$('genResult').textContent,'Remove 3 rolls (53 of 50).','too many rolls: plain message');
+    ok(t.$('statusLine').contains(t.$('netTag'))&&t.$('statusLine').contains(t.$('selfTestBadge')),'network tag and self-test badge share one status line');
+    ok(/^NETWORK: (ONLINE|OFFLINE)$/.test(t.$('netTag').textContent),'network tag is short');
+    t.$('rolls').value=''; t.w.updateCount();
   }
   // v1.4.2: explicit passphrase line in print and download
   { t.set('65515223131652132161133154444123616466443112153441'); t.$('passphrase').value=''; t.$('passphrase2').value=''; await t.w.generate(); t.w.printSeed();

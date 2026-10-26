@@ -44,10 +44,19 @@ async function probe(w) {
 
   let r = await run('dice', 12, D50); if (r !== expect.d50 || fpOf() !== fp(expect.d50, '')) fails.push('dice 12 words / fingerprint');
   if (adOf() !== addr(expect.d50, '')) fails.push('first receive address');
+  { const cells = [...w.document.querySelectorAll('#wordGrid .wcell')]; await run('dice', 12, D50);
+    const cs = [...w.document.querySelectorAll('#wordGrid .wcell')];
+    if (cs.length !== 12 || cs[0].textContent !== '1.' + expect.d50.split(' ')[0] || cs[11].textContent !== '12.' + expect.d50.split(' ')[11]) fails.push('numbered word grid');
+    $('phrase').value = ''; await w.sendToVerify(); if ($('phrase').value !== expect.d50) fails.push('SEND TO VERIFY moves the words');
+    $('rolls').value = D50; $('passphrase').value = 'a'; $('passphrase2').value = 'b'; await w.generate(); $('phrase').value = ''; await w.sendToVerify();
+    if ($('phrase').value !== '') fails.push('an error message is never used as a seed');
+    $('passphrase').value = ''; $('passphrase2').value = ''; }
+  r = await run('dice', 12, D50 + '1', ''); if (r !== 'Remove 1 rolls (51 of 50).') fails.push('too many rolls message');
+  r = await run('dice', 12, D50.slice(0, 40), ''); if (r !== 'Enter 10 more rolls (40 of 50).') fails.push('too few rolls message');
   r = await run('dice', 24, D99);     if (r !== expect.d99) fails.push('dice 24 words');
   r = await run('coin', 12, C128);    if (r !== expect.c128) fails.push('coin 12 words');
   r = await run('dice', 12, D50.replace(/(.{5})/g, '$1 ') + ' x,y;z'); if (r !== expect.d50) fails.push('input cleaning (spaces/junk)');
-  r = await run('dice', 12, D50 + '1');   if (!/^Need exactly 50/.test(r)) fails.push('rejects wrong length');
+  r = await run('dice', 12, D50 + '1');   if (!/^Remove 1 rolls \(51 of 50\)\./.test(r)) fails.push('rejects wrong length');
   r = await run('dice', 12, D50, UNI);    if (fpOf() !== fp(expect.d50, UNI)) fails.push('unicode passphrase fingerprint');
   if (adOf() !== addr(expect.d50, UNI)) fails.push('first receive address with unicode passphrase');
   // passphrase confirmation must block a mismatch
@@ -137,7 +146,11 @@ const M = [
   ['match: NO MATCH shown as success', 'return {ok:false, text:"NO MATCH:', 'return {ok:true, text:"NO MATCH:'],
   ['match: hasPass guard dropped (a1/fp1 are undefined without a passphrase)', 'if(hasPass && q ===', 'if(q ===', true],
   ['passphrase line: YES/NO swapped (print and download)', '(used ? "YES (keep it separate; it is not " + kind + " here)" : "NO")', '(used ? "NO" : "YES (keep it separate; it is not " + kind + " here)")'],
-  ['result line: no-passphrase wording wrong', ': "none");', ': "used");'],
+  ['result line: no-passphrase wording wrong', ': "none"), mnemonic.split(" "));', ': "used"), mnemonic.split(" "));'],
+  ['grid: word numbers off by one',           '(i + 1) + "."', 'i + "."'],
+  ['seed flag never set (SEND TO VERIFY would refuse)', 'g.dataset.seed = "1";', 'g.dataset.seed = "";'],
+  ['seed flag not cleared after an error (error text treated as a seed)', 'delete g.dataset.seed;', ''],
+  ['plain message: too few rolls wording', '"Enter " + diff + " more "', '"Enter " + rolls.length + " more "'],
   ['mnemonic NFKD removed (English ASCII words)', 'enc.encode(mnemonic.normalize("NFKD"))', 'enc.encode(mnemonic)', true],
   ['master key range check removed (unreachable in practice)', 'if(k===0n || k>=SN) throw new Error("Invalid master key");', '', true],
 ];
