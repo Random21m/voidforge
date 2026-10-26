@@ -309,10 +309,14 @@
   <div class="card">
     <h2>VERIFY</h2>
     <textarea id="phrase" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Type or paste a seed phrase to verify..."></textarea>
-    <div class="btn-row">
+    <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
+      <input type="password" id="verifyPass" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Optional passphrase to check" style="flex:1; min-width:0;">
+      <button type="button" class="secondary small" onclick="toggleVerifyPassphrase(this)">SHOW</button>
+    </div>
+    <div class="btn-row" style="margin-top:8px;">
       <button id="verifyBtn" onclick="verify()" disabled>VERIFY</button>
     </div>
-    <div class="status" id="verifyStatus"></div>
+    <div class="status" id="verifyStatus" style="white-space:pre-wrap; word-break:break-all;"></div>
   </div>
 
 
@@ -325,6 +329,7 @@
         <li>Press <b>SELF-TEST</b> and confirm it says all tests passed.</li>
         <li>Choose <b>Dice</b> or <b>Coin</b>, enter your physical rolls or flips, and press <b>FORGE SEED</b>. For coins, decide which side is 1 and which is 0 (heads = 1, tails = 0 is the usual choice), use it for every flip, and record the exact 1/0 string with your backup. You can type, paste, or tap the buttons above the box.</li>
         <li>Compare the words and the master fingerprint with a second independent offline tool before trusting real funds.</li>
+        <li>To check a backup later, type the words into VERIFY (and the passphrase, if you used one) and compare the fingerprint and first address with what you wrote down.</li>
       </ol>
     </details>
     <details>
@@ -342,8 +347,8 @@
       <p><code>PBKDF2-HMAC-SHA512(mnemonic, "mnemonic"+passphrase, 2048) &rarr; seed</code><br>
          <code>HMAC-SHA512("Bitcoin seed", seed) &rarr; master private key</code><br>
          <code>secp256k1 pubkey &rarr; RIPEMD160(SHA256(pubkey)) &rarr; first 4 bytes</code></p>
-      <p><b>First receive address.</b> Also shown is the first Bitcoin mainnet receive address of a standard native SegWit (BIP84) wallet: BIP32 child keys along <code>m/84&rsquo;/0&rsquo;/0&rsquo;/0/0</code>, then <code>RIPEMD160(SHA256(pubkey))</code> encoded as a <code>bc1q&hellip;</code> bech32 address. Use it to cross-check against a wallet that imports the same words (a watch-only wallet is enough): the fingerprint alone is a weak check, a matching first address is a strong one. It is only correct for wallets that use the BIP84 path; other wallet types (legacy, nested SegWit, Taproot) show different addresses. It includes the passphrase if you entered one; the VERIFY box shows it without one.</p>
-      <p>RIPEMD-160 and secp256k1 are implemented in this file (no libraries). The curve code is not constant-time, which is fine offline but another reason never to run this on a networked or shared computer. The fingerprint includes the optional BIP39 passphrase; the VERIFY box shows it without one.</p>
+      <p><b>First receive address.</b> Also shown is the first Bitcoin mainnet receive address of a standard native SegWit (BIP84) wallet: BIP32 child keys along <code>m/84&rsquo;/0&rsquo;/0&rsquo;/0/0</code>, then <code>RIPEMD160(SHA256(pubkey))</code> encoded as a <code>bc1q&hellip;</code> bech32 address. Use it to cross-check against a wallet that imports the same words (a watch-only wallet is enough): the fingerprint alone is a weak check, a matching first address is a strong one. It is only correct for wallets that use the BIP84 path; other wallet types (legacy, nested SegWit, Taproot) show different addresses. It includes the passphrase if you entered one; VERIFY shows it without a passphrase and, if you type one into its own passphrase box, with it too.</p>
+      <p>RIPEMD-160 and secp256k1 are implemented in this file (no libraries). The curve code is not constant-time, which is fine offline but another reason never to run this on a networked or shared computer. The fingerprint includes the optional BIP39 passphrase; VERIFY shows it without a passphrase and, if you type one into its own passphrase box, with it too.</p>
     </details>
     <details>
       <summary>What SELF-TEST checks</summary>
@@ -367,6 +372,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.4.1</b> &mdash; VERIFY now has an optional passphrase box and shows the fingerprint and first address both without and with the passphrase, so you can confirm a written-down passphrase reproduces what FORGE showed. The passphrase is never displayed or saved. Seed generation is unchanged.</li>
         <li><b>1.4.0</b> &mdash; Added the first receive address (BIP84 native SegWit, <code>bc1q&hellip;</code>) next to the fingerprint, in FORGE and VERIFY, with a COPY ADDRESS button; a second passphrase box that must match (a mistyped passphrase gives a different wallet); tap buttons for dice 1&ndash;6 and coin 1/0; and 3 more self-tests (29 in all) covering address derivation. Seed words and fingerprints are unchanged.</li>
         <li><b>1.3.1</b> &mdash; Header now says DICE / COIN. Added a clear red notice that shows whenever the page&rsquo;s script is not running (file previews, old browsers, JavaScript off), a coin-mode hint explaining which side is 1 or 0 and to record the string, and a not-for-phones note. Seed generation is unchanged.</li>
         <li><b>1.3.0</b> &mdash; Added an always-visible NETWORK: ONLINE/OFFLINE tag, an &ldquo;&asymp; bits of entropy if rolls are fair&rdquo; line, a passphrase-normalization test in the self-test (26 tests), and a note on what the self-test cannot catch. Seed generation is unchanged: the same rolls give the same words and fingerprint as 1.2.x.</li>
@@ -383,7 +389,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.4.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.4.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -788,6 +794,12 @@ function copyAddress(btn){
   if(!m) return alert("Generate a seed first");
   safeCopy(m[1]).then(()=>showCopied(btn)).catch(()=>alert("Copy failed. Select the address and copy it manually."));
 }
+function toggleVerifyPassphrase(btn){
+  const el = document.getElementById("verifyPass");
+  const show = el.type === "password";
+  el.type = show ? "text" : "password";
+  btn.textContent = show ? "HIDE" : "SHOW";
+}
 function togglePassphrase(btn){
   const el = document.getElementById("passphrase"), el2 = document.getElementById("passphrase2");
   const show = el.type === "password";
@@ -840,6 +852,8 @@ function clearAll(){
   document.querySelectorAll("button").forEach(b=>{ if(b.textContent==="HIDE") b.textContent="SHOW"; });
   document.getElementById("note").value="";
   document.getElementById("phrase").value="";
+  document.getElementById("verifyPass").value="";
+  document.getElementById("verifyPass").type="password";
   document.getElementById("verifyStatus").textContent="";
   document.getElementById("testResults").textContent="";
   document.getElementById("genResult").textContent="—";
@@ -858,8 +872,16 @@ async function verify(){
   st.className = "status " + (r.ok ? "ok" : "bad");
   st.textContent = r.msg;
   if(r.ok){
-    try { st.textContent += " | master fingerprint (no passphrase): " + await mnemonicFingerprint(r.mnemonic, ""); } catch(e) {}
-    try { st.textContent += " | first address (no passphrase): " + await mnemonicFirstAddress(r.mnemonic, ""); } catch(e) {}
+    const vp = document.getElementById("verifyPass").value, lines = [r.msg];
+    try { lines.push("Without passphrase: fingerprint " + await mnemonicFingerprint(r.mnemonic, "") + " | first address " + await mnemonicFirstAddress(r.mnemonic, "")); }
+    catch(e) { lines.push("Without passphrase: unavailable (" + e.message + ")"); }
+    if(vp){
+      try { lines.push("With passphrase (" + Array.from(vp).length + " characters, not shown): fingerprint " + await mnemonicFingerprint(r.mnemonic, vp) + " | first address " + await mnemonicFirstAddress(r.mnemonic, vp)); }
+      catch(e) { lines.push("With passphrase: unavailable (" + e.message + ")"); }
+    } else {
+      lines.push("No passphrase entered. To check one, type it in the passphrase box above and press VERIFY again.");
+    }
+    st.textContent = lines.join("\n");
   }
 }
 

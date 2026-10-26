@@ -23,7 +23,7 @@ Get <code>voidforge.html</code> and <code>SHA256SUMS</code> from the release pag
 
 **Coin flips:** decide which side is 1 and which is 0 (the usual choice is heads = 1, tails = 0), use it for every flip, and keep the exact 1/0 string with your backup. Only the string is hashed, so any consistent choice works, but the mapping cannot be recovered from the words.
 
-- Shows the master fingerprint **and the first native SegWit (BIP84) receive address** so you can cross-check with a wallet; asks you to type any passphrase twice; tap buttons for dice 1-6 and coin 1/0.
+- Shows the master fingerprint **and the first native SegWit (BIP84) receive address** so you can cross-check with a wallet; asks you to type any passphrase twice; tap buttons for dice 1-6 and coin 1/0. VERIFY can check a phrase with and without a passphrase.
 - Guides: [RECOVERY.md](RECOVERY.md) (what to back up, how to restore) and [SECURITY.md](SECURITY.md) (reporting, known limits).
 - Method: `SHA256(rolls or flips as text)` → BIP39. Matches SeedSigner's published dice examples; coin mode uses SeedSigner's method (1/0 string).
 - Tests: `npm ci && npm test` (unit tests, differential tests against `@scure/bip39` and `@scure/bip32`, and mutation tests that break the code on purpose to prove the safety net catches it)

@@ -61,6 +61,10 @@ async function probe(w) {
   // VERIFY must show the published BIP84 vector address
   $('phrase').value = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'; await w.verify();
   if (!/bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu/.test($('verifyStatus').textContent)) fails.push('VERIFY shows first address');
+  $('verifyPass').value = 'TREZOR'; await w.verify(); { const vs = $('verifyStatus').textContent;
+    if (!/Without passphrase: fingerprint 73c5da0a \| first address bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu/.test(vs)) fails.push('VERIFY without-passphrase line');
+    if (!/With passphrase \(6 characters, not shown\): fingerprint b4e3f5ed \| first address bc1qv5rmq0kt9yz3pm36wvzct7p3x6mtgehjul0feu/.test(vs)) fails.push('VERIFY with-passphrase line'); }
+  $('verifyPass').value = '';
   if ((await w.checkPhrase(expect.d50)).ok !== true) fails.push('checker accepts valid');
   // Corrupt one word; the checker must agree with @scure about whether the result is valid.
   const parts = expect.d50.split(' '); parts[11] = parts[11] === 'zoo' ? 'abandon' : 'zoo';
@@ -113,6 +117,9 @@ const M = [
   ['passphrase confirmation bypassed',      'if(document.getElementById("passphrase").value !== document.getElementById("passphrase2").value){', 'if(false){'],
   ['tap button appends wrong value',        'el.value += v; updateCount();', 'el.value += "1"; updateCount();'],
   ['address: child key not reduced mod n (needed about half the time)', 'child=(il+k)%SN;', 'child=(il+k);'],
+  ['VERIFY ignores the typed passphrase (fingerprint)', 'fingerprint " + await mnemonicFingerprint(r.mnemonic, vp)', 'fingerprint " + await mnemonicFingerprint(r.mnemonic, "")'],
+  ['VERIFY ignores the typed passphrase (address)', 'first address " + await mnemonicFirstAddress(r.mnemonic, vp)', 'first address " + await mnemonicFirstAddress(r.mnemonic, "")'],
+  ['VERIFY without-passphrase line uses the typed passphrase', 'fingerprint " + await mnemonicFingerprint(r.mnemonic, "") + " | first address " + await mnemonicFirstAddress(r.mnemonic, "")', 'fingerprint " + await mnemonicFingerprint(r.mnemonic, vp) + " | first address " + await mnemonicFirstAddress(r.mnemonic, vp)'],
   ['mnemonic NFKD removed (English ASCII words)', 'enc.encode(mnemonic.normalize("NFKD"))', 'enc.encode(mnemonic)', true],
   ['master key range check removed (unreachable in practice)', 'if(k===0n || k>=SN) throw new Error("Invalid master key");', '', true],
 ];

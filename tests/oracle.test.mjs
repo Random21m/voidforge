@@ -89,4 +89,17 @@ for (let i = 0; i < 6; i++) {
 }
 R.ok(bad === 0, `6 end-to-end UI runs (words, fingerprint, address) match the independent libraries (${bad} mismatches)`);
 
+// 5. VERIFY with and without a passphrase, through the UI, against the independent libraries
+bad = 0; n = 0;
+for (let i = 0; i < 20; i++) {
+  const mn = entropyToMnemonic(new Uint8Array(nc.randomBytes([16, 24][nc.randomInt(2)])), wordlist), pw = PASS[1 + nc.randomInt(PASS.length - 1)];
+  $('phrase').value = mn; $('verifyPass').value = pw; await w.verify();
+  const t = $('verifyStatus').textContent;
+  const wantNo = `Without passphrase: fingerprint ${fpOracle(mn, '')} | first address ${addrOracle(mn, '')}`;
+  const wantWith = `fingerprint ${fpOracle(mn, pw)} | first address ${addrOracle(mn, pw)}`;
+  n++;
+  if (!t.includes(wantNo) || !t.includes(wantWith)) { bad++; console.log('VERIFY MISMATCH', JSON.stringify(pw), mn); }
+}
+R.ok(bad === 0, `${n} VERIFY runs with and without a passphrase match the independent libraries (${bad} mismatches)`);
+
 R.done('oracle');
