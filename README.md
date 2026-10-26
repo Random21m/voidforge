@@ -19,7 +19,7 @@ Get <code>voidforge.html</code> and <code>SHA256SUMS</code> from the release pag
 4. Choose 12 or 24 words and Dice or Coin, enter your physical rolls or flips (type, paste, or tap the buttons), and press FORGE SEED. The words appear as a numbered grid. A passphrase, if you want one, goes in "Advanced options".
 5. Write the words down, then compare the words and the master fingerprint with a second independent offline tool before trusting real funds.
 
-**Browser testing:** checked in Chromium (automated and manual), Firefox and Safari (manual, v1.3.1; v1.4.0 automated in Chromium, not yet re-checked by hand in Firefox and Safari; self-test badge and the published dice example matched). The page needs Safari 14 or newer. Phones are not supported.
+**Browser testing:** automated tests run in Chromium, and the current release (v1.5.0) was checked by hand in Firefox and Safari on a desktop computer (self-test badge, layout, and the published dice example all matched). The page needs Safari 14 or newer. Phones are not supported.
 
 **Coin flips:** decide which side is 1 and which is 0 (the usual choice is heads = 1, tails = 0), use it for every flip, and keep the exact 1/0 string with your backup. Only the string is hashed, so any consistent choice works, but the mapping cannot be recovered from the words.
 
