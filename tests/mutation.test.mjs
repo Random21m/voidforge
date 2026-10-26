@@ -53,6 +53,8 @@ async function probe(w) {
     $('passphrase').value = ''; $('passphrase2').value = ''; }
   r = await run('dice', 12, D50 + '1', ''); if (r !== 'Remove 1 rolls (51 of 50).') fails.push('too many rolls message');
   r = await run('dice', 12, D50.slice(0, 40), ''); if (r !== 'Enter 10 more rolls (40 of 50).') fails.push('too few rolls message');
+  { const bs = [...w.document.querySelectorAll('#tapRow button')];
+    if (bs.length !== 6 || !bs.every((b, i) => b.querySelectorAll('svg circle').length === i + 1)) fails.push('dice faces have the right pips'); }
   r = await run('dice', 24, D99);     if (r !== expect.d99) fails.push('dice 24 words');
   r = await run('coin', 12, C128);    if (r !== expect.c128) fails.push('coin 12 words');
   r = await run('dice', 12, D50.replace(/(.{5})/g, '$1 ') + ' x,y;z'); if (r !== expect.d50) fails.push('input cleaning (spaces/junk)');
@@ -151,6 +153,7 @@ const M = [
   ['seed flag never set (SEND TO VERIFY would refuse)', 'g.dataset.seed = "1";', 'g.dataset.seed = "";'],
   ['seed flag not cleared after an error (error text treated as a seed)', 'delete g.dataset.seed;', ''],
   ['plain message: too few rolls wording', '"Enter " + diff + " more "', '"Enter " + rolls.length + " more "'],
+  ['dice face drawn with a missing pip (5)', '5:[[28,28],[72,28],[50,50],[28,72],[72,72]]', '5:[[28,28],[72,28],[28,72],[72,72]]'],
   ['mnemonic NFKD removed (English ASCII words)', 'enc.encode(mnemonic.normalize("NFKD"))', 'enc.encode(mnemonic)', true],
   ['master key range check removed (unreachable in practice)', 'if(k===0n || k>=SN) throw new Error("Invalid master key");', '', true],
 ];
