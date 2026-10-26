@@ -71,6 +71,22 @@ R.ok(bad === 0, `${n} random phrases: watch-only zpub/xpub/fingerprint match @sc
   R.ok(b === 0, `${fx.length} descriptors with checksums match the independent embit library (${b} mismatches)`);
 }
 
+// 2d. QR codes: every mask of every text must equal the independent `qrcode` Python library bit for bit
+// (hashes in tests/fixtures/qr.json; the same matrices were also decoded with zxing-cpp and OpenCV).
+{
+  const fx = JSON.parse((await import('node:fs')).readFileSync(new URL('./fixtures/qr.json', import.meta.url), 'utf8'));
+  let b = 0, tot = 0;
+  for (const c of fx) {
+    for (let m = 0; m < 8; m++) { tot++;
+      const q = w.qrMatrix(c.text, m);
+      const h = nc.createHash('sha256').update(q.rows.map(r => r.map(x => x ? '1' : '0').join('')).join('')).digest('hex');
+      if (h !== c.hashes[m] || q.version !== c.version) { b++; console.log('QR MISMATCH', c.text.slice(0, 20), m); } }
+    const a = w.qrMatrix(c.text), ha = nc.createHash('sha256').update(a.rows.map(r => r.map(x => x ? '1' : '0').join('')).join('')).digest('hex');
+    if (ha !== c.hashes[a.mask]) { b++; console.log('QR AUTO MISMATCH', c.text.slice(0, 20)); }
+  }
+  R.ok(b === 0, `${fx.length} texts (versions 1-12, UTF-8 included) x 8 masks, plus automatic mask: QR matrices match the independent library (${b} mismatches of ${tot + fx.length})`);
+}
+
 // 2b. first receive address (BIP84 m/84'/0'/0'/0/0) against @scure/bip32 + @scure/base + @noble/hashes
 bad = 0; n = 0;
 for (const bytes of [16, 20, 24, 28, 32]) for (let i = 0; i < 12; i++) {

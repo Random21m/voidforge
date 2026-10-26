@@ -350,6 +350,16 @@
       <div class="wlabel">Descriptor, change addresses (only if your app asks for it separately)</div>
       <div class="wval" id="wDescC"></div>
       <button class="secondary small" onclick="copyWatch(this,'wDescC')">COPY CHANGE DESCRIPTOR</button>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="secondary small" onclick="showQr('wZpub','zpub')">SHOW QR: ZPUB</button>
+        <button class="secondary small" onclick="showQr('wDescR','receive descriptor')">SHOW QR: DESCRIPTOR</button>
+        <button class="secondary small" onclick="showQr('wDescC','change descriptor')">SHOW QR: CHANGE</button>
+      </div>
+      <div id="qrBox" style="display:none; margin-top:10px; text-align:center;">
+        <div id="qrCaption" class="hint"></div>
+        <div id="qrImg" style="width:min(100%,340px); margin:8px auto; background:#fff; line-height:0;"></div>
+        <button class="secondary small" onclick="hideQr()">HIDE QR</button>
+      </div>
       <p class="hint" style="margin:8px 0 0;">In your wallet app choose &ldquo;watch-only&rdquo;, &ldquo;import xpub/zpub&rdquo; or &ldquo;import descriptor&rdquo; and paste. Then check that its first receiving address equals the First receive address shown above. See RECOVERY.md for steps per app.</p>
     </details>
     <div id="printOnly"></div>
@@ -400,13 +410,13 @@
       <p><code>PBKDF2-HMAC-SHA512(mnemonic, "mnemonic"+passphrase, 2048) &rarr; seed</code><br>
          <code>HMAC-SHA512("Bitcoin seed", seed) &rarr; master private key</code><br>
          <code>secp256k1 pubkey &rarr; RIPEMD160(SHA256(pubkey)) &rarr; first 4 bytes</code></p>
-      <p><b>Watch-only export.</b> After FORGE, the box &ldquo;Watch-only wallet&rdquo; shows the public key of the account <code>m/84&rsquo;/0&rsquo;/0&rsquo;</code> as a <code>zpub</code> (Electrum, Blue Wallet, Sparrow) and as output descriptors <code>wpkh([fingerprint/84h/0h/0h]xpub&hellip;/0/*)</code> for receiving and <code>/1/*</code> for change, with the descriptor checksum (Sparrow, Nunchuk, Bitcoin Core). It holds no private keys and cannot spend, but whoever has it can see every address and balance of that wallet, so give it only to your own wallet app. It is specific to the passphrase you entered. After importing, check that the app&rsquo;s first receive address equals the First receive address shown here.</p>
+      <p><b>Watch-only export.</b> After FORGE, the box &ldquo;Watch-only wallet&rdquo; shows the public key of the account <code>m/84&rsquo;/0&rsquo;/0&rsquo;</code> as a <code>zpub</code> (Electrum, Blue Wallet, Sparrow) and as output descriptors <code>wpkh([fingerprint/84h/0h/0h]xpub&hellip;/0/*)</code> for receiving and <code>/1/*</code> for change, with the descriptor checksum (Sparrow, Nunchuk, Bitcoin Core). It holds no private keys and cannot spend, but whoever has it can see every address and balance of that wallet, so give it only to your own wallet app. It is specific to the passphrase you entered. The SHOW QR buttons draw the same data as a QR code on screen so another device can scan it (many apps accept a scanned zpub or descriptor; if yours does not, use COPY). After importing, check that the app&rsquo;s first receive address equals the First receive address shown here.</p>
       <p><b>First receive address.</b> Also shown is the first Bitcoin mainnet receive address of a standard native SegWit (BIP84) wallet: BIP32 child keys along <code>m/84&rsquo;/0&rsquo;/0&rsquo;/0/0</code>, then <code>RIPEMD160(SHA256(pubkey))</code> encoded as a <code>bc1q&hellip;</code> bech32 address. Use it to cross-check against a wallet that imports the same words (a watch-only wallet is enough): the fingerprint alone is a weak check, a matching first address is a strong one. It is only correct for wallets that use the BIP84 path; other wallet types (legacy, nested SegWit, Taproot) show different addresses. It includes the passphrase if you entered one; VERIFY shows it without a passphrase and, if you type one into its own passphrase box, with it too.</p>
       <p>RIPEMD-160 and secp256k1 are implemented in this file (no libraries). The curve code is not constant-time, which is fine offline but another reason never to run this on a networked or shared computer. The fingerprint includes the optional BIP39 passphrase; VERIFY shows it without a passphrase and, if you type one into its own passphrase box, with it too.</p>
     </details>
     <details>
       <summary>What SELF-TEST checks</summary>
-      <p>It runs automatically every time the page loads; if any test fails, seed generation is disabled and a red banner appears. Press SELF-TEST to see the full list. It checks: the BIP39 wordlist hash; official BIP39 entropy vectors (12 to 24 words); SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; the first receive address (the published BIP84 vector, a second vector from two independent libraries, and the BIP173 bech32 example); the watch-only zpub (published BIP84 vector and an independent-library vector) and the descriptor checksum; passphrase normalization; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
+      <p>It runs automatically every time the page loads; if any test fails, seed generation is disabled and a red banner appears. Press SELF-TEST to see the full list. It checks: the BIP39 wordlist hash; official BIP39 entropy vectors (12 to 24 words); SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; the first receive address (the published BIP84 vector, a second vector from two independent libraries, and the BIP173 bech32 example); the watch-only zpub (published BIP84 vector and an independent-library vector), the descriptor checksum and a QR code matrix checked against an independent QR library; passphrase normalization; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
       <p><b>What the self-test cannot catch:</b> it only runs known answers through this same file, so it can miss a bug on inputs it does not cover, and a tampered file could simply fake a pass. It does not replace checking the file&rsquo;s SHA256 against the release, and it does not replace comparing your words and fingerprint in a second independent tool. The network tag at the top reads the browser&rsquo;s online flag only; it cannot prove the machine is air-gapped.</p>
     </details>
     <details>
@@ -426,6 +436,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.7.0</b> &mdash; QR codes for the watch-only export: SHOW QR buttons draw the zpub or descriptor as a QR code on screen (drawn by code inside this page, no library, no network) so a phone or other device can scan it into a watch-only wallet app. Public keys only. 1 more self-test (33 in all). Seed words, fingerprints, addresses, zpub and descriptors are unchanged.</li>
         <li><b>1.6.0</b> &mdash; Watch-only export: after FORGE, a collapsed box shows the wallet&rsquo;s public account key (zpub) and output descriptors (receive and change) with COPY buttons, so the wallet can be added to a watch-only app without the seed words. It never contains secret keys. 3 more self-tests (32 in all). Seed words, fingerprints and addresses are unchanged.</li>
         <li><b>1.5.1</b> &mdash; Larger, clearer dice buttons: drawn dice faces (instead of small font symbols), bigger tap targets, and bigger coin 1/0 buttons; the recent-rolls symbols are larger too. Seed generation is unchanged.</li>
         <li><b>1.5.0</b> &mdash; Cleaner layout: the seed words show as a numbered grid (and print numbered); passphrase and note moved into a collapsed &ldquo;Advanced options&rdquo; section that opens itself if the two passphrase boxes do not match and flags when a passphrase is set; one status line for self-test and network; plainer messages (&ldquo;Enter 23 more rolls&rdquo;); numbered steps; better keyboard focus and screen-reader announcements. Fixed: after a passphrase mismatch, SEND TO VERIFY, PRINT and DOWNLOAD could treat the error text as a seed. Seed generation is unchanged.</li>
@@ -447,7 +458,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.6.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.7.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -735,6 +746,83 @@ async function watchOnlyFromSeed(seed){
   return {fp, xpub, zpub, receive:d(0), change:d(1)};
 }
 async function mnemonicWatchOnly(mnemonic, passphrase){ return watchOnlyFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
+// QR code encoder (byte mode, error correction level M, versions 1-12), used only to display watch-only keys on screen.
+const QR_M={1:[10,[[1,16]]],2:[16,[[1,28]]],3:[26,[[1,44]]],4:[18,[[2,32]]],5:[24,[[2,43]]],6:[16,[[4,27]]],7:[18,[[4,31]]],8:[22,[[2,38],[2,39]]],9:[22,[[3,36],[2,37]]],10:[26,[[4,43],[1,44]]],11:[30,[[1,50],[4,51]]],12:[22,[[6,36],[2,37]]]};
+const QR_ALIGN={1:[],2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],7:[6,22,38],8:[6,24,42],9:[6,26,46],10:[6,28,50],11:[6,30,54],12:[6,32,58]};
+function qrGfMul(a,b){ let r=0; for(let i=7;i>=0;i--){ r=(r<<1)^((r>>>7)*0x11d); r^=((b>>>i)&1)*a; } return r; }
+function qrRs(data,deg){
+  const g=new Array(deg).fill(0); g[deg-1]=1; let root=1;
+  for(let i=0;i<deg;i++){ for(let j=0;j<deg;j++){ g[j]=qrGfMul(g[j],root); if(j+1<deg) g[j]^=g[j+1]; } root=qrGfMul(root,2); }
+  const res=new Array(deg).fill(0);
+  for(const b of data){ const f=b^res.shift(); res.push(0); for(let i=0;i<deg;i++) res[i]^=qrGfMul(g[i],f); }
+  return res;
+}
+function qrMatrix(text, forcedMask){
+  const bytes=Array.from(new TextEncoder().encode(text));
+  let ver=0, cap=0;
+  for(let v=1;v<=12;v++){ const dc=QR_M[v][1].reduce((s,[n,l])=>s+n*l,0); if(4+(v<10?8:16)+bytes.length*8<=dc*8){ ver=v; cap=dc; break; } }
+  if(!ver) throw new Error("Too long for a QR code");
+  const bits=[]; const put=(val,len)=>{ for(let i=len-1;i>=0;i--) bits.push((val>>>i)&1); };
+  put(4,4); put(bytes.length,ver<10?8:16); for(const b of bytes) put(b,8);
+  put(0,Math.min(4,cap*8-bits.length)); while(bits.length%8) bits.push(0);
+  for(let pad=0xec; bits.length<cap*8; pad^=0xec^0x11) put(pad,8);
+  const data=[]; for(let i=0;i<bits.length;i+=8) data.push(parseInt(bits.slice(i,i+8).join(""),2));
+  const [ecLen,groups]=QR_M[ver], blocks=[]; let k=0;
+  for(const [n,len] of groups) for(let i=0;i<n;i++){ const d=data.slice(k,k+len); k+=len; blocks.push([d,qrRs(d,ecLen)]); }
+  const maxLen=Math.max(...blocks.map(b=>b[0].length)), words=[];
+  for(let i=0;i<maxLen;i++) for(const b of blocks) if(i<b[0].length) words.push(b[0][i]);
+  for(let i=0;i<ecLen;i++) for(const b of blocks) words.push(b[1][i]);
+  const size=ver*4+17, m=[], fn=[];
+  for(let i=0;i<size;i++){ m.push(new Array(size).fill(false)); fn.push(new Array(size).fill(false)); }
+  const set=(x,y,d)=>{ m[y][x]=d; fn[y][x]=true; };
+  for(let i=0;i<size;i++){ set(6,i,i%2===0); set(i,6,i%2===0); }
+  for(const [cx,cy] of [[3,3],[size-4,3],[3,size-4]]) for(let dy=-4;dy<=4;dy++) for(let dx=-4;dx<=4;dx++){
+    const x=cx+dx, y=cy+dy, dist=Math.max(Math.abs(dx),Math.abs(dy)); if(x>=0&&x<size&&y>=0&&y<size) set(x,y,dist!==2&&dist!==4); }
+  const ap=QR_ALIGN[ver];
+  for(let i=0;i<ap.length;i++) for(let j=0;j<ap.length;j++){
+    if((i===0&&j===0)||(i===0&&j===ap.length-1)||(i===ap.length-1&&j===0)) continue;
+    for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++) set(ap[i]+dx,ap[j]+dy,Math.max(Math.abs(dx),Math.abs(dy))!==1); }
+  const drawFormat=(mask)=>{
+    const d=mask; let rem=d; for(let i=0;i<10;i++) rem=(rem<<1)^((rem>>>9)*0x537);
+    const f=((d<<10)|rem)^0x5412, bit=(i)=>((f>>>i)&1)!==0;
+    for(let i=0;i<=5;i++) set(8,i,bit(i)); set(8,7,bit(6)); set(8,8,bit(7)); set(7,8,bit(8));
+    for(let i=9;i<15;i++) set(14-i,8,bit(i));
+    for(let i=0;i<8;i++) set(size-1-i,8,bit(i));
+    for(let i=8;i<15;i++) set(8,size-15+i,bit(i));
+    set(8,size-8,true);
+  };
+  drawFormat(0);
+  if(ver>=7){ let rem=ver; for(let i=0;i<12;i++) rem=(rem<<1)^((rem>>>11)*0x1f25);
+    const v=(ver<<12)|rem; for(let i=0;i<18;i++){ const b=((v>>>i)&1)!==0, a=size-11+i%3, c=Math.floor(i/3); set(a,c,b); set(c,a,b); } }
+  let bi=0;
+  for(let right=size-1;right>=1;right-=2){ if(right===6) right=5;
+    for(let vert=0;vert<size;vert++) for(let j=0;j<2;j++){ const x=right-j, up=((right+1)&2)===0, y=up?size-1-vert:vert;
+      if(!fn[y][x]&&bi<words.length*8){ m[y][x]=((words[bi>>>3]>>>(7-(bi&7)))&1)!==0; bi++; } } }
+  const MASKS=[(x,y)=>(x+y)%2===0,(x,y)=>y%2===0,(x,y)=>x%3===0,(x,y)=>(x+y)%3===0,(x,y)=>(Math.floor(x/3)+Math.floor(y/2))%2===0,(x,y)=>x*y%2+x*y%3===0,(x,y)=>(x*y%2+x*y%3)%2===0,(x,y)=>((x+y)%2+x*y%3)%2===0];
+  const applyMask=(mk)=>{ for(let y=0;y<size;y++) for(let x=0;x<size;x++) if(!fn[y][x]&&MASKS[mk](x,y)) m[y][x]=!m[y][x]; };
+  const penalty=()=>{
+    let r=0; const hist=(h,len)=>{ if(h[0]===0) len+=size; h.pop(); h.unshift(len); };
+    const pat=(h)=>{ const n=h[1], core=n>0&&h[2]===n&&h[3]===n*3&&h[4]===n&&h[5]===n; return (core&&h[0]>=n*4&&h[6]>=n?1:0)+(core&&h[6]>=n*4&&h[0]>=n?1:0); };
+    for(const horiz of [true,false]){ for(let a=0;a<size;a++){ let col=false, run=0; const h=[0,0,0,0,0,0,0];
+      for(let b=0;b<size;b++){ const c=horiz?m[a][b]:m[b][a];
+        if(c===col){ run++; if(run===5) r+=3; else if(run>5) r++; }
+        else { hist(h,run); if(!col) r+=pat(h)*40; col=c; run=1; } }
+      if(col){ hist(h,run); run=0; } run+=size; hist(h,run); r+=pat(h)*40; } }
+    for(let y=0;y<size-1;y++) for(let x=0;x<size-1;x++){ const c=m[y][x]; if(c===m[y][x+1]&&c===m[y+1][x]&&c===m[y+1][x+1]) r+=3; }
+    let dark=0; for(const row of m) for(const c of row) if(c) dark++;
+    const tot=size*size; r+=(Math.ceil(Math.abs(dark*20-tot*10)/tot)-1)*10; return r;
+  };
+  let mask=forcedMask;
+  if(mask===undefined){ let best=Infinity;
+    for(let mk=0;mk<8;mk++){ applyMask(mk); drawFormat(mk); const p=penalty(); if(p<best){ best=p; mask=mk; } applyMask(mk); } }
+  applyMask(mask); drawFormat(mask);
+  return {version:ver, mask, rows:m};
+}
+function qrSvg(rows){
+  const n=rows.length, q=4; let d="";
+  for(let y=0;y<n;y++) for(let x=0;x<n;x++) if(rows[y][x]) d+="M"+(x+q)+" "+(y+q)+"h1v1h-1z";
+  return '<svg viewBox="0 0 '+(n+2*q)+' '+(n+2*q)+'" shape-rendering="crispEdges" role="img" aria-label="QR code"><rect width="'+(n+2*q)+'" height="'+(n+2*q)+'" fill="#fff"/><path d="'+d+'" fill="#000"/></svg>';
+}
 async function mnemonicFirstAddress(mnemonic, passphrase){ return firstAddressFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
 async function sha256bytes(b){ return new Uint8Array(await crypto.subtle.digest("SHA-256", b)); }
 async function mnemonicFingerprint(mnemonic, passphrase){ return fingerprintFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
@@ -803,6 +891,7 @@ async function runSelfTests(auto){
   eq("watch-only zpub 'abandon..about' (published BIP84 vector)", async()=>(await mnemonicWatchOnly("abandon ".repeat(11)+"about","")).zpub,"zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs");
   eq("watch-only zpub + TREZOR (two independent libraries)", async()=>(await mnemonicWatchOnly("abandon ".repeat(11)+"about","TREZOR")).zpub,"zpub6rXDN3yuixCtvAyzKn3uWLDr8qXKEQ2orduEL5AAysdHZmuPVUL2vbMQDEhp8L9hRsgM8J8idDNPdZjrob8R5e7x7UoYXVdfjDG96TLa7La");
   eq("descriptor checksum (independent library vector)", ()=>descriptorChecksum("pkh([d34db33f/44h/0h/0h]xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/1/*)"),"pkh([d34db33f/44h/0h/0h]xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/1/*)#gw2sk4e2");
+  eq("QR code for the abandon..about zpub (matches the independent qrcode library)", async()=>hex(await sha256(qrMatrix("zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs",3).rows.map(r=>r.map(c=>c?"1":"0").join("")).join(""))),"e43b8ef820588438c53265831882e7ed85e3724ab618d7a2ae9ede4c73f4794f");
   eq("bech32 BIP173 example address", ()=>bech32Encode("bc",0,fromHex("751e76e8199196d454941c45d1b3a323f1433bd6")),"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4");
   eq("BIP32 test vector 1 fingerprint", ()=>fingerprintFromSeed(fromHex("000102030405060708090a0b0c0d0e0f")),"3442193e");
   // RIPEMD-160 standard vectors
@@ -876,7 +965,20 @@ async function generate(){
     document.getElementById("watchBox").style.display = "";
   } catch(e) { clearWatch(); }
 }
+function showQr(id, label){
+  const t = document.getElementById(id).textContent;
+  if(!t) return alert("Generate a seed first");
+  let q; try { q = qrMatrix(t); } catch(e) { return alert("QR code unavailable: " + e.message); }
+  document.getElementById("qrImg").innerHTML = qrSvg(q.rows);
+  document.getElementById("qrCaption").textContent = "QR code for the " + label + " (public key only). Scan it with your watch-only wallet app. If the app cannot scan it, use COPY instead.";
+  document.getElementById("qrBox").style.display = "";
+}
+function hideQr(){
+  document.getElementById("qrImg").textContent = ""; document.getElementById("qrCaption").textContent = "";
+  document.getElementById("qrBox").style.display = "none";
+}
 function clearWatch(){
+  hideQr();
   for(const id of ["wZpub","wDescR","wDescC"]) document.getElementById(id).textContent = "";
   const b = document.getElementById("watchBox"); b.style.display = "none"; b.open = false;
 }

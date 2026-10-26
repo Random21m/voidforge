@@ -26,6 +26,7 @@ A watch-only wallet shows this wallet's addresses and balance and can create uns
 - **Electrum:** New wallet, Standard wallet, "Use a master key", paste the zpub.
 - **Blue Wallet:** Add wallet, Import wallet, paste the zpub (it becomes watch-only).
 - **Nunchuk / Bitcoin Core:** import the descriptor (use the change descriptor too if the app asks for it separately).
+- **QR codes:** press SHOW QR under the zpub or descriptor and scan the screen with the app's camera/scan button. Scanning support differs by app (zpub and descriptor QR codes are widely accepted, but not by every app). If a scan fails, increase the screen brightness, keep the code large and still, or use COPY instead.
 
 Afterwards check that the app's first receiving address equals the **First receive address** VOIDFORGE showed. If you used a passphrase, the export is only for that passphrase. Treat the zpub like private financial information: anyone who has it can see all your addresses and balance, though they cannot spend. Spending later needs the seed words, for example on a hardware wallet or a restored wallet.
 

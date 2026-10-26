@@ -1,6 +1,6 @@
 # Review guide
 
-VOIDFORGE is meant to be read. The security-relevant code is a few hundred lines in `voidforge.html`. Line numbers are approximate (v1.6.0).
+VOIDFORGE is meant to be read. The security-relevant code is a few hundred lines in `voidforge.html`. Line numbers are approximate (v1.7.0).
 
 | What | Where | Look for |
 |---|---|---|
@@ -10,6 +10,7 @@ VOIDFORGE is meant to be read. The security-relevant code is a few hundred lines
 | Fingerprint | `ripemd160` ~508, `eadd`/`emul` ~547, `mnemonicToSeed` ~556, `fingerprintFromSeed` ~563 | Correctness only; it does not affect the seed. Not constant-time (offline use). |
 | First receive address | `masterFromSeed`, `ckdPriv`, `bech32Encode`, `firstAddressFromSeed` (search these names) | Display only; it does not affect the seed. Check the derivation path (`m/84'/0'/0'/0/0`: 84, 0, 0 hardened, then 0, 0), the mod-n key addition, and that the bech32 checksum constant is 1 (BIP173). Tested against the published BIP84 vector and two independent libraries. |
 | Watch-only export | `watchOnlyFromSeed`, `base58check`, `descriptorChecksum` | Public data only: check that no private key or seed byte is ever serialized (version bytes 0x0488B21E / 0x04B24746 are public-key versions; the key placed in the output is `pubkeyBytes(k)`), depth 3, hardened index 0x80000000, parent fingerprint. Tested against the published BIP84 zpub, @scure/bip32 on random phrases, and embit-generated descriptors with checksums (`tests/fixtures/watchonly.json`). |
+| QR codes | `qrMatrix`, `qrSvg`, `showQr` | Display only, public data only. Byte mode, error correction M, versions 1-12, drawn as inline SVG (no library, no network). Tested bit for bit against the independent `qrcode` library for every version and mask (`tests/fixtures/qr.json`), and the same matrices were decoded with zxing-cpp and OpenCV. The automatic mask choice can differ from other libraries (any mask is valid). |
 | Result display | `setResult`, `hasSeed` | `setResult` is the only place that sets the result area; `hasSeed()` (a flag set only when a real seed is showing) guards SEND TO VERIFY, PRINT and DOWNLOAD so an error message is never treated as a seed. The word grid is display only. |
 | Passphrase confirm and tap buttons | `generate`, `buildTapRow` | The two passphrase boxes must match before forging; tap buttons only append to the roll box. |
 | Self-test and gate | `runSelfTests` ~597, `gateOk` ~814 | Known-answer vectors are real; failure disables the tool. |
