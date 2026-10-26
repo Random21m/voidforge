@@ -166,6 +166,9 @@
     min-height: 46px;
     word-break: break-word;
   }
+  .hint { font-size: 12px; color: var(--muted); }
+  .wlabel { margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .wval { font-family: monospace; font-size: 12px; word-break: break-all; margin: 4px 0 6px; user-select: all; }
   .fp { margin-top: 12px; font-size: 18px; color: var(--accent); font-weight: 700; letter-spacing: 1px; }
   .status { margin-top: 6px; font-weight: 600; font-size: 13px; }
   :root { --ok-text: #00ff9d; }
@@ -335,6 +338,20 @@
     </div>
     <div class="fp" id="fingerprint"></div>
     <div id="address" style="margin-top:6px; font-size:13px; word-break:break-all; color:var(--muted);"></div>
+    <details id="watchBox" style="display:none; margin-top:10px;">
+      <summary>Watch-only wallet (public keys only, cannot spend)</summary>
+      <p class="hint" style="margin:8px 0;">Use this to see this wallet&rsquo;s addresses and balance on a phone or online computer <b>without the seed words</b>. It cannot spend. Anyone who gets it can see every address and balance of this wallet, so share it only with your own wallet app. If you used a passphrase, it belongs to this passphrase only.</p>
+      <div class="wlabel">Extended public key (zpub): Electrum, Blue Wallet, Sparrow</div>
+      <div class="wval" id="wZpub"></div>
+      <button class="secondary small" onclick="copyWatch(this,'wZpub')">COPY ZPUB</button>
+      <div class="wlabel">Descriptor, receiving addresses: Sparrow, Nunchuk, Bitcoin Core</div>
+      <div class="wval" id="wDescR"></div>
+      <button class="secondary small" onclick="copyWatch(this,'wDescR')">COPY DESCRIPTOR</button>
+      <div class="wlabel">Descriptor, change addresses (only if your app asks for it separately)</div>
+      <div class="wval" id="wDescC"></div>
+      <button class="secondary small" onclick="copyWatch(this,'wDescC')">COPY CHANGE DESCRIPTOR</button>
+      <p class="hint" style="margin:8px 0 0;">In your wallet app choose &ldquo;watch-only&rdquo;, &ldquo;import xpub/zpub&rdquo; or &ldquo;import descriptor&rdquo; and paste. Then check that its first receiving address equals the First receive address shown above. See RECOVERY.md for steps per app.</p>
+    </details>
     <div id="printOnly"></div>
     <div class="status" id="testResults" style="white-space:pre-wrap; font-family:monospace; font-size:11px; font-weight:400;"></div>
     
@@ -383,12 +400,13 @@
       <p><code>PBKDF2-HMAC-SHA512(mnemonic, "mnemonic"+passphrase, 2048) &rarr; seed</code><br>
          <code>HMAC-SHA512("Bitcoin seed", seed) &rarr; master private key</code><br>
          <code>secp256k1 pubkey &rarr; RIPEMD160(SHA256(pubkey)) &rarr; first 4 bytes</code></p>
+      <p><b>Watch-only export.</b> After FORGE, the box &ldquo;Watch-only wallet&rdquo; shows the public key of the account <code>m/84&rsquo;/0&rsquo;/0&rsquo;</code> as a <code>zpub</code> (Electrum, Blue Wallet, Sparrow) and as output descriptors <code>wpkh([fingerprint/84h/0h/0h]xpub&hellip;/0/*)</code> for receiving and <code>/1/*</code> for change, with the descriptor checksum (Sparrow, Nunchuk, Bitcoin Core). It holds no private keys and cannot spend, but whoever has it can see every address and balance of that wallet, so give it only to your own wallet app. It is specific to the passphrase you entered. After importing, check that the app&rsquo;s first receive address equals the First receive address shown here.</p>
       <p><b>First receive address.</b> Also shown is the first Bitcoin mainnet receive address of a standard native SegWit (BIP84) wallet: BIP32 child keys along <code>m/84&rsquo;/0&rsquo;/0&rsquo;/0/0</code>, then <code>RIPEMD160(SHA256(pubkey))</code> encoded as a <code>bc1q&hellip;</code> bech32 address. Use it to cross-check against a wallet that imports the same words (a watch-only wallet is enough): the fingerprint alone is a weak check, a matching first address is a strong one. It is only correct for wallets that use the BIP84 path; other wallet types (legacy, nested SegWit, Taproot) show different addresses. It includes the passphrase if you entered one; VERIFY shows it without a passphrase and, if you type one into its own passphrase box, with it too.</p>
       <p>RIPEMD-160 and secp256k1 are implemented in this file (no libraries). The curve code is not constant-time, which is fine offline but another reason never to run this on a networked or shared computer. The fingerprint includes the optional BIP39 passphrase; VERIFY shows it without a passphrase and, if you type one into its own passphrase box, with it too.</p>
     </details>
     <details>
       <summary>What SELF-TEST checks</summary>
-      <p>It runs automatically every time the page loads; if any test fails, seed generation is disabled and a red banner appears. Press SELF-TEST to see the full list. It checks: the BIP39 wordlist hash; official BIP39 entropy vectors (12 to 24 words); SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; the first receive address (the published BIP84 vector, a second vector from two independent libraries, and the BIP173 bech32 example); passphrase normalization; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
+      <p>It runs automatically every time the page loads; if any test fails, seed generation is disabled and a red banner appears. Press SELF-TEST to see the full list. It checks: the BIP39 wordlist hash; official BIP39 entropy vectors (12 to 24 words); SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; the first receive address (the published BIP84 vector, a second vector from two independent libraries, and the BIP173 bech32 example); the watch-only zpub (published BIP84 vector and an independent-library vector) and the descriptor checksum; passphrase normalization; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
       <p><b>What the self-test cannot catch:</b> it only runs known answers through this same file, so it can miss a bug on inputs it does not cover, and a tampered file could simply fake a pass. It does not replace checking the file&rsquo;s SHA256 against the release, and it does not replace comparing your words and fingerprint in a second independent tool. The network tag at the top reads the browser&rsquo;s online flag only; it cannot prove the machine is air-gapped.</p>
     </details>
     <details>
@@ -408,6 +426,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.6.0</b> &mdash; Watch-only export: after FORGE, a collapsed box shows the wallet&rsquo;s public account key (zpub) and output descriptors (receive and change) with COPY buttons, so the wallet can be added to a watch-only app without the seed words. It never contains secret keys. 3 more self-tests (32 in all). Seed words, fingerprints and addresses are unchanged.</li>
         <li><b>1.5.1</b> &mdash; Larger, clearer dice buttons: drawn dice faces (instead of small font symbols), bigger tap targets, and bigger coin 1/0 buttons; the recent-rolls symbols are larger too. Seed generation is unchanged.</li>
         <li><b>1.5.0</b> &mdash; Cleaner layout: the seed words show as a numbered grid (and print numbered); passphrase and note moved into a collapsed &ldquo;Advanced options&rdquo; section that opens itself if the two passphrase boxes do not match and flags when a passphrase is set; one status line for self-test and network; plainer messages (&ldquo;Enter 23 more rolls&rdquo;); numbered steps; better keyboard focus and screen-reader announcements. Fixed: after a passphrase mismatch, SEND TO VERIFY, PRINT and DOWNLOAD could treat the error text as a seed. Seed generation is unchanged.</li>
         <li><b>1.4.2</b> &mdash; VERIFY can now check a fingerprint or first address you wrote down: it says whether it matches the phrase WITHOUT a passphrase, WITH the passphrase you typed, or neither. The result, print and download now state plainly whether a passphrase was used (never the passphrase itself). Seed generation is unchanged.</li>
@@ -428,7 +447,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.5.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.6.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -676,6 +695,46 @@ async function firstAddressFromSeed(seed){
   const h160=ripemd160(await sha256bytes(pubkeyBytes(k)));
   return bech32Encode("bc",0,h160);
 }
+// Watch-only export: account-level public key for m/84'/0'/0' (BIP32 serialization, Base58Check), plus output descriptors.
+const B58="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+async function base58check(payload){
+  const sum=(await sha256bytes(await sha256bytes(payload))).slice(0,4);
+  const all=new Uint8Array(payload.length+4); all.set(payload,0); all.set(sum,payload.length);
+  let n=0n; for(const b of all) n=(n<<8n)|BigInt(b);
+  let out=""; while(n>0n){ out=B58[Number(n%58n)]+out; n/=58n; }
+  for(const b of all){ if(b===0) out="1"+out; else break; }
+  return out;
+}
+function descriptorChecksum(str){
+  const IN="0123456789()[],'/*abcdefgh@:$%{}IJKLMNOPQRSTUVWXYZ&+-.;<=>?!^_|~ijklmnopqrstuvwxyzABCDEFGH`#\"\\ ";
+  const GEN=[0xf5dee51989n,0xa9fdca3312n,0x1bab10e32dn,0x3706b1677an,0x644d626ffdn];
+  const syms=[]; let groups=[];
+  for(const c of str){ const v=IN.indexOf(c); if(v<0) throw new Error("bad descriptor character");
+    syms.push(v&31); groups.push(v>>5);
+    if(groups.length===3){ syms.push(groups[0]*9+groups[1]*3+groups[2]); groups=[]; } }
+  if(groups.length===1) syms.push(groups[0]); else if(groups.length===2) syms.push(groups[0]*3+groups[1]);
+  let chk=1n;
+  for(const v of syms.concat([0,0,0,0,0,0,0,0])){
+    const top=chk>>35n; chk=((chk&0x7ffffffffn)<<5n)^BigInt(v);
+    for(let i=0;i<5;i++) if((top>>BigInt(i))&1n) chk^=GEN[i];
+  }
+  chk^=1n; let out="";
+  for(let i=0;i<8;i++) out+=B32[Number((chk>>BigInt(5*(7-i)))&31n)];
+  return str+"#"+out;
+}
+async function watchOnlyFromSeed(seed){
+  let [k,c]=await masterFromSeed(seed);
+  const fp=await fingerprintFromSeed(seed);
+  let parentPub=null;
+  for(const i of [84,0,0]){ parentPub=pubkeyBytes(k); [k,c]=await ckdPriv(k,c,i,true); }
+  const parentFp=ripemd160(await sha256bytes(parentPub)).slice(0,4);
+  const pub=pubkeyBytes(k);
+  const ser=(ver)=>{ const b=new Uint8Array(78); b.set(ver,0); b[4]=3; b.set(parentFp,5); b.set([0x80,0,0,0],9); b.set(c,13); b.set(pub,45); return b; };
+  const xpub=await base58check(ser([0x04,0x88,0xb2,0x1e])), zpub=await base58check(ser([0x04,0xb2,0x47,0x46]));
+  const d=(br)=>descriptorChecksum("wpkh(["+fp+"/84h/0h/0h]"+xpub+"/"+br+"/*)");
+  return {fp, xpub, zpub, receive:d(0), change:d(1)};
+}
+async function mnemonicWatchOnly(mnemonic, passphrase){ return watchOnlyFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
 async function mnemonicFirstAddress(mnemonic, passphrase){ return firstAddressFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
 async function sha256bytes(b){ return new Uint8Array(await crypto.subtle.digest("SHA-256", b)); }
 async function mnemonicFingerprint(mnemonic, passphrase){ return fingerprintFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
@@ -741,6 +800,9 @@ async function runSelfTests(auto){
   // first receive address: BIP84 published vector, a passphrase vector from two independent libraries, and the BIP173 bech32 example
   eq("BIP84 first address 'abandon..about' (published BIP84 vector)", ()=>mnemonicFirstAddress("abandon ".repeat(11)+"about",""),"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu");
   eq("first address 'abandon..about' + TREZOR (two independent libraries)", ()=>mnemonicFirstAddress("abandon ".repeat(11)+"about","TREZOR"),"bc1qv5rmq0kt9yz3pm36wvzct7p3x6mtgehjul0feu");
+  eq("watch-only zpub 'abandon..about' (published BIP84 vector)", async()=>(await mnemonicWatchOnly("abandon ".repeat(11)+"about","")).zpub,"zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs");
+  eq("watch-only zpub + TREZOR (two independent libraries)", async()=>(await mnemonicWatchOnly("abandon ".repeat(11)+"about","TREZOR")).zpub,"zpub6rXDN3yuixCtvAyzKn3uWLDr8qXKEQ2orduEL5AAysdHZmuPVUL2vbMQDEhp8L9hRsgM8J8idDNPdZjrob8R5e7x7UoYXVdfjDG96TLa7La");
+  eq("descriptor checksum (independent library vector)", ()=>descriptorChecksum("pkh([d34db33f/44h/0h/0h]xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/1/*)"),"pkh([d34db33f/44h/0h/0h]xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/1/*)#gw2sk4e2");
   eq("bech32 BIP173 example address", ()=>bech32Encode("bc",0,fromHex("751e76e8199196d454941c45d1b3a323f1433bd6")),"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4");
   eq("BIP32 test vector 1 fingerprint", ()=>fingerprintFromSeed(fromHex("000102030405060708090a0b0c0d0e0f")),"3442193e");
   // RIPEMD-160 standard vectors
@@ -794,6 +856,7 @@ async function generate(){
   setResult(mnemonic + "\n\nPassphrase: " + (pass ? "used (" + Array.from(pass).length + " characters, not shown here)" : "none"), mnemonic.split(" "));
   const fpEl = document.getElementById("fingerprint"), adEl = document.getElementById("address");
   fpEl.textContent = "Master fingerprint: computing..."; adEl.textContent = "";
+  clearWatch();
   try {
     const fp = await mnemonicFingerprint(mnemonic, pass);
     fpEl.textContent = "Master fingerprint: " + fp + (pass ? " (with passphrase)" : "");
@@ -805,6 +868,22 @@ async function generate(){
   } catch(e) {
     adEl.textContent = "First address unavailable: " + e.message;
   }
+  try {
+    const w = await mnemonicWatchOnly(mnemonic, pass);
+    document.getElementById("wZpub").textContent = w.zpub;
+    document.getElementById("wDescR").textContent = w.receive;
+    document.getElementById("wDescC").textContent = w.change;
+    document.getElementById("watchBox").style.display = "";
+  } catch(e) { clearWatch(); }
+}
+function clearWatch(){
+  for(const id of ["wZpub","wDescR","wDescC"]) document.getElementById(id).textContent = "";
+  const b = document.getElementById("watchBox"); b.style.display = "none"; b.open = false;
+}
+function copyWatch(btn, id){
+  const t = document.getElementById(id).textContent;
+  if(!t) return alert("Generate a seed first");
+  safeCopy(t).then(()=>showCopied(btn)).catch(()=>alert("Copy failed. Select the text and copy it manually."));
 }
 
 function showCopied(btn){
@@ -875,6 +954,7 @@ function setResult(text, words){
   } else {
     delete g.dataset.seed; g.classList.remove("sr"); grid.style.display = "none";
     document.getElementById("passNote").textContent = ""; document.getElementById("nextStep").textContent = "";
+    clearWatch();
   }
 }
 function hasSeed(){ return document.getElementById("genResult").dataset.seed === "1"; }
@@ -940,6 +1020,7 @@ function clearAll(){
   setResult("\u2014"); updateAdvSummary();
   document.getElementById("fingerprint").textContent="";
   document.getElementById("address").textContent="";
+  clearWatch();
   document.getElementById("rollHistory").textContent="";
   document.getElementById("diceVisual").textContent="";
   safeCopy("").catch(()=>{});

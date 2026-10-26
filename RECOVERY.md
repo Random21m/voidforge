@@ -18,6 +18,17 @@ Never store the words as a photo, text, email, cloud note or password-manager en
 3. Import the words into a wallet that supports BIP39 and BIP84 (native SegWit, "bc1q" addresses). Its first receive address should equal the one VOIDFORGE showed. If you used a passphrase, enter it exactly as written in the wallet's passphrase field.
 4. Only then move real funds, and start with a small amount.
 
+## Add the wallet to a watch-only app (optional)
+
+A watch-only wallet shows this wallet's addresses and balance and can create unsigned transactions, but it holds no secret keys and cannot spend. VOIDFORGE shows what to paste in the **Watch-only wallet** box after FORGE (open it by pressing its title). Because it stays on the screen only, write it down or copy it on the offline computer and carry it to your other device on a USB stick or as a QR code made offline.
+
+- **Sparrow:** New Wallet, then Airgapped Hardware Wallet / Watch Only (or "Descriptor" under Script Type), paste the descriptor.
+- **Electrum:** New wallet, Standard wallet, "Use a master key", paste the zpub.
+- **Blue Wallet:** Add wallet, Import wallet, paste the zpub (it becomes watch-only).
+- **Nunchuk / Bitcoin Core:** import the descriptor (use the change descriptor too if the app asks for it separately).
+
+Afterwards check that the app's first receiving address equals the **First receive address** VOIDFORGE showed. If you used a passphrase, the export is only for that passphrase. Treat the zpub like private financial information: anyone who has it can see all your addresses and balance, though they cannot spend. Spending later needs the seed words, for example on a hardware wallet or a restored wallet.
+
 ## Restoring
 
 - Choose "restore wallet" / "import seed" in a BIP39-compatible wallet and enter the words (and the passphrase, if any).

@@ -23,6 +23,10 @@ const addr = (mn, pw) => {
   return bech32.encode('bc', [0, ...bech32.toWords(ripemd160(nsha(k.publicKey)))]);
 };
 
+const ZV = { private: 0x04b2430c, public: 0x04b24746 };
+const watch = (mn, pw) => { const seed = mnemonicToSeedSync(mn, pw);
+  return { zpub: HDKey.fromMasterSeed(seed, ZV).derive("m/84'/0'/0'").publicExtendedKey, xpub: HDKey.fromMasterSeed(seed).derive("m/84'/0'/0'").publicExtendedKey, fp: fp(mn, pw) }; };
+
 // Fixed probe inputs (not SeedSigner's, so this is independent of the in-page vectors).
 const D50 = '31415926535897932384626433832795028841971693993751'.replace(/[0789]/g, c => ({ 0: '6', 7: '2', 8: '4', 9: '5' }[c]));
 const D99 = (D50 + D50).slice(0, 99);
@@ -44,6 +48,12 @@ async function probe(w) {
 
   let r = await run('dice', 12, D50); if (r !== expect.d50 || fpOf() !== fp(expect.d50, '')) fails.push('dice 12 words / fingerprint');
   if (adOf() !== addr(expect.d50, '')) fails.push('first receive address');
+  { const wo = watch(expect.d50, ''), z = $('wZpub').textContent, dr = $('wDescR').textContent, dc = $('wDescC').textContent;
+    if (z !== wo.zpub) fails.push('watch-only zpub');
+    if (!dr.startsWith(`wpkh([${wo.fp}/84h/0h/0h]${wo.xpub}/0/*)#`) || !/#[02-9ac-hj-np-z]{8}$/.test(dr)) fails.push('watch-only receive descriptor');
+    if (!dc.startsWith(`wpkh([${wo.fp}/84h/0h/0h]${wo.xpub}/1/*)#`)) fails.push('watch-only change descriptor');
+    if (dr.split('#')[1] === dc.split('#')[1]) fails.push('descriptor checksums differ per branch');
+    if ($('watchBox').style.display !== '') fails.push('watch-only box shown after FORGE'); }
   { const cells = [...w.document.querySelectorAll('#wordGrid .wcell')]; await run('dice', 12, D50);
     const cs = [...w.document.querySelectorAll('#wordGrid .wcell')];
     if (cs.length !== 12 || cs[0].textContent !== '1.' + expect.d50.split(' ')[0] || cs[11].textContent !== '12.' + expect.d50.split(' ')[11]) fails.push('numbered word grid');
@@ -61,9 +71,11 @@ async function probe(w) {
   r = await run('dice', 12, D50 + '1');   if (!/^Remove 1 rolls \(51 of 50\)\./.test(r)) fails.push('rejects wrong length');
   r = await run('dice', 12, D50, UNI);    if (fpOf() !== fp(expect.d50, UNI)) fails.push('unicode passphrase fingerprint');
   if (adOf() !== addr(expect.d50, UNI)) fails.push('first receive address with unicode passphrase');
+  if ($('wZpub').textContent !== watch(expect.d50, UNI).zpub) fails.push('watch-only zpub with unicode passphrase');
   // passphrase confirmation must block a mismatch
   mode('dice'); words(12); $('rolls').value = D50; $('rolls').oninput(); $('passphrase').value = 'abc'; $('passphrase2').value = 'abd'; await w.generate();
   if (!/do not match/.test($('genResult').textContent) || adOf()) fails.push('passphrase confirmation blocks a mismatch');
+  if ($('wZpub').textContent !== '' || $('watchBox').style.display !== 'none') fails.push('watch-only export hidden after an error');
   $('passphrase').value = ''; $('passphrase2').value = '';
   // tap buttons append the right values
   $('rolls').value = ''; w.updateCount(); const taps = [...w.document.querySelectorAll('#tapRow button')];
@@ -141,6 +153,18 @@ const M = [
   ['tap button appends wrong value',        'el.value += v; updateCount();', 'el.value += "1"; updateCount();'],
   ['address: child key not reduced mod n (needed about half the time)', 'child=(il+k)%SN;', 'child=(il+k);'],
   ['VERIFY ignores the typed passphrase (fingerprint)', 'fp1 = await mnemonicFingerprint(r.mnemonic, vp)', 'fp1 = await mnemonicFingerprint(r.mnemonic, "")'],
+  ['watch: depth byte wrong', 'b[4]=3;', 'b[4]=4;'],
+  ['watch: parent fingerprint dropped', 'b.set(parentFp,5);', 'b.set([0,0,0,0],5);'],
+  ['watch: child index not hardened', 'b.set([0x80,0,0,0],9);', 'b.set([0,0,0,0],9);'],
+  ['watch: zpub version bytes -> xpub', 'ser([0x04,0xb2,0x47,0x46])', 'ser([0x04,0x88,0xb2,0x1e])'],
+  ['watch: base58 alphabet swapped', 'B58="123456789ABCDEFGHJKLMNPQRSTUVWXYZ', 'B58="123456789ABCDEFGHJKLMNPQRSTUVWXZY'],
+  ['watch: base58 checksum skips second SHA-256', 'await sha256bytes(await sha256bytes(payload))', 'await sha256bytes(payload)'],
+  ['watch: leading-zero bytes not encoded (payload always starts with a non-zero version byte)', 'if(b===0) out="1"+out;', 'if(b===0) out=out;', true],
+  ['watch: account path wrong (m/84h/0h/1h)', 'for(const i of [84,0,0]){', 'for(const i of [84,0,1]){'],
+  ['watch: descriptor checksum final xor removed', 'chk^=1n; let out="";', 'let out="";'],
+  ['watch: descriptor origin path wrong', '"/84h/0h/0h]"', '"/84h/0h/1h]"'],
+  ['watch: change descriptor uses branch 0', 'd(1)', 'd(0)'],
+  ['watch: export not hidden on errors', '    clearWatch();\n  }', '  }'],
   ['VERIFY ignores the typed passphrase (address)', 'a1 = await mnemonicFirstAddress(r.mnemonic, vp)', 'a1 = await mnemonicFirstAddress(r.mnemonic, "")'],
   ['VERIFY without-passphrase line uses the typed passphrase', 'fp0 = await mnemonicFingerprint(r.mnemonic, "");', 'fp0 = await mnemonicFingerprint(r.mnemonic, vp);'],
   ['match: with-passphrase check compares the wrong values', '(kind === "fp" ? fp1 : a1)', '(kind === "fp" ? fp0 : a0)'],
@@ -159,7 +183,7 @@ const M = [
 ];
 
 const base = await detect(html);
-R.ok(base.by === null, 'control: the unmodified file passes the self-test and every probe');
+R.ok(base.by === null, "control: the unmodified file passes the self-test and every probe" + (base.by ? " [" + base.by + "]" : ""));
 
 const survivors = [];
 for (const [name, find, rep, equivalent] of M) {
