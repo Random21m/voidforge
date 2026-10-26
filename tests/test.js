@@ -37,7 +37,7 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
   eq(bad,0,'RIPEMD-160 fuzz mismatches');
   // --- dice flow, SeedSigner published example ---
   t.set('65515223131652132161133154444123616466443112153441'); await t.w.generate();
-  eq(t.$('genResult').textContent,'hole luggage safe present express tragic orbit shed switch metal identify path','dice 50 rolls -> SeedSigner mnemonic');
+  eq(t.$('genResult').textContent,'hole luggage safe present express tragic orbit shed switch metal identify path\n\nPassphrase: none','dice 50 rolls -> SeedSigner mnemonic, with an explicit "Passphrase: none" line');
   ok(/8d9cced8/.test(t.$('fingerprint').textContent),'dice 50 rolls -> SeedSigner fingerprint');
   // --- passphrase: masked, not shown/copied/printed/saved ---
   eq(t.$('passphrase').type,'password','passphrase input is masked');
@@ -99,6 +99,17 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
       ok(/Without passphrase: fingerprint 73c5da0a \| first address bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu/.test(vs),'VERIFY shows the without-passphrase fingerprint and address');
       ok(/With passphrase \(6 characters, not shown\): fingerprint b4e3f5ed \| first address bc1qv5rmq0kt9yz3pm36wvzct7p3x6mtgehjul0feu/.test(vs)&&!vs.includes('TREZOR'),'VERIFY shows the with-passphrase fingerprint and address without revealing the passphrase'); }
     t.$('verifyPass').value=''; await t.w.verify(); ok(/No passphrase entered/.test(t.$('verifyStatus').textContent)&&!/With passphrase/.test(t.$('verifyStatus').textContent),'VERIFY without a passphrase says none was entered');
+    // match a recorded fingerprint/address against with / without passphrase
+    { const M=async(rec,pw)=>{ t.$('verifyPass').value=pw; t.$('verifyRecorded').value=rec; await t.w.verify(); return t.$('verifyMatch').textContent; };
+      ok(/^MATCH \(without passphrase\)/.test(await M('73c5da0a','')),'recorded fingerprint without passphrase -> MATCH (without)');
+      ok(/^MATCH \(with passphrase\)/.test(await M('b4e3f5ed','TREZOR')),'recorded fingerprint with passphrase -> MATCH (with)');
+      ok(/^MATCH \(with passphrase\)/.test(await M('BC1QV5RMQ0KT9YZ3PM36WVZCT7P3X6MTGEHJUL0FEU ','TREZOR')),'recorded address (upper case, spaces) with passphrase -> MATCH (with)');
+      ok(/^MATCH \(without passphrase\)/.test(await M('bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu','TREZOR')),'recorded no-passphrase address still matches (without) when a passphrase is typed');
+      ok(/^NO MATCH:/.test(await M('deadbeef','TREZOR')),'recorded value matching neither -> NO MATCH');
+      ok(/^NO MATCH without a passphrase/.test(await M('b4e3f5ed',''))&&/type it in the passphrase box/.test(t.$('verifyMatch').textContent),'with-passphrase backup but no passphrase typed -> asks for the passphrase');
+      ok(/^Not recognized/.test(await M('hello','')),'garbage recorded value -> not recognized');
+      eq(await M('','TREZOR'),'','empty recorded box shows no match line'); }
+    t.$('verifyRecorded').value='';
     t.$('verifyPass').value='TREZOR'; t.w.toggleVerifyPassphrase(t.d.querySelector('button[onclick^="toggleVerifyPassphrase"]')); ok(t.$('verifyPass').type==='text','VERIFY passphrase SHOW toggle works'); t.w.toggleVerifyPassphrase(t.d.querySelector('button[onclick^="toggleVerifyPassphrase"]'));
     t.$('verifyPass').value='';
     t.$('rolls').value=''; t.w.updateCount();
@@ -110,6 +121,13 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     const dice=t.d.querySelector('input[name="mode"][value="dice"]'); t.$('rolls').value=''; dice.checked=true; t.w.onModeChange();
     t.$('passphrase').value='a'; t.$('passphrase2').value='a'; t.w.togglePassphrase(t.d.querySelector('button[onclick^="togglePassphrase"]')); ok(t.$('passphrase').type==='text'&&t.$('passphrase2').type==='text','SHOW reveals both passphrase boxes');
   }
+  // v1.4.2: explicit passphrase line in print and download
+  { t.set('65515223131652132161133154444123616466443112153441'); t.$('passphrase').value=''; t.$('passphrase2').value=''; await t.w.generate(); t.w.printSeed();
+    ok(/Passphrase used: NO/.test(t.st.printHTML),'print says Passphrase used: NO when none');
+    t.$('passphrase').value='SECRETPASS'; t.$('passphrase2').value='SECRETPASS'; await t.w.generate(); t.w.printSeed();
+    ok(/Passphrase used: YES/.test(t.st.printHTML)&&!t.st.printHTML.includes('SECRETPASS'),'print says Passphrase used: YES without printing it');
+    t.w.downloadSeed(); const dtxt=await blobText(t.w,t.st.blob); ok(/Passphrase used: YES/.test(dtxt)&&!dtxt.includes('SECRETPASS'),'download says Passphrase used: YES without saving it');
+    t.$('passphrase').value=''; t.$('passphrase2').value=''; }
   // item 1: patterns
   ok(t.$('noJs').style.display==='none','script-not-running notice is hidden once the script has run');
   ok(/DICE \/ COIN ENTROPY/.test(t.d.querySelector('.subtitle').textContent),'header says dice / coin');

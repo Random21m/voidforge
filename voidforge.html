@@ -313,10 +313,12 @@
       <input type="password" id="verifyPass" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Optional passphrase to check" style="flex:1; min-width:0;">
       <button type="button" class="secondary small" onclick="toggleVerifyPassphrase(this)">SHOW</button>
     </div>
+    <input type="text" id="verifyRecorded" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Optional: fingerprint or first address from your backup" style="margin-top:6px;">
     <div class="btn-row" style="margin-top:8px;">
       <button id="verifyBtn" onclick="verify()" disabled>VERIFY</button>
     </div>
     <div class="status" id="verifyStatus" style="white-space:pre-wrap; word-break:break-all;"></div>
+    <div class="status" id="verifyMatch" style="word-break:break-word; margin-top:8px;"></div>
   </div>
 
 
@@ -329,7 +331,7 @@
         <li>Press <b>SELF-TEST</b> and confirm it says all tests passed.</li>
         <li>Choose <b>Dice</b> or <b>Coin</b>, enter your physical rolls or flips, and press <b>FORGE SEED</b>. For coins, decide which side is 1 and which is 0 (heads = 1, tails = 0 is the usual choice), use it for every flip, and record the exact 1/0 string with your backup. You can type, paste, or tap the buttons above the box.</li>
         <li>Compare the words and the master fingerprint with a second independent offline tool before trusting real funds.</li>
-        <li>To check a backup later, type the words into VERIFY (and the passphrase, if you used one) and compare the fingerprint and first address with what you wrote down.</li>
+        <li>To check a backup later, type the words into VERIFY, add the passphrase if you used one, and paste the fingerprint or first address you wrote down into the last box. VERIFY tells you whether it matches without a passphrase, with it, or neither.</li>
       </ol>
     </details>
     <details>
@@ -372,6 +374,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.4.2</b> &mdash; VERIFY can now check a fingerprint or first address you wrote down: it says whether it matches the phrase WITHOUT a passphrase, WITH the passphrase you typed, or neither. The result, print and download now state plainly whether a passphrase was used (never the passphrase itself). Seed generation is unchanged.</li>
         <li><b>1.4.1</b> &mdash; VERIFY now has an optional passphrase box and shows the fingerprint and first address both without and with the passphrase, so you can confirm a written-down passphrase reproduces what FORGE showed. The passphrase is never displayed or saved. Seed generation is unchanged.</li>
         <li><b>1.4.0</b> &mdash; Added the first receive address (BIP84 native SegWit, <code>bc1q&hellip;</code>) next to the fingerprint, in FORGE and VERIFY, with a COPY ADDRESS button; a second passphrase box that must match (a mistyped passphrase gives a different wallet); tap buttons for dice 1&ndash;6 and coin 1/0; and 3 more self-tests (29 in all) covering address derivation. Seed words and fingerprints are unchanged.</li>
         <li><b>1.3.1</b> &mdash; Header now says DICE / COIN. Added a clear red notice that shows whenever the page&rsquo;s script is not running (file previews, old browsers, JavaScript off), a coin-mode hint explaining which side is 1 or 0 and to record the string, and a not-for-phones note. Seed generation is unchanged.</li>
@@ -389,7 +392,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.4.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.4.2 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -750,7 +753,7 @@ async function generate(){
   if(an.level==="bad" && !confirm("Your input looks non-random (" + an.problems.join("; ") + "). A seed made from it may be weak. Forge anyway?")) return;
   const mnemonic = await rollsToMnemonic(rolls, wc);
   const pass = document.getElementById("passphrase").value;
-  document.getElementById("genResult").textContent = mnemonic + (pass ? "\n\nPassphrase: used (" + Array.from(pass).length + " characters, not shown here)" : "");
+  document.getElementById("genResult").textContent = mnemonic + "\n\nPassphrase: " + (pass ? "used (" + Array.from(pass).length + " characters, not shown here)" : "none");
   const fpEl = document.getElementById("fingerprint"), adEl = document.getElementById("address");
   fpEl.textContent = "Master fingerprint: computing..."; adEl.textContent = "";
   try {
@@ -789,10 +792,27 @@ function copyFingerprint(btn){
   if(!m) return;
   safeCopy(m[1]).then(()=>showCopied(btn)).catch(()=>alert("Copy failed. Select the fingerprint and copy it manually."));
 }
+function passLine(kind){
+  const used = /Passphrase: used/.test(document.getElementById("genResult").textContent);
+  return "Passphrase used: " + (used ? "YES (keep it separate; it is not " + kind + " here)" : "NO");
+}
 function copyAddress(btn){
   const m = document.getElementById("address").textContent.match(/: (bc1[0-9a-z]+)/);
   if(!m) return alert("Generate a seed first");
   safeCopy(m[1]).then(()=>showCopied(btn)).catch(()=>alert("Copy failed. Select the address and copy it manually."));
+}
+// Compares a fingerprint (8 hex) or first address (bc1q...) the user wrote down with what this phrase gives
+// without a passphrase and with the passphrase typed in VERIFY.
+function matchRecorded(raw, fp0, a0, fp1, a1, hasPass){
+  const q = (raw || "").replace(/\s+/g, "").toLowerCase();
+  if(!q) return null;
+  const kind = /^[0-9a-f]{8}$/.test(q) ? "fp" : /^bc1q[0-9a-z]{38}$/.test(q) ? "addr" : null;
+  if(!kind) return {ok:false, text:"Not recognized. Enter the 8-character fingerprint or the bc1q... address you wrote down."};
+  const hint = kind === "fp" ? " A fingerprint is a short check; matching the first address is stronger." : "";
+  if(hasPass && q === (kind === "fp" ? fp1 : a1)) return {ok:true, text:"MATCH (with passphrase): your backup matches this phrase WITH the passphrase you typed." + hint};
+  if(q === (kind === "fp" ? fp0 : a0)) return {ok:true, text:"MATCH (without passphrase): your backup matches this phrase with NO passphrase." + hint};
+  if(hasPass) return {ok:false, text:"NO MATCH: your backup matches neither this phrase without a passphrase nor with the passphrase you typed. Recheck every word and the passphrase (capitals, spaces, accents)."};
+  return {ok:false, text:"NO MATCH without a passphrase. If you used one, type it in the passphrase box above and press VERIFY again. Otherwise recheck the words."};
 }
 function toggleVerifyPassphrase(btn){
   const el = document.getElementById("verifyPass");
@@ -811,7 +831,7 @@ function printSeed(){
   if(!phrase || phrase==="—" || phrase.startsWith("Need exactly")) return alert("Generate a seed first");
   if(!confirm("Printing sends your seed to a printer and its spooler. Only print on a trusted offline computer with a directly connected printer. The passphrase is never printed. Continue?")) return;
   const po = document.getElementById("printOnly");
-  po.textContent = "VOIDFORGE\n\n" + phrase + "\n\n" + document.getElementById("fingerprint").textContent + "\n" + document.getElementById("address").textContent;
+  po.textContent = "VOIDFORGE\n\n" + phrase + "\n\n" + document.getElementById("fingerprint").textContent + "\n" + document.getElementById("address").textContent + "\n" + passLine("printed");
   document.body.classList.add("print-seed");
   let done = false;
   const cleanup = () => { if(done) return; done = true; document.body.classList.remove("print-seed"); po.textContent = ""; };
@@ -853,6 +873,8 @@ function clearAll(){
   document.getElementById("note").value="";
   document.getElementById("phrase").value="";
   document.getElementById("verifyPass").value="";
+  document.getElementById("verifyRecorded").value="";
+  document.getElementById("verifyMatch").textContent="";
   document.getElementById("verifyPass").type="password";
   document.getElementById("verifyStatus").textContent="";
   document.getElementById("testResults").textContent="";
@@ -871,17 +893,21 @@ async function verify(){
   const r = await checkPhrase(document.getElementById("phrase").value);
   st.className = "status " + (r.ok ? "ok" : "bad");
   st.textContent = r.msg;
+  document.getElementById("verifyMatch").textContent = ""; document.getElementById("verifyMatch").className = "status";
   if(r.ok){
     const vp = document.getElementById("verifyPass").value, lines = [r.msg];
-    try { lines.push("Without passphrase: fingerprint " + await mnemonicFingerprint(r.mnemonic, "") + " | first address " + await mnemonicFirstAddress(r.mnemonic, "")); }
+    let fp0, a0, fp1, a1;
+    try { fp0 = await mnemonicFingerprint(r.mnemonic, ""); a0 = await mnemonicFirstAddress(r.mnemonic, ""); lines.push("Without passphrase: fingerprint " + fp0 + " | first address " + a0); }
     catch(e) { lines.push("Without passphrase: unavailable (" + e.message + ")"); }
     if(vp){
-      try { lines.push("With passphrase (" + Array.from(vp).length + " characters, not shown): fingerprint " + await mnemonicFingerprint(r.mnemonic, vp) + " | first address " + await mnemonicFirstAddress(r.mnemonic, vp)); }
+      try { fp1 = await mnemonicFingerprint(r.mnemonic, vp); a1 = await mnemonicFirstAddress(r.mnemonic, vp); lines.push("With passphrase (" + Array.from(vp).length + " characters, not shown): fingerprint " + fp1 + " | first address " + a1); }
       catch(e) { lines.push("With passphrase: unavailable (" + e.message + ")"); }
     } else {
       lines.push("No passphrase entered. To check one, type it in the passphrase box above and press VERIFY again.");
     }
     st.textContent = lines.join("\n");
+    const mt = document.getElementById("verifyMatch"), m = matchRecorded(document.getElementById("verifyRecorded").value, fp0, a0, fp1, a1, !!vp);
+    mt.className = "status " + (m ? (m.ok ? "ok" : "bad") : ""); mt.textContent = m ? m.text : "";
   }
 }
 
@@ -915,7 +941,7 @@ function downloadSeed() {
   if (!text || text === "—" || text.startsWith("Need exactly")) return alert("Generate a seed first");
   if (!confirm("This saves your seed and rolls to a PLAIN-TEXT file. Only do this on a trusted offline computer. The passphrase is not saved. Continue?")) return;
   const rolls = document.getElementById("rolls").value;
-  const full = text + "\n\n" + document.getElementById("fingerprint").textContent + "\n" + document.getElementById("address").textContent + "\n\nInput: " + rolls;
+  const full = text + "\n\n" + document.getElementById("fingerprint").textContent + "\n" + document.getElementById("address").textContent + "\n" + passLine("saved") + "\n\nInput: " + rolls;
   const blob = new Blob([full], {type: "text/plain"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);

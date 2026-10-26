@@ -13,7 +13,7 @@ Never store the words as a photo, text, email, cloud note or password-manager en
 
 ## Check the backup before you rely on it
 
-1. On the same offline computer, press **FORGE SEED**, write everything down, then use **VERIFY** and type the words back from your paper. It should say valid and show the same fingerprint and address as FORGE. If you used a passphrase, also type it into VERIFY's passphrase box: the "With passphrase" line must match what FORGE showed (the "Without passphrase" line will differ, which is expected). VERIFY never displays or saves the passphrase.
+1. On the same offline computer, press **FORGE SEED** and write everything down (the printout and download say plainly whether a passphrase was used). Then use **VERIFY**: type the words back from your paper, add the passphrase if you used one, and paste the fingerprint or first address you wrote down into the last box. VERIFY says **MATCH (with passphrase)**, **MATCH (without passphrase)**, or **NO MATCH**. Matching the first address is the stronger check. VERIFY never displays or saves the passphrase.
 2. Compare the words, fingerprint and first address with a **second independent tool** (for example a hardware wallet or SeedSigner set up with the same words, or a wallet that can import a seed).
 3. Import the words into a wallet that supports BIP39 and BIP84 (native SegWit, "bc1q" addresses). Its first receive address should equal the one VOIDFORGE showed. If you used a passphrase, enter it exactly as written in the wallet's passphrase field.
 4. Only then move real funds, and start with a small amount.
@@ -26,6 +26,7 @@ Never store the words as a photo, text, email, cloud note or password-manager en
 
 ## Common problems
 
+- **Not sure whether you used a passphrase:** the words cannot tell you. Enter your recorded fingerprint or address in VERIFY and try with and without your passphrase; the MATCH line tells you which one reproduces it.
 - **Different addresses after restore:** wrong address type, wrong passphrase, or one wrong word that still passes the checksum. Recheck each word, then the passphrase.
 - **Passphrase typed with different characters:** capital letters, spaces and accents all matter. VOIDFORGE's two passphrase boxes must match exactly before it will forge.
 - **Words in the wrong order:** the order is part of the seed.

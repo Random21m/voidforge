@@ -64,6 +64,18 @@ async function probe(w) {
   $('verifyPass').value = 'TREZOR'; await w.verify(); { const vs = $('verifyStatus').textContent;
     if (!/Without passphrase: fingerprint 73c5da0a \| first address bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu/.test(vs)) fails.push('VERIFY without-passphrase line');
     if (!/With passphrase \(6 characters, not shown\): fingerprint b4e3f5ed \| first address bc1qv5rmq0kt9yz3pm36wvzct7p3x6mtgehjul0feu/.test(vs)) fails.push('VERIFY with-passphrase line'); }
+  { const ABOUT = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+    const M = async (rec, pw) => { $('phrase').value = ABOUT; $('verifyPass').value = pw; $('verifyRecorded').value = rec; await w.verify(); return [$('verifyMatch').textContent, $('verifyMatch').className]; };
+    let [tx, cl] = await M('b4e3f5ed', 'TREZOR'); if (!/^MATCH \(with passphrase\)/.test(tx) || !/ok/.test(cl)) fails.push('match: fingerprint with passphrase');
+    [tx, cl] = await M('73c5da0a', 'TREZOR'); if (!/^MATCH \(without passphrase\)/.test(tx) || !/ok/.test(cl)) fails.push('match: fingerprint without passphrase');
+    [tx, cl] = await M('bc1qv5rmq0kt9yz3pm36wvzct7p3x6mtgehjul0feu', 'TREZOR'); if (!/^MATCH \(with passphrase\)/.test(tx)) fails.push('match: address with passphrase');
+    [tx, cl] = await M('bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu', 'TREZOR'); if (!/^MATCH \(without passphrase\)/.test(tx)) fails.push('match: address without passphrase');
+    [tx, cl] = await M('deadbeef', 'TREZOR'); if (!/^NO MATCH:/.test(tx) || !/bad/.test(cl)) fails.push('match: neither');
+    [tx, cl] = await M('b4e3f5ed', ''); if (!/^NO MATCH without a passphrase/.test(tx)) fails.push('match: needs passphrase');
+    $('verifyRecorded').value = ''; $('verifyPass').value = ''; }
+  r = await run('dice', 12, D50, ''); if (!/Passphrase: none/.test($('genResult').textContent) || !/Passphrase used: NO/.test(w.passLine('printed'))) fails.push('passphrase none line');
+  r = await run('dice', 12, D50, 'abc'); if (!/Passphrase: used \(3 characters/.test($('genResult').textContent) || !/Passphrase used: YES/.test(w.passLine('saved'))) fails.push('passphrase used line');
+  $('passphrase').value = ''; $('passphrase2').value = '';
   $('verifyPass').value = '';
   if ((await w.checkPhrase(expect.d50)).ok !== true) fails.push('checker accepts valid');
   // Corrupt one word; the checker must agree with @scure about whether the result is valid.
@@ -117,9 +129,15 @@ const M = [
   ['passphrase confirmation bypassed',      'if(document.getElementById("passphrase").value !== document.getElementById("passphrase2").value){', 'if(false){'],
   ['tap button appends wrong value',        'el.value += v; updateCount();', 'el.value += "1"; updateCount();'],
   ['address: child key not reduced mod n (needed about half the time)', 'child=(il+k)%SN;', 'child=(il+k);'],
-  ['VERIFY ignores the typed passphrase (fingerprint)', 'fingerprint " + await mnemonicFingerprint(r.mnemonic, vp)', 'fingerprint " + await mnemonicFingerprint(r.mnemonic, "")'],
-  ['VERIFY ignores the typed passphrase (address)', 'first address " + await mnemonicFirstAddress(r.mnemonic, vp)', 'first address " + await mnemonicFirstAddress(r.mnemonic, "")'],
-  ['VERIFY without-passphrase line uses the typed passphrase', 'fingerprint " + await mnemonicFingerprint(r.mnemonic, "") + " | first address " + await mnemonicFirstAddress(r.mnemonic, "")', 'fingerprint " + await mnemonicFingerprint(r.mnemonic, vp) + " | first address " + await mnemonicFirstAddress(r.mnemonic, vp)'],
+  ['VERIFY ignores the typed passphrase (fingerprint)', 'fp1 = await mnemonicFingerprint(r.mnemonic, vp)', 'fp1 = await mnemonicFingerprint(r.mnemonic, "")'],
+  ['VERIFY ignores the typed passphrase (address)', 'a1 = await mnemonicFirstAddress(r.mnemonic, vp)', 'a1 = await mnemonicFirstAddress(r.mnemonic, "")'],
+  ['VERIFY without-passphrase line uses the typed passphrase', 'fp0 = await mnemonicFingerprint(r.mnemonic, "");', 'fp0 = await mnemonicFingerprint(r.mnemonic, vp);'],
+  ['match: with-passphrase check compares the wrong values', '(kind === "fp" ? fp1 : a1)', '(kind === "fp" ? fp0 : a0)'],
+  ['match: address backups compared against the fingerprint', 'q === (kind === "fp" ? fp0 : a0)', 'q === fp0'],
+  ['match: NO MATCH shown as success', 'return {ok:false, text:"NO MATCH:', 'return {ok:true, text:"NO MATCH:'],
+  ['match: hasPass guard dropped (a1/fp1 are undefined without a passphrase)', 'if(hasPass && q ===', 'if(q ===', true],
+  ['passphrase line: YES/NO swapped (print and download)', '(used ? "YES (keep it separate; it is not " + kind + " here)" : "NO")', '(used ? "NO" : "YES (keep it separate; it is not " + kind + " here)")'],
+  ['result line: no-passphrase wording wrong', ': "none");', ': "used");'],
   ['mnemonic NFKD removed (English ASCII words)', 'enc.encode(mnemonic.normalize("NFKD"))', 'enc.encode(mnemonic)', true],
   ['master key range check removed (unreachable in practice)', 'if(k===0n || k>=SN) throw new Error("Invalid master key");', '', true],
 ];

@@ -102,4 +102,20 @@ for (let i = 0; i < 20; i++) {
 }
 R.ok(bad === 0, `${n} VERIFY runs with and without a passphrase match the independent libraries (${bad} mismatches)`);
 
+// 6. "Check against my backup": fingerprints and addresses recorded from the independent libraries must
+//    be classified correctly as with / without passphrase (and wrong values as no match)
+bad = 0; n = 0;
+for (let i = 0; i < 20; i++) {
+  const mn = entropyToMnemonic(new Uint8Array(nc.randomBytes([16, 24][nc.randomInt(2)])), wordlist), pw = PASS[1 + nc.randomInt(PASS.length - 1)];
+  const M = async (rec, pass) => { $('phrase').value = mn; $('verifyPass').value = pass; $('verifyRecorded').value = rec; await w.verify(); return $('verifyMatch').textContent; };
+  const cases = [
+    [fpOracle(mn, pw), pw, /^MATCH \(with passphrase\)/], [addrOracle(mn, pw), pw, /^MATCH \(with passphrase\)/],
+    [fpOracle(mn, ''), pw, /^MATCH \(without passphrase\)/], [addrOracle(mn, ''), pw, /^MATCH \(without passphrase\)/],
+    [fpOracle(mn, pw), '', /^NO MATCH without a passphrase/], [addrOracle(mn, pw), '', /^NO MATCH without a passphrase/],
+    [fpOracle(mn, pw + 'x'), pw, /^NO MATCH:/],
+  ];
+  for (const [rec, pass, re] of cases) { n++; const t = await M(rec, pass); if (!re.test(t)) { bad++; console.log('MATCH MISCLASSIFIED', rec, JSON.stringify(pass), t); } }
+}
+R.ok(bad === 0, `${n} backup-match checks (with / without passphrase / neither) classify correctly against the independent libraries (${bad} errors)`);
+
 R.done('oracle');
