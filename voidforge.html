@@ -285,6 +285,7 @@
     AIR-GAPPED USE ONLY for real funds.<br>
     Never enter a real seed on a connected device.<br>
     Always verify with a second offline tool before trusting real Bitcoin.
+    <div id="disclaimer" style="margin-top:8px; font-size:12px; opacity:.9;">Provided as is, without warranty. You alone are responsible for your funds and backups. Lost words or passphrase mean lost funds. Test the backup and start with a small amount.</div>
   </div>
 
   <div class="card">
@@ -430,12 +431,13 @@
         <li>Text boxes turn off spellcheck, autofill and autocorrect so the browser doesn&rsquo;t keep what you type. The passphrase is masked, and is never shown with, copied with, printed with or saved with the words.</li>
         <li>There is deliberately no "copy seed" button. SEND TO VERIFY moves the words to the VERIFY box without the clipboard, but that only re-runs the same code. For a real check, write the words down by hand and type them into a second tool. The clipboard is where seeds most often leak. PRINT SEED and DOWNLOAD ask for confirmation because the print spooler and your disk can retain the seed.</li>
         <li>DOWNLOAD FOR USB saves a clean copy of this page and never includes a generated seed. It is re-serialized by the browser, so its file hash will not match the original; to verify a hash, copy the original file instead. DOWNLOAD (seed) writes your seed and rolls to a plain-text file, so only use it on a trusted offline machine.</li>
-        <li>No independent security audit has been done. Use at your own risk. MIT licensed.</li>
+        <li>No independent security audit has been done. This software is provided &ldquo;as is&rdquo;, without warranty of any kind (MIT license), and the author is not liable for any loss. You alone are responsible for your funds, your backups and how you use it. If you lose the words or the passphrase, nobody can recover the funds. Before trusting it, check the release hash, use an offline computer, restore the wallet from your written backup in a second tool, and move a small amount first. It is not financial, legal or security advice.</li>
       </ul>
     </details>
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.7.1</b> &mdash; Added a short disclaimer under the top warning (provided as is, you are responsible, lost words mean lost funds, test with a small amount) and a fuller one in Security notes. No change to seed words, fingerprints, addresses, zpub, descriptors or QR codes.</li>
         <li><b>1.7.0</b> &mdash; QR codes for the watch-only export: SHOW QR buttons draw the zpub or descriptor as a QR code on screen (drawn by code inside this page, no library, no network) so a phone or other device can scan it into a watch-only wallet app. Public keys only. 1 more self-test (33 in all). Seed words, fingerprints, addresses, zpub and descriptors are unchanged.</li>
         <li><b>1.6.0</b> &mdash; Watch-only export: after FORGE, a collapsed box shows the wallet&rsquo;s public account key (zpub) and output descriptors (receive and change) with COPY buttons, so the wallet can be added to a watch-only app without the seed words. It never contains secret keys. 3 more self-tests (32 in all). Seed words, fingerprints and addresses are unchanged.</li>
         <li><b>1.5.1</b> &mdash; Larger, clearer dice buttons: drawn dice faces (instead of small font symbols), bigger tap targets, and bigger coin 1/0 buttons; the recent-rolls symbols are larger too. Seed generation is unchanged.</li>
@@ -458,7 +460,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.7.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.7.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
