@@ -28,6 +28,8 @@ A watch-only wallet shows this wallet's addresses and balance and can create uns
 - **Nunchuk / Bitcoin Core:** import the descriptor (use the change descriptor too if the app asks for it separately).
 - **QR codes:** press SHOW QR under the zpub or descriptor and scan the screen with the app's camera/scan button. Scanning support differs by app (zpub and descriptor QR codes are widely accepted, but not by every app). If a scan fails, increase the screen brightness, keep the code large and still, or use COPY instead.
 
+**zpub or descriptor?** Both give the same addresses. A zpub has no field for the wallet's master fingerprint, so an app that imports a zpub may show no fingerprint; the descriptor includes it (the 8 characters in square brackets, the same as VOIDFORGE's master fingerprint). If you will later sign with a hardware wallet or another offline signer, import the descriptor so the fingerprint is recorded.
+
 Afterwards check that the app's first receiving address equals the **First receive address** VOIDFORGE showed. If you used a passphrase, the export is only for that passphrase. Treat the zpub like private financial information: anyone who has it can see all your addresses and balance, though they cannot spend. Spending later needs the seed words, for example on a hardware wallet or a restored wallet.
 
 ## Restoring
