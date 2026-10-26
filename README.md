@@ -9,6 +9,17 @@ Get <code>voidforge.html</code> and <code>SHA256SUMS</code> from the release pag
 
 > **Not independently audited.** For serious amounts, generate on dedicated hardware (SeedSigner, Coldcard) and use VOIDFORGE to cross-check the words and fingerprint.
 
+## Disclaimer: please read
+
+VOIDFORGE is free software provided **"as is", without warranty of any kind** (see [LICENSE](LICENSE)). You are solely responsible for your own funds, your backups and how you use it. The author is not liable for any loss.
+
+- **Not independently audited.** It can contain bugs. It is not a substitute for a hardware wallet. For serious amounts, use dedicated hardware (SeedSigner, Coldcard, etc.) and use VOIDFORGE only to cross-check.
+- **Lost words or passphrase = lost funds.** Nobody, including the author, can recover them. Write the words (and any passphrase, kept separately) on paper and store copies safely.
+- **Test before you trust it.** Check the release SHA256, run it on an offline computer, restore the wallet from your written backup in a second tool, and move a **small** amount first. See [RECOVERY.md](RECOVERY.md).
+- **Your randomness is your responsibility.** Weak, biased or reused dice and coin results make a weak wallet. The built-in check is advisory only.
+- **Never use it on a networked, shared or untrusted computer,** and never type or photograph your real seed words on a phone or online service.
+- This is not financial, legal or security advice. If someone else tells you they used it, they used it at their own risk.
+
 **Use it only on an offline (air-gapped) computer.** Download `voidforge.html` from a release (see [RELEASING.md](RELEASING.md)), check its SHA256, copy it to a USB stick, open it, and confirm the green "SELF-TEST PASSED" badge. Full documentation is inside the file (ABOUT & DOCS card).
 
 ## Quick start
