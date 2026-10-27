@@ -30,3 +30,11 @@ Please include the version (shown at the bottom of the page), the browser, and s
 ## Supported versions
 
 Only the latest release is supported.
+
+## Security acknowledgements
+
+Thanks to everyone who reports problems responsibly.
+
+| Date | Reporter | Issue | Advisory |
+|---|---|---|---|
+| 2026-10-27 | MrHodlX | Release workflow could sign files that had been changed after dependencies were installed; fixed in v1.8.1 | [GHSA-8xcw-qx5p-8rmr](https://github.com/Random21m/voidforge/security/advisories/GHSA-8xcw-qx5p-8rmr) |
