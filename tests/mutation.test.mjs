@@ -89,6 +89,8 @@ async function probe(w) {
   { const li = [...w.document.querySelectorAll('#addrList li')].map(x => x.textContent);
     if (li.length !== 5 || (adOf() && li[0] !== adOf()) || new Set(li).size !== 5) fails.push('five receive addresses are listed');
     if ($('addrBox').style.display !== '' || $('checkGuide').style.display !== '') fails.push('address list and guide are shown after FORGE');
+    { const tr = [...w.document.querySelectorAll('#trList li')].map(x => x.textContent);
+      if (tr.length !== 5 || tr.some(x => !/^bc1p[0-9a-z]{58}$/.test(x)) || new Set(tr).size !== 5 || $('trBox').style.display !== '') fails.push('five Taproot addresses are listed'); }
     const full = [...w.document.querySelectorAll('#wordGrid .wtxt')].map(x => x.textContent); w.toggleAbbr();
     const ab = [...w.document.querySelectorAll('#wordGrid .wtxt')].map(x => x.textContent);
     if (!full.length || ab.some((a, i) => a !== full[i].slice(0, 4))) fails.push('4-letter view shows the first four letters');
@@ -107,6 +109,7 @@ async function probe(w) {
   if ($('qrImg').innerHTML !== '' || $('qrBox').style.display !== 'none') fails.push('QR code hidden after an error');
   if ($('fpIcon').innerHTML !== '') fails.push('fingerprint picture hidden after an error');
   if ($('addrList').textContent !== '' || $('addrBox').style.display !== 'none' || $('checkGuide').style.display !== 'none') fails.push('address list and guide hidden after an error');
+  if ($('trList').textContent !== '') fails.push('Taproot list cleared after an error');
   $('passphrase').value = ''; $('passphrase2').value = '';
   // tap buttons append the right values
   $('rolls').value = ''; w.updateCount(); const taps = [...w.document.querySelectorAll('#tapRow button')];
@@ -179,7 +182,10 @@ const M = [
   ['five addresses: purpose 84 -> 44',       'of [[84,true],[0,true],[0,true],[0,false]])', 'of [[44,true],[0,true],[0,true],[0,false]])'],
   ['address: hardened offset off by one',   '(index+0x80000000)>>>0', '(index+0x80000001)>>>0'],
   ['address: non-hardened parent pubkey misplaced', 'data.set(pubkeyBytes(k),0);', 'data.set(pubkeyBytes(k),1);'],
-  ['address: bech32 checksum constant',     'const mod=poly(values)^1;', 'const mod=poly(values)^0;'],
+  ['address: bech32 checksum constant',     'const mod=poly(values)^(version===0?1:0x2bc830a3);', 'const mod=poly(values)^(version===0?0:0x2bc830a3);'],
+  ['taproot: bech32m constant used for v0 too', 'const mod=poly(values)^(version===0?1:0x2bc830a3);', 'const mod=poly(values)^0x2bc830a3;'],
+  ['taproot: bech32 constant used for v1', 'const mod=poly(values)^(version===0?1:0x2bc830a3);', 'const mod=poly(values)^1;'],
+  ['taproot: bech32m constant digit', 'const mod=poly(values)^(version===0?1:0x2bc830a3);', 'const mod=poly(values)^(version===0?1:0x2bc830a2);'],
   ['address: bech32 charset swapped',       '"qpzry9x8gf2tvdw0s3jn54khce6mua7l"', '"qpzry9x8gf2tvdw0s3jn54khce6mua7k"'],
   ['address: witness version 0 -> 1',       'bech32Encode("bc",0,h160)', 'bech32Encode("bc",1,h160)'],
   ['address: hash160 skips RIPEMD-160',     'const h160=ripemd160(await sha256bytes(pubkeyBytes(k)));', 'const h160=(await sha256bytes(pubkeyBytes(k))).slice(0,20);'],
@@ -264,10 +270,21 @@ const M = [
   ['seed flag not cleared after an error (error text treated as a seed)', 'delete g.dataset.seed;', ''],
   ['plain message: too few rolls wording', '"Enter " + diff + " more "', '"Enter " + rolls.length + " more "'],
   ['dice face drawn with a missing pip (5)', '5:[[28,28],[72,28],[50,50],[28,72],[72,72]]', '5:[[28,28],[72,28],[28,72],[72,72]]'],
-  ['five addresses: child index off by one', 'const [ck]=await ckdPriv(k,c,i,false);', 'const [ck]=await ckdPriv(k,c,i+1,false);'],
-  ['five addresses: hardened child', 'const [ck]=await ckdPriv(k,c,i,false);', 'const [ck]=await ckdPriv(k,c,i,true);'],
+  ['five addresses: child index off by one', 'const [ck]=await ckdPriv(k,c,i,false);\n    out.push(bech32Encode("bc",0', 'const [ck]=await ckdPriv(k,c,i+1,false);\n    out.push(bech32Encode("bc",0'],
+  ['five addresses: hardened child', 'const [ck]=await ckdPriv(k,c,i,false);\n    out.push(bech32Encode("bc",0', 'const [ck]=await ckdPriv(k,c,i,true);\n    out.push(bech32Encode("bc",0'],
   ['five addresses: one too few', 'for(let i=0;i<n;i++){\n    const [ck]', 'for(let i=0;i<n-1;i++){\n    const [ck]'],
+  ['taproot: wrong purpose 86 -> 84', 'of [[86,true],[0,true],[0,true],[0,false]]) [k,c]=await ckdPriv(k,c,i,h);\n  const out=[];', 'of [[84,true],[0,true],[0,true],[0,false]]) [k,c]=await ckdPriv(k,c,i,h);\n  const out=[];'],
+  ['taproot: child index off by one', 'out.push(await taprootAddress(ck))', 'out.push(await taprootAddress(ckdPriv ? (await ckdPriv(k,c,i+1,false))[0] : ck))'],
+  ['taproot: one too few', 'for(let i=0;i<n;i++){ const [ck]=await ckdPriv(k,c,i,false); out.push(await taprootAddress(ck)); }', 'for(let i=0;i<n-1;i++){ const [ck]=await ckdPriv(k,c,i,false); out.push(await taprootAddress(ck)); }'],
+  ['taproot: wrong tweak tag', 'taggedHash("TapTweak",xonly)', 'taggedHash("TapTweek",xonly)'],
+  ['taproot: tweak not applied', 'const Q=eadd(P,emul(t,SG));', 'const Q=eadd(P,emul(1n,SG));'],
+  ['taproot: internal key parity not fixed', 'if(P[1]&1n) P=[P[0],SP-P[1]];', 'if(false) P=[P[0],SP-P[1]];'],
+  ['taproot: tweak hashes without internal key', 'taggedHash("TapTweak",xonly)', 'taggedHash("TapTweak",new Uint8Array(32))'],
+  ['taproot: tagged hash single prefix', 'b.set(th,0); b.set(th,32); b.set(msg,64);', 'b.set(th,0); b.set(th,0); b.set(msg,64);'],
+  ['taproot: change chain replaced by receive', 'for(const [i,h] of [[86,true],[0,true],[0,true],[1,false],[0,false]])', 'for(const [i,h] of [[86,true],[0,true],[0,true],[0,false],[0,false]])'],
   ['five addresses: receive chain replaced by change chain', 'for(const [i,h] of [[84,true],[0,true],[0,true],[0,false]]) [k,c]=await ckdPriv(k,c,i,h);\n  const out=[];', 'for(const [i,h] of [[84,true],[0,true],[0,true],[1,false]]) [k,c]=await ckdPriv(k,c,i,h);\n  const out=[];'],
+  ['taproot list not cleared after an error', 'document.getElementById("addrList").textContent = ""; document.getElementById("trList").textContent = "";', 'document.getElementById("addrList").textContent = "";'],
+  ['taproot list never filled', 'tl.textContent = "";\n  (trList || []).forEach', 'tl.textContent = "";\n  ([]).forEach'],
   ['address list not cleared after an error', 'function clearAddrs(){\n  document.getElementById("addrList").textContent = "";', 'function clearAddrs(){\n  '],
   ['address guide hidden after FORGE', 'document.getElementById("checkGuide").style.display = "";\n}', 'document.getElementById("checkGuide").style.display = "none";\n}'],
   ['4-letter view: three letters', 'e.textContent = abbrOn ? e.dataset.w.slice(0, 4) : e.dataset.w;', 'e.textContent = abbrOn ? e.dataset.w.slice(0, 3) : e.dataset.w;'],

@@ -29,7 +29,7 @@ VOIDFORGE is free software provided **"as is", without warranty of any kind** (s
 
 1. Download `voidforge.html` from the [latest release](../../releases/latest) and check it: `sha256sum -c SHA256SUMS`.
 2. Copy it to a USB stick and open it in a desktop browser (Safari 14+, Chrome or Firefox) on an **offline computer**. Do not use a phone: phones and file previews often will not run the page, and a phone is the wrong place for a seed anyway.
-3. Confirm the green **SELF-TEST PASSED (35/35)** badge and the **NETWORK: OFFLINE** tag. A red notice saying the script is not running means the page did not start; do not use it.
+3. Confirm the green **SELF-TEST PASSED (38/38)** badge and the **NETWORK: OFFLINE** tag. A red notice saying the script is not running means the page did not start; do not use it.
 4. Choose 12 or 24 words and Dice or Coin, enter your physical rolls or flips (type, paste, or tap the buttons), and press FORGE SEED. The words appear as a numbered grid. A passphrase, if you want one, goes in "Advanced options".
 5. Write the words down, then compare the words and the master fingerprint with a second independent offline tool before trusting real funds.
 
@@ -40,6 +40,8 @@ VOIDFORGE is free software provided **"as is", without warranty of any kind** (s
 - **First 5 addresses and a check guide:** after FORGE the first five receiving addresses are listed (with COPY ALL) and a short guide explains how to compare them in a second wallet app. Comparing five addresses is much stronger than comparing one.
 - **First 4 letters view:** a button on the word grid shows only the first four letters of each word (every BIP39 word is unique by them), for stamping metal backups. Display only; it does not change the stored words.
 - **Roll chart:** a small bar chart under the roll box shows how many times each face (or coin side) has come up. It is for your eyes only and does not change the seed or the randomness check, which still cannot prove your dice or coin are fair.
+- **Taproot addresses:** the first five Taproot (BIP86, `bc1p...`) receiving addresses are also listed, for checking in wallets that use Taproot. The zpub, descriptors and QR codes still describe the SegWit wallet.
+- **Printable backup sheet:** PRINT SEED gives a two-column numbered sheet with the fingerprint, first address and space for notes (the passphrase is never printed).
 - **Fingerprint picture:** a small LifeHash picture next to the master fingerprint (the same one Sparrow Wallet shows), for a quick visual match.
 - **Watch-only export:** after FORGE, copy the wallet's public key (zpub) or descriptor into a watch-only wallet app to see addresses and balance without the seed. Public keys only; it cannot spend. SHOW QR draws it as a QR code on screen for scanning.
 - Shows the master fingerprint **and the first native SegWit (BIP84) receive address** so you can cross-check with a wallet; asks you to type any passphrase twice; tap buttons for dice 1-6 and coin 1/0. VERIFY can check a phrase with and without a passphrase and tell you whether a fingerprint or address from your backup matches with a passphrase, without one, or neither.

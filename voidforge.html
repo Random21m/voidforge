@@ -213,7 +213,7 @@
     body { background: white; color: black; }
     body.print-seed * { visibility: hidden !important; }
     body.print-seed #printOnly, body.print-seed #printOnly * { visibility: visible !important; }
-    body.print-seed #printOnly { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 24px; font-family: monospace; font-size: 16px; color: #000; background: #fff; white-space: pre-wrap; }
+    body.print-seed #printOnly { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 24px; font-family: monospace; font-size: 14px; line-height: 1.5; color: #000; background: #fff; white-space: pre-wrap; }
   }
   #printOnly { display: none; }
   #fatalWarn { display: none; background: var(--danger); color: #000; font-weight: 700; font-size: 13px; text-align: center; padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
@@ -360,10 +360,15 @@
     <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;"><div class="fp" id="fingerprint"></div><div id="fpIcon" class="lh" title="Fingerprint picture (LifeHash): the same picture Sparrow Wallet shows for this fingerprint"></div></div>
     <div id="address" style="margin-top:6px; font-size:13px; word-break:break-all; color:var(--muted);"></div>
     <details id="addrBox" style="display:none; margin-top:8px;">
-      <summary>First 5 receiving addresses (to compare in another wallet)</summary>
+      <summary>First 5 receiving addresses, SegWit and Taproot (to compare in another wallet)</summary>
       <ol id="addrList" class="addr-list"></ol>
-      <button class="secondary small" onclick="copyAddrList(this)">COPY ALL 5</button>
+      <button class="secondary small" onclick="copyAddrList(this,'addrList')">COPY ALL 5</button>
       <p class="hint" style="margin:8px 0 0;">BIP84 native SegWit, m/84'/0'/0'/0/0 to 0/4. These are public addresses (no spending power), but anyone who sees them can link them to this wallet.</p>
+      <div id="trBox" style="display:none; margin-top:10px;">
+        <p class="hint" style="margin:0;"><b>Taproot (BIP86)</b>, m/86'/0'/0'/0/0 to 0/4, addresses start with <code>bc1p</code>. For wallets that use Taproot. This is a separate address type from the same seed; the zpub and descriptors above are for the SegWit addresses only.</p>
+        <ol id="trList" class="addr-list"></ol>
+        <button class="secondary small" onclick="copyAddrList(this,'trList')">COPY ALL 5 TAPROOT</button>
+      </div>
     </details>
     <details id="checkGuide" style="display:none; margin-top:8px;">
       <summary>How to check this wallet in a second tool (recommended)</summary>
@@ -479,6 +484,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.11.0</b> &mdash; Two additions, display only. (1) Taproot (BIP86) addresses: the first five <code>bc1p&hellip;</code> receiving addresses (m/86'/0'/0'/0/0 to 0/4) are listed under the SegWit ones, with their own COPY ALL, for checking in wallets that use Taproot. Checked in the self-test against the three published BIP86 vectors and the BIP350 bech32m example, and in the test suite against independent code (@scure and @noble). The zpub, descriptors and QR codes are unchanged and still describe the SegWit wallet only. (2) A fuller PRINT SEED backup sheet: two-column numbered words, fingerprint, first address, passphrase-used line, blank lines for notes, and a short warning. The passphrase is still never printed. Seeds, words, fingerprints and SegWit addresses are exactly the same as 1.10.1. The in-page self-test now has 38 checks.</li>
         <li><b>1.10.1</b> &mdash; Fix: the SELF-TEST button now toggles. Pressing it a second time hides the results; before, they stayed until you pressed CLEAR. No change to any crypto or output.</li>
         <li><b>1.10.0</b> &mdash; Three additions, all display only: (1) the first 5 receiving addresses (m/84'/0'/0'/0/0 to 0/4) are listed under the first address, with a COPY ALL button, so you can compare more than one address in another wallet; (2) a SHOW FIRST 4 LETTERS button for the word grid (every BIP39 word is unique by its first four letters), handy for stamping metal backups; (3) a short step-by-step guide to checking the wallet in a second tool. The self-test now has 35 checks. Seeds and wallets are unchanged.</li>
         <li><b>1.9.0</b> &mdash; Roll chart: a small bar chart under the roll box shows how many times each dice face (or coin side) has come up, with a dashed line for an even share. It is a display only: it does not change the randomness check, the seed or any result.</li>
@@ -507,7 +513,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.10.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.11.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -778,7 +784,7 @@ function bech32Encode(hrp, version, prog){
   if(bits>0) data.push((acc<<(5-bits))&31);
   const hrpBytes=Array.from(hrp).map(c=>c.charCodeAt(0));
   const values=hrpBytes.map(c=>c>>5).concat([0],hrpBytes.map(c=>c&31),data,[0,0,0,0,0,0]);
-  const mod=poly(values)^1;
+  const mod=poly(values)^(version===0?1:0x2bc830a3);
   for(let i=0;i<6;i++) data.push((mod>>(5*(5-i)))&31);
   return hrp+"1"+data.map(d=>B32[d]).join("");
 }
@@ -800,6 +806,33 @@ async function addressesFromSeed(seed, n){
   return out;
 }
 async function mnemonicAddresses(mnemonic, passphrase, n){ return addressesFromSeed(await mnemonicToSeed(mnemonic, passphrase), n); }
+// Taproot (BIP86, m/86'/0'/0'/0/i): key-path only, output key = internal key + TapTweak(internal key), bech32m (BIP350).
+async function taggedHash(tag, msg){
+  const th=await sha256bytes(new TextEncoder().encode(tag)), b=new Uint8Array(64+msg.length);
+  b.set(th,0); b.set(th,32); b.set(msg,64); return sha256bytes(b);
+}
+async function taprootAddress(k){
+  let P=emul(k,SG); if(P[1]&1n) P=[P[0],SP-P[1]];
+  const xonly=fromHex(P[0].toString(16).padStart(64,"0"));
+  const t=BigInt("0x"+hex(await taggedHash("TapTweak",xonly)));
+  if(t>=SN) throw new Error("Invalid tweak");
+  const Q=eadd(P,emul(t,SG));
+  if(!Q) throw new Error("Invalid output key");
+  return bech32Encode("bc",1,fromHex(Q[0].toString(16).padStart(64,"0")));
+}
+async function taprootAddressesFromSeed(seed, n){
+  let [k,c]=await masterFromSeed(seed);
+  for(const [i,h] of [[86,true],[0,true],[0,true],[0,false]]) [k,c]=await ckdPriv(k,c,i,h);
+  const out=[];
+  for(let i=0;i<n;i++){ const [ck]=await ckdPriv(k,c,i,false); out.push(await taprootAddress(ck)); }
+  return out;
+}
+async function taprootChangeFirstFromSeed(seed){
+  let [k,c]=await masterFromSeed(seed);
+  for(const [i,h] of [[86,true],[0,true],[0,true],[1,false],[0,false]]) [k,c]=await ckdPriv(k,c,i,h);
+  return taprootAddress(k);
+}
+async function mnemonicTaproot(mnemonic, passphrase, n){ return taprootAddressesFromSeed(await mnemonicToSeed(mnemonic, passphrase), n); }
 // Watch-only export: account-level public key for m/84'/0'/0' (BIP32 serialization, Base58Check), plus output descriptors.
 const B58="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 async function base58check(payload){
@@ -1057,6 +1090,9 @@ async function runSelfTests(auto){
   // first receive address: BIP84 published vector, a passphrase vector from two independent libraries, and the BIP173 bech32 example
   eq("BIP84 first address 'abandon..about' (published BIP84 vector)", ()=>mnemonicFirstAddress("abandon ".repeat(11)+"about",""),"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu");
   eq("first five receive addresses 'abandon..about' (embit)", async()=>(await mnemonicAddresses("abandon ".repeat(11)+"about","",5)).join(" "),"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu bc1qnjg0jd8228aq7egyzacy8cys3knf9xvrerkf9g bc1qp59yckz4ae5c4efgw2s5wfyvrz0ala7rgvuz8z bc1qgl5vlg0zdl7yvprgxj9fevsc6q6x5dmcyk3cn3 bc1qm97vqzgj934vnaq9s53ynkyf9dgr05rargr04n");
+  eq("Taproot BIP86 first two receive addresses 'abandon..about' (published BIP86 vectors)", async()=>(await mnemonicTaproot("abandon ".repeat(11)+"about","",2)).join(" "),"bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr bc1p4qhjn9zdvkux4e44uhx8tc55attvtyu358kutcqkudyccelu0was9fqzwh");
+  eq("Taproot BIP86 first change address 'abandon..about' (published BIP86 vector)", async()=>taprootChangeFirstFromSeed(await mnemonicToSeed("abandon ".repeat(11)+"about","")),"bc1p3qkhfews2uk44qtvauqyr2ttdsw7svhkl9nkm9s9c3x4ax5h60wqwruhk7");
+  eq("bech32m BIP350 example address", ()=>bech32Encode("bc",1,fromHex("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")),"bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0");
   eq("first address 'abandon..about' + TREZOR (two independent libraries)", ()=>mnemonicFirstAddress("abandon ".repeat(11)+"about","TREZOR"),"bc1qv5rmq0kt9yz3pm36wvzct7p3x6mtgehjul0feu");
   eq("watch-only zpub 'abandon..about' (published BIP84 vector)", async()=>(await mnemonicWatchOnly("abandon ".repeat(11)+"about","")).zpub,"zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs");
   eq("watch-only zpub + TREZOR (two independent libraries)", async()=>(await mnemonicWatchOnly("abandon ".repeat(11)+"about","TREZOR")).zpub,"zpub6rXDN3yuixCtvAyzKn3uWLDr8qXKEQ2orduEL5AAysdHZmuPVUL2vbMQDEhp8L9hRsgM8J8idDNPdZjrob8R5e7x7UoYXVdfjDG96TLa7La");
@@ -1129,7 +1165,11 @@ async function generate(){
   } catch(e) {
     adEl.textContent = "First address unavailable: " + e.message;
   }
-  try { showAddrs(await mnemonicAddresses(mnemonic, pass, 5)); } catch(e) { clearAddrs(); }
+  try {
+    const segwit = await mnemonicAddresses(mnemonic, pass, 5);
+    let taproot = []; try { taproot = await mnemonicTaproot(mnemonic, pass, 5); } catch(e) { taproot = []; }
+    showAddrs(segwit, taproot);
+  } catch(e) { clearAddrs(); }
   try {
     const w = await mnemonicWatchOnly(mnemonic, pass);
     document.getElementById("wZpub").textContent = w.zpub;
@@ -1159,16 +1199,19 @@ function clearFpIcons(){
   for(const id of ["vFig0","vFig1"]) document.getElementById(id).style.display = "none";
 }
 function clearAddrs(){
-  document.getElementById("addrList").textContent = "";
+  document.getElementById("addrList").textContent = ""; document.getElementById("trList").textContent = "";
   for(const id of ["addrBox","checkGuide"]){ const d = document.getElementById(id); d.style.display = "none"; d.open = false; }
 }
-function showAddrs(list){
+function showAddrs(list, trList){
   const ol = document.getElementById("addrList"); ol.textContent = "";
   list.forEach(a => { const li = document.createElement("li"); li.textContent = a; ol.appendChild(li); });
+  const tl = document.getElementById("trList"); tl.textContent = "";
+  (trList || []).forEach(a => { const li = document.createElement("li"); li.textContent = a; tl.appendChild(li); });
+  document.getElementById("trBox").style.display = (trList && trList.length) ? "" : "none";
   document.getElementById("addrBox").style.display = ""; document.getElementById("checkGuide").style.display = "";
 }
-function copyAddrList(btn){
-  const t = Array.from(document.querySelectorAll("#addrList li")).map(li => li.textContent).join("\n");
+function copyAddrList(btn, listId){
+  const t = Array.from(document.querySelectorAll("#" + listId + " li")).map(li => li.textContent).join("\n");
   safeCopy(t).then(()=>showCopied(btn)).catch(()=>alert("Copy failed. Select the addresses and copy them manually."));
 }
 function clearWatch(){
@@ -1278,7 +1321,14 @@ function printSeed(){
   const phrase = document.getElementById("genResult").textContent.split("\n")[0];
   if(!confirm("Printing sends your seed to a printer and its spooler. Only print on a trusted offline computer with a directly connected printer. The passphrase is never printed. Continue?")) return;
   const po = document.getElementById("printOnly");
-  po.textContent = "VOIDFORGE\n\n" + phrase.split(" ").map((w, i) => String(i + 1).padStart(2, " ") + ". " + w).join("\n") + "\n\n" + document.getElementById("fingerprint").textContent + "\n" + document.getElementById("address").textContent + "\n" + passLine("printed");
+  const ws = phrase.split(" "), half = Math.ceil(ws.length / 2), cell = i => String(i + 1).padStart(2, " ") + ". " + ws[i];
+  const rows = [];
+  for(let i = 0; i < half; i++) rows.push(cell(i).padEnd(18, " ") + (i + half < ws.length ? cell(i + half) : ""));
+  const line = "------------------------------------------";
+  po.textContent = "VOIDFORGE BACKUP SHEET\n" + line + "\n\n" + rows.join("\n") + "\n\n" + line + "\n" +
+    document.getElementById("fingerprint").textContent + "\n" + document.getElementById("address").textContent + "\n" + passLine("printed") + "\n\n" +
+    "Words checked against the screen:  ____\nDate made:                         ____________\nCoin: 1 means ______, 0 means ______ (coin only)\nRolls / flips string stored:       ____________\nPassphrase stored separately:      ____________\nBackup location:                   ____________\n\n" + line + "\n" +
+    "Anyone who has these words controls the funds.\nNever photograph them or type them on a connected device.\nLost words cannot be recovered. Check this backup with VERIFY.\n";
   document.body.classList.add("print-seed");
   let done = false;
   const cleanup = () => { if(done) return; done = true; document.body.classList.remove("print-seed"); po.textContent = ""; };

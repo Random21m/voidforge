@@ -5,7 +5,8 @@ import nc from 'node:crypto';
 import { entropyToMnemonic, mnemonicToSeedSync, validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { HDKey } from '@scure/bip32';
-import { bech32 } from '@scure/base';
+import { bech32, bech32m } from '@scure/base';
+import { secp256k1, schnorr } from '@noble/curves/secp256k1';
 import { ripemd160 } from '@noble/hashes/ripemd160';
 import { sha256 } from '@noble/hashes/sha256';
 import { LifeHash } from 'lifehash';
@@ -125,6 +126,24 @@ for (const bytes of [16, 24, 32]) for (let i = 0; i < 10; i++) {
   for (let j = 0; j < 5; j++) if (got[j] !== addrOracleN(mn, pw, j)) { bad++; console.log('ADDR5 MISMATCH', j, bytes, JSON.stringify(pw)); }
 }
 R.ok(bad === 0, `${n} random phrases: all five receive addresses match the independent libraries (${bad} mismatches)`);
+
+// 2d. Taproot (BIP86 m/86'/0'/0'/0/0..4) against independent code: @scure/bip32 keys, @noble/curves tweak, @scure/base bech32m
+const trOracle = (mn, pw, i) => {
+  const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/86'/0'/0'/0/${i}`);
+  const xonly = k.publicKey.slice(1);
+  const P = secp256k1.ProjectivePoint.fromHex('02' + Buffer.from(xonly).toString('hex'));
+  const t = schnorr.utils.taggedHash('TapTweak', xonly);
+  const Q = P.add(secp256k1.ProjectivePoint.BASE.multiply(BigInt('0x' + Buffer.from(t).toString('hex'))));
+  return bech32m.encode('bc', [1, ...bech32m.toWords(Q.toRawBytes(true).slice(1))]);
+};
+bad = 0; n = 0;
+for (const bytes of [16, 24, 32]) for (let i = 0; i < 10; i++) {
+  const mn = entropyToMnemonic(new Uint8Array(nc.randomBytes(bytes)), wordlist), pw = PASS[nc.randomInt(PASS.length)];
+  n++;
+  const got = await w.mnemonicTaproot(mn, pw, 5);
+  for (let j = 0; j < 5; j++) if (got[j] !== trOracle(mn, pw, j)) { bad++; console.log('TAPROOT MISMATCH', j, bytes, JSON.stringify(pw)); }
+}
+R.ok(bad === 0, `${n} random phrases: all five Taproot (BIP86) addresses match the independent libraries (${bad} mismatches)`);
 
 // 3. phrase checker agrees with @scure on valid, corrupted, and random phrases
 bad = 0; n = 0;

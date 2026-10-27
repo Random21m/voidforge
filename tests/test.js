@@ -166,6 +166,9 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     eq(t.$('addrList').querySelectorAll('li').length,5,'five receive addresses are listed after FORGE');
     ok(t.$('addrList').querySelector('li').textContent===/First receive address[^:]*: (bc1[0-9a-z]+)/.exec(t.$('address').textContent)[1],'first listed address equals the single first-address line');
     eq(t.$('addrBox').style.display,'','address list is shown after FORGE');
+    { const tr=[...t.$('trList').querySelectorAll('li')].map(x=>x.textContent);
+      ok(tr.length===5&&tr.every(x=>/^bc1p[0-9a-z]{58}$/.test(x))&&new Set(tr).size===5,'five distinct Taproot (bc1p) addresses are listed after FORGE');
+      eq(t.$('trBox').style.display,'','Taproot list is shown after FORGE'); }
     eq(t.$('checkGuide').style.display,'','second-tool guide is shown after FORGE');
     const full=[...t.$('wordGrid').querySelectorAll('.wtxt')].map(e=>e.textContent);
     t.w.toggleAbbr();
