@@ -10,6 +10,7 @@
   "devDependencies": {
     "@scure/bip32": "^1.7.0",
     "@scure/bip39": "^1.6.0",
-    "jsdom": "^26.0.0"
+    "jsdom": "^26.0.0",
+    "lifehash": "^1.0.0"
   }
 }

@@ -43,6 +43,7 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
   eq(t.$('passphrase').type,'password','passphrase input is masked');
   t.$('passphrase').value='TREZOR'; t.$('passphrase2').value='TREZORX'; await t.w.generate();
   ok(/do not match/.test(t.$('genResult').textContent)&&t.$('fingerprint').textContent===''&&t.$('address').textContent==='','mismatched passphrase boxes block FORGE and show no fingerprint or address');
+  ok(t.$('fpIcon').textContent===''&&t.$('fpIcon').innerHTML==='','mismatched passphrase leaves no fingerprint picture showing');
   ok(t.$('watchBox').style.display==='none'&&t.$('wZpub').textContent==='','mismatched passphrase leaves no watch-only export showing');
   t.$('passphrase2').value='TREZOR'; await t.w.generate();
   ok(/bc1q[0-9a-z]{38}/.test(t.$('address').textContent)&&/\(with passphrase\)/.test(t.$('address').textContent),'first receive address shown (with passphrase)');
@@ -93,6 +94,8 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     ok(!/with passphrase/.test(t.$('address').textContent),'no passphrase label when no passphrase');
     { const wb=t.$('watchBox'); ok(wb.style.display===''&&/^zpub[1-9A-HJ-NP-Za-km-z]{100,}$/.test(t.$('wZpub').textContent)&&/^wpkh\(\[[0-9a-f]{8}\/84h\/0h\/0h\]xpub[1-9A-HJ-NP-Za-km-z]+\/0\/\*\)#[a-z0-9]{8}$/.test(t.$('wDescR').textContent)&&/\/1\/\*\)#/.test(t.$('wDescC').textContent),'watch-only box shows zpub and receive/change descriptors after FORGE'); }
     ok(/without warranty/.test(t.$('disclaimer').textContent)&&/Lost words or passphrase mean lost funds/.test(t.$('disclaimer').textContent)&&/provided &ldquo;as is&rdquo;|provided \u201cas is\u201d/.test(t.w.document.body.innerHTML.replace(/&ldquo;|&rdquo;/g,'\u201c')),'disclaimer is shown under the top warning and in Security notes');
+    await new Promise(r=>setTimeout(r,50));
+    { const ic=t.$('fpIcon'); ok(!!ic.querySelector('svg')&&ic.querySelectorAll('rect').length>32&&!/https?:|xmlns/.test(ic.innerHTML),'fingerprint picture (LifeHash) is drawn next to the fingerprint, with no URL or namespace in the markup'); }
     { t.w.showQr('wZpub','zpub'); const img=t.$('qrImg'); ok(t.$('qrBox').style.display===''&&img.querySelector('svg')&&img.querySelector('svg path')&&/QR code for the zpub/.test(t.$('qrCaption').textContent)&&!/https?:|xmlns/.test(img.innerHTML),'SHOW QR draws a QR code for the zpub with no URL or namespace in the markup');
       t.w.hideQr(); ok(t.$('qrBox').style.display==='none'&&t.$('qrImg').innerHTML==='','HIDE QR removes the code');
       t.w.showQr('wDescC','change descriptor'); ok(!!t.$('qrImg').querySelector('svg'),'QR code for the change descriptor also draws'); }

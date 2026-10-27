@@ -8,6 +8,7 @@ import { HDKey } from '@scure/bip32';
 import { bech32 } from '@scure/base';
 import { ripemd160 } from '@noble/hashes/ripemd160';
 import { sha256 } from '@noble/hashes/sha256';
+import { LifeHash } from 'lifehash';
 import { loadPage, ready, readHtml, rnd, makeReporter } from './harness.mjs';
 
 const R = makeReporter();
@@ -85,6 +86,21 @@ R.ok(bad === 0, `${n} random phrases: watch-only zpub/xpub/fingerprint match @sc
     if (ha !== c.hashes[a.mask]) { b++; console.log('QR AUTO MISMATCH', c.text.slice(0, 20)); }
   }
   R.ok(b === 0, `${fx.length} texts (versions 1-12, UTF-8 included) x 8 masks, plus automatic mask: QR matrices match the independent library (${b} mismatches of ${tot + fx.length})`);
+}
+
+// 2e. fingerprint picture (LifeHash version 2): random fingerprints vs the independent `lifehash` package, plus the
+// real picture Sparrow Wallet shows for fingerprint 4fbf7566 (tests/fixtures/sparrow_4fbf7566.json, from a screenshot)
+{
+  const hexb = (h) => Uint8Array.from(h.match(/../g).map((x) => parseInt(x, 16)));
+  let b = 0, n = 0;
+  const fps = ['00000000', 'ffffffff', '00000001', '4fbf7566', '8d9cced8', '73c5da0a', ...Array.from({ length: 150 }, () => nc.randomBytes(4).toString('hex'))];
+  for (const fp of fps) { n++;
+    const ref = LifeHash.makeFrom(hexb(fp), 2, 1, false).colors, rows = await w.lifeHash(fp), mine = rows.flat(2);
+    if (mine.length !== ref.length || mine.some((v, i) => v !== ref[i])) { b++; console.log('LIFEHASH MISMATCH', fp); } }
+  R.ok(b === 0, `${n} fingerprints: the fingerprint picture matches the independent lifehash package pixel for pixel (${b} mismatches)`);
+  const fx = JSON.parse((await import('node:fs')).readFileSync(new URL('./fixtures/sparrow_4fbf7566.json', import.meta.url), 'utf8')), rows = await w.lifeHash(fx.fingerprint);
+  let d = 0; for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) for (let k = 0; k < 3; k++) if (rows[y][x][k] !== fx.rows[y][x][k]) d++;
+  R.ok(d === 0, `fingerprint picture for 4fbf7566 equals the picture Sparrow Wallet shows (${d} differing channel values)`);
 }
 
 // 2b. first receive address (BIP84 m/84'/0'/0'/0/0) against @scure/bip32 + @scure/base + @noble/hashes

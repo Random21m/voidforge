@@ -169,6 +169,9 @@
   .hint { font-size: 12px; color: var(--muted); }
   .wlabel { margin-top: 10px; font-size: 12px; color: var(--muted); }
   .wval { font-family: monospace; font-size: 12px; word-break: break-all; margin: 4px 0 6px; user-select: all; }
+  .lh { width: 64px; height: 64px; line-height: 0; margin-top: 12px; border-radius: 6px; overflow: hidden; }
+  .lh:empty { display: none; }
+  .lh svg { width: 100%; height: 100%; }
   .fp { margin-top: 12px; font-size: 18px; color: var(--accent); font-weight: 700; letter-spacing: 1px; }
   .status { margin-top: 6px; font-weight: 600; font-size: 13px; }
   :root { --ok-text: #00ff9d; }
@@ -337,7 +340,7 @@
       <button class="secondary small" onclick="copyAddress(this)">COPY ADDRESS</button>
       <button class="secondary small" onclick="downloadSeed()">DOWNLOAD</button>
     </div>
-    <div class="fp" id="fingerprint"></div>
+    <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;"><div class="fp" id="fingerprint"></div><div id="fpIcon" class="lh" title="Fingerprint picture (LifeHash): the same picture Sparrow Wallet shows for this fingerprint"></div></div>
     <div id="address" style="margin-top:6px; font-size:13px; word-break:break-all; color:var(--muted);"></div>
     <details id="watchBox" style="display:none; margin-top:10px;">
       <summary>Watch-only wallet (public keys only, cannot spend)</summary>
@@ -379,6 +382,10 @@
     <div class="btn-row" style="margin-top:8px;">
       <button id="verifyBtn" onclick="verify()" disabled>VERIFY</button>
     </div>
+    <div id="verifyIcons" style="display:flex; gap:18px; margin-top:8px;">
+      <div id="vFig0" style="display:none; text-align:center;"><div id="vIcon0" class="lh" style="margin-top:0"></div><div class="hint">no passphrase</div></div>
+      <div id="vFig1" style="display:none; text-align:center;"><div id="vIcon1" class="lh" style="margin-top:0"></div><div class="hint">with passphrase</div></div>
+    </div>
     <div class="status" id="verifyStatus" aria-live="polite" style="white-space:pre-wrap; word-break:break-all;"></div>
     <div class="status" id="verifyMatch" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
   </div>
@@ -411,13 +418,14 @@
       <p><code>PBKDF2-HMAC-SHA512(mnemonic, "mnemonic"+passphrase, 2048) &rarr; seed</code><br>
          <code>HMAC-SHA512("Bitcoin seed", seed) &rarr; master private key</code><br>
          <code>secp256k1 pubkey &rarr; RIPEMD160(SHA256(pubkey)) &rarr; first 4 bytes</code></p>
+      <p><b>Fingerprint picture.</b> Next to the master fingerprint is a small coloured picture (a LifeHash, version 2, made from SHA-256 of the fingerprint). Sparrow Wallet shows the same picture for the same fingerprint, so a matching picture is a quick visual sign that you are looking at the same wallet. It is only a convenience: the 8-character fingerprint and the first address are the real checks, and the picture does not depend on your keys beyond the fingerprint.</p>
       <p><b>Watch-only export.</b> After FORGE, the box &ldquo;Watch-only wallet&rdquo; shows the public key of the account <code>m/84&rsquo;/0&rsquo;/0&rsquo;</code> as a <code>zpub</code> (Electrum, Blue Wallet, Sparrow) and as output descriptors <code>wpkh([fingerprint/84h/0h/0h]xpub&hellip;/0/*)</code> for receiving and <code>/1/*</code> for change, with the descriptor checksum (Sparrow, Nunchuk, Bitcoin Core). It holds no private keys and cannot spend, but whoever has it can see every address and balance of that wallet, so give it only to your own wallet app. It is specific to the passphrase you entered. The SHOW QR buttons draw the same data as a QR code on screen so another device can scan it (many apps accept a scanned zpub or descriptor; if yours does not, use COPY). After importing, check that the app&rsquo;s first receive address equals the First receive address shown here.</p>
       <p><b>First receive address.</b> Also shown is the first Bitcoin mainnet receive address of a standard native SegWit (BIP84) wallet: BIP32 child keys along <code>m/84&rsquo;/0&rsquo;/0&rsquo;/0/0</code>, then <code>RIPEMD160(SHA256(pubkey))</code> encoded as a <code>bc1q&hellip;</code> bech32 address. Use it to cross-check against a wallet that imports the same words (a watch-only wallet is enough): the fingerprint alone is a weak check, a matching first address is a strong one. It is only correct for wallets that use the BIP84 path; other wallet types (legacy, nested SegWit, Taproot) show different addresses. It includes the passphrase if you entered one; VERIFY shows it without a passphrase and, if you type one into its own passphrase box, with it too.</p>
       <p>RIPEMD-160 and secp256k1 are implemented in this file (no libraries). The curve code is not constant-time, which is fine offline but another reason never to run this on a networked or shared computer. The fingerprint includes the optional BIP39 passphrase; VERIFY shows it without a passphrase and, if you type one into its own passphrase box, with it too.</p>
     </details>
     <details>
       <summary>What SELF-TEST checks</summary>
-      <p>It runs automatically every time the page loads; if any test fails, seed generation is disabled and a red banner appears. Press SELF-TEST to see the full list. It checks: the BIP39 wordlist hash; official BIP39 entropy vectors (12 to 24 words); SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; the first receive address (the published BIP84 vector, a second vector from two independent libraries, and the BIP173 bech32 example); the watch-only zpub (published BIP84 vector and an independent-library vector), the descriptor checksum and a QR code matrix checked against an independent QR library; passphrase normalization; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
+      <p>It runs automatically every time the page loads; if any test fails, seed generation is disabled and a red banner appears. Press SELF-TEST to see the full list. It checks: the BIP39 wordlist hash; official BIP39 entropy vectors (12 to 24 words); SeedSigner&rsquo;s published 50- and 99-roll dice examples and 50-roll fingerprint; coin-flip vectors from an independent reference implementation of SeedSigner&rsquo;s method; the <code>abandon&hellip;about</code> fingerprints (with and without the <code>TREZOR</code> passphrase); BIP32 test vector 1; the first receive address (the published BIP84 vector, a second vector from two independent libraries, and the BIP173 bech32 example); the watch-only zpub (published BIP84 vector and an independent-library vector), the descriptor checksum, a QR code matrix checked against an independent QR library, and the fingerprint picture checked against independent LifeHash code and Sparrow Wallet; passphrase normalization; RIPEMD-160 vectors; and the phrase checker. If any test fails, do not use that copy for real funds.</p>
       <p><b>What the self-test cannot catch:</b> it only runs known answers through this same file, so it can miss a bug on inputs it does not cover, and a tampered file could simply fake a pass. It does not replace checking the file&rsquo;s SHA256 against the release, and it does not replace comparing your words and fingerprint in a second independent tool. The network tag at the top reads the browser&rsquo;s online flag only; it cannot prove the machine is air-gapped.</p>
     </details>
     <details>
@@ -437,6 +445,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.8.0</b> &mdash; Fingerprint picture: a small LifeHash picture is drawn next to the master fingerprint in FORGE and next to the fingerprints in VERIFY. It is the same picture Sparrow Wallet shows beside the same fingerprint, so you can compare at a glance (the 8-character fingerprint stays the real check). LifeHash is an open visual-hash algorithm by Blockchain Commons, drawn by code inside this page. 1 more self-test (34 in all). Seed words, fingerprints, addresses, zpub, descriptors and QR codes are unchanged.</li>
         <li><b>1.7.1</b> &mdash; Added a short disclaimer under the top warning (provided as is, you are responsible, lost words mean lost funds, test with a small amount) and a fuller one in Security notes. No change to seed words, fingerprints, addresses, zpub, descriptors or QR codes.</li>
         <li><b>1.7.0</b> &mdash; QR codes for the watch-only export: SHOW QR buttons draw the zpub or descriptor as a QR code on screen (drawn by code inside this page, no library, no network) so a phone or other device can scan it into a watch-only wallet app. Public keys only. 1 more self-test (33 in all). Seed words, fingerprints, addresses, zpub and descriptors are unchanged.</li>
         <li><b>1.6.0</b> &mdash; Watch-only export: after FORGE, a collapsed box shows the wallet&rsquo;s public account key (zpub) and output descriptors (receive and change) with COPY buttons, so the wallet can be added to a watch-only app without the seed words. It never contains secret keys. 3 more self-tests (32 in all). Seed words, fingerprints and addresses are unchanged.</li>
@@ -460,7 +469,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.7.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.8.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -825,6 +834,75 @@ function qrSvg(rows){
   for(let y=0;y<n;y++) for(let x=0;x<n;x++) if(rows[y][x]) d+="M"+(x+q)+" "+(y+q)+"h1v1h-1z";
   return '<svg viewBox="0 0 '+(n+2*q)+' '+(n+2*q)+'" shape-rendering="crispEdges" role="img" aria-label="QR code"><rect width="'+(n+2*q)+'" height="'+(n+2*q)+'" fill="#fff"/><path d="'+d+'" fill="#000"/></svg>';
 }
+// LifeHash (version 2): a small picture derived from a master fingerprint, the same one Sparrow Wallet shows beside it.
+// Algorithm by Blockchain Commons. Display only; it never touches keys. Input is SHA-256 of the 4 fingerprint bytes.
+const LH_SPEC=[[0,168,222],[41,60,130],[210,59,130],[217,63,53],[244,228,81],[0,158,84],[0,168,222]].map(c=>c.map(v=>v/255));
+const lhClamp=(n)=>Math.max(Math.min(n,1),0), lhMod=(a,b)=>((a%b)+b)%b;
+const lhLerp=(a,b,t)=>{ const f=lhClamp(t); return [0,1,2].map(i=>lhClamp(a[i]*(1-f)+b[i]*f)); };
+const lhLum=(c)=>Math.sqrt(Math.pow(0.299*c[0],2)+Math.pow(0.587*c[1],2)+Math.pow(0.114*c[2],2));
+const lhBlend=(a,b)=>(t)=>lhLerp(a,b,t);
+const lhBlendMany=(cs)=>(t)=>{ if(t>=1) return cs[cs.length-1]; if(t<=0) return cs[0];
+  const s=t*(cs.length-1), seg=Math.trunc(s); return lhLerp(cs[seg],cs[seg+1],lhMod(s,1)); };
+const lhRev=(g)=>(t)=>g(1-t);
+const LH_BLACK=[0,0,0], LH_WHITE=[1,1,1], lhSpectrum=lhBlendMany(LH_SPEC);
+class LhBits{ constructor(d){ this.d=d; this.i=0; this.m=128; }
+  next(){ if(this.m===0){ this.m=128; this.i++; } const b=(this.d[this.i]&this.m)!==0; this.m>>=1; return b; }
+  cfg(mask,bits){ let v=0, m=mask; for(let k=0;k<bits;k++){ if(this.next()) v|=m; m>>=1; } return v; }
+  u2(){ return this.cfg(2,2); } frac(){ return this.cfg(32768,16)/65535.0; } }
+function lhGradient(e){
+  const val=e.u2();
+  if(val===0){ const hue=e.frac(), tint=e.next(), rev=e.next(), ka=e.frac()*0.3+0.05, na=e.frac()*0.3+0.05;
+    let key=lhSpectrum(hue), cb; if(tint){ cb=1; key=lhLerp(key,LH_BLACK,0.5); } else cb=0;
+    const neutral=lhLerp(LH_BLACK,LH_WHITE,cb), k2=lhLerp(key,neutral,ka), n2=lhLerp(neutral,key,na), g=lhBlend(k2,n2);
+    return rev?lhRev(g):g; }
+  if(val===1){ const s1=e.frac(), s2=lhMod(s1+0.5,1), la=e.frac()*0.3, da=e.frac()*0.3, rev=e.next();
+    const c1=lhSpectrum(s1), c2=lhSpectrum(s2); let dk, lt; if(lhLum(c1)>lhLum(c2)){ dk=c2; lt=c1; } else { dk=c1; lt=c2; }
+    const g=lhBlend(lhLerp(dk,LH_BLACK,da),lhLerp(lt,LH_WHITE,la)); return rev?lhRev(g):g; }
+  if(val===2){ const s1=e.frac(), s2=lhMod(s1+1.0/3,1), s3=lhMod(s1+2.0/3,1), la=e.frac()*0.3, da=e.frac()*0.3, rev=e.next();
+    const cs=[lhSpectrum(s1),lhSpectrum(s2),lhSpectrum(s3)].sort((a,b)=>lhLum(a)-lhLum(b));
+    const g=lhBlendMany([lhLerp(cs[2],LH_WHITE,la),cs[1],lhLerp(cs[0],LH_BLACK,da)]); return rev?lhRev(g):g; }
+  const s1=e.frac(), s2=lhMod(s1+1.0/12,1), s3=lhMod(s1+2.0/12,1), s4=lhMod(s1+3.0/12,1), adv=e.frac()*0.5+0.2, rev=e.next();
+  const c1=lhSpectrum(s1), c2=lhSpectrum(s2), c3=lhSpectrum(s3), c4=lhSpectrum(s4); let d0,d1,l1,l0;
+  if(lhLum(c1)<lhLum(c4)){ d0=c1; d1=c2; l1=c3; l0=c4; } else { d0=c4; d1=c3; l1=c2; l0=c1; }
+  const g=lhBlendMany([lhLerp(d0,LH_BLACK,adv),lhLerp(d1,LH_BLACK,adv/2),lhLerp(l1,LH_WHITE,adv/2),lhLerp(l0,LH_WHITE,adv)]);
+  return rev?lhRev(g):g;
+}
+// Returns a 32x32 array of [r,g,b] bytes (rows) for an 8-hex-digit master fingerprint.
+async function lifeHash(fpHex){
+  const N=16, digest=await sha256bytes(fromHex(fpHex)), start=await sha256bytes(digest);
+  let cur=new Array(N*N).fill(false), nxt=new Array(N*N).fill(false), curChg=new Array(N*N).fill(false), nxtChg=new Array(N*N).fill(true);
+  { const e=new LhBits(start); for(let i=0;i<N*N;i++) nxt[i]=e.next(); }
+  const idx=(x,y)=>((y+N)%N)*N+((x+N)%N), seen=new Set(), history=[];
+  const pack=(g)=>{ let s=""; for(let i=0;i<g.length;i+=8){ let b=0; for(let k=0;k<8;k++) b=(b<<1)|(g[i+k]?1:0); s+=String.fromCharCode(b); } return s; };
+  while(history.length<150){
+    [cur,nxt]=[nxt,cur]; [curChg,nxtChg]=[nxtChg,curChg];
+    const key=pack(cur); if(seen.has(key)) break; seen.add(key); history.push(cur.slice());
+    nxt.fill(false); nxtChg.fill(false);
+    for(let y=0;y<N;y++) for(let x=0;x<N;x++){ const p=y*N+x, alive=cur[p];
+      if(curChg[p]){ let n=0; for(let oy=-1;oy<=1;oy++) for(let ox=-1;ox<=1;ox++){ if(ox===0&&oy===0) continue; if(cur[idx(x+ox,y+oy)]) n++; }
+        const na=alive?(n===2||n===3):(n===3); if(na) nxt[p]=true;
+        if(alive!==na){ for(let oy=-1;oy<=1;oy++) for(let ox=-1;ox<=1;ox++) nxtChg[idx(x+ox,y+oy)]=true; } }
+      else nxt[p]=alive; }
+  }
+  const e=new LhBits(digest); e.next(); e.next();
+  const gradient=lhGradient(e), snowflake=e.next();
+  const frac=new Array(N*N).fill(0);
+  history.forEach((g,i)=>{ const f=lhClamp((0-(i+1))/(0-history.length)); for(let p=0;p<N*N;p++) if(g[p]) frac[p]=f; });
+  const mn=Math.min(...frac), mx=Math.max(...frac);
+  if(mx>mn) for(let p=0;p<N*N;p++) frac[p]=(mn-frac[p])/(mn-mx);
+  const S=N*2, grid=new Array(S*S);
+  const T=snowflake?[[0,0,0],[0,1,0],[0,0,1],[0,1,1]]:[[0,0,0],[1,1,0],[1,0,1],[0,1,1]];
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){ const col=gradient(frac[y*N+x]);
+    for(const [tr,rx,ry] of T){ let px=x, py=y; if(tr) [px,py]=[py,px]; if(rx) px=S-1-px; if(ry) py=S-1-py; grid[py*S+px]=col; } }
+  const rows=[]; for(let y=0;y<S;y++){ const r=[]; for(let x=0;x<S;x++){ const c=grid[y*S+x]; r.push([Math.floor(lhClamp(c[0])*255),Math.floor(lhClamp(c[1])*255),Math.floor(lhClamp(c[2])*255)]); } rows.push(r); }
+  return rows;
+}
+function lifeHashSvg(rows){
+  const n=rows.length; let out='<svg viewBox="0 0 '+n+' '+n+'" shape-rendering="crispEdges" role="img" aria-label="Fingerprint picture">';
+  for(let y=0;y<n;y++){ let x=0; while(x<n){ let x2=x+1; const c=rows[y][x]; while(x2<n&&rows[y][x2].join()===c.join()) x2++;
+    out+='<rect x="'+x+'" y="'+y+'" width="'+(x2-x)+'" height="1" fill="rgb('+c.join(',')+')"/>'; x=x2; } }
+  return out+'</svg>';
+}
 async function mnemonicFirstAddress(mnemonic, passphrase){ return firstAddressFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
 async function sha256bytes(b){ return new Uint8Array(await crypto.subtle.digest("SHA-256", b)); }
 async function mnemonicFingerprint(mnemonic, passphrase){ return fingerprintFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
@@ -894,6 +972,7 @@ async function runSelfTests(auto){
   eq("watch-only zpub + TREZOR (two independent libraries)", async()=>(await mnemonicWatchOnly("abandon ".repeat(11)+"about","TREZOR")).zpub,"zpub6rXDN3yuixCtvAyzKn3uWLDr8qXKEQ2orduEL5AAysdHZmuPVUL2vbMQDEhp8L9hRsgM8J8idDNPdZjrob8R5e7x7UoYXVdfjDG96TLa7La");
   eq("descriptor checksum (independent library vector)", ()=>descriptorChecksum("pkh([d34db33f/44h/0h/0h]xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/1/*)"),"pkh([d34db33f/44h/0h/0h]xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL/1/*)#gw2sk4e2");
   eq("QR code for the abandon..about zpub (matches the independent qrcode library)", async()=>hex(await sha256(qrMatrix("zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs",3).rows.map(r=>r.map(c=>c?"1":"0").join("")).join(""))),"e43b8ef820588438c53265831882e7ed85e3724ab618d7a2ae9ede4c73f4794f");
+  eq("fingerprint picture (LifeHash v2) for 4fbf7566 (matches Sparrow Wallet and independent libraries)", async()=>hex(await sha256bytes(Uint8Array.from((await lifeHash("4fbf7566")).flat(2)))),"a68469eef36ac07b9871b5ca7581cfad31c71b7191072d2d023dff316cd75c2e");
   eq("bech32 BIP173 example address", ()=>bech32Encode("bc",0,fromHex("751e76e8199196d454941c45d1b3a323f1433bd6")),"bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4");
   eq("BIP32 test vector 1 fingerprint", ()=>fingerprintFromSeed(fromHex("000102030405060708090a0b0c0d0e0f")),"3442193e");
   // RIPEMD-160 standard vectors
@@ -947,10 +1026,11 @@ async function generate(){
   setResult(mnemonic + "\n\nPassphrase: " + (pass ? "used (" + Array.from(pass).length + " characters, not shown here)" : "none"), mnemonic.split(" "));
   const fpEl = document.getElementById("fingerprint"), adEl = document.getElementById("address");
   fpEl.textContent = "Master fingerprint: computing..."; adEl.textContent = "";
-  clearWatch();
+  clearWatch(); clearFpIcons();
   try {
     const fp = await mnemonicFingerprint(mnemonic, pass);
     fpEl.textContent = "Master fingerprint: " + fp + (pass ? " (with passphrase)" : "");
+    showFpIcon("fpIcon", fp);
   } catch(e) {
     fpEl.textContent = "Master fingerprint unavailable: " + e.message;
   }
@@ -978,6 +1058,14 @@ function showQr(id, label){
 function hideQr(){
   document.getElementById("qrImg").textContent = ""; document.getElementById("qrCaption").textContent = "";
   document.getElementById("qrBox").style.display = "none";
+}
+async function showFpIcon(iconId, fp, figId){
+  try { document.getElementById(iconId).innerHTML = lifeHashSvg(await lifeHash(fp)); if(figId) document.getElementById(figId).style.display = ""; }
+  catch(e) { document.getElementById(iconId).textContent = ""; }
+}
+function clearFpIcons(){
+  for(const id of ["fpIcon","vIcon0","vIcon1"]) document.getElementById(id).textContent = "";
+  for(const id of ["vFig0","vFig1"]) document.getElementById(id).style.display = "none";
 }
 function clearWatch(){
   hideQr();
@@ -1059,6 +1147,7 @@ function setResult(text, words){
     delete g.dataset.seed; g.classList.remove("sr"); grid.style.display = "none";
     document.getElementById("passNote").textContent = ""; document.getElementById("nextStep").textContent = "";
     clearWatch();
+    clearFpIcons();
   }
 }
 function hasSeed(){ return document.getElementById("genResult").dataset.seed === "1"; }
@@ -1124,7 +1213,7 @@ function clearAll(){
   setResult("\u2014"); updateAdvSummary();
   document.getElementById("fingerprint").textContent="";
   document.getElementById("address").textContent="";
-  clearWatch();
+  clearWatch(); clearFpIcons();
   document.getElementById("rollHistory").textContent="";
   document.getElementById("diceVisual").textContent="";
   safeCopy("").catch(()=>{});
@@ -1134,6 +1223,7 @@ function clearAll(){
 async function verify(){
   if(!gateOk()) return;
   const st = document.getElementById("verifyStatus");
+  clearFpIcons();
   const r = await checkPhrase(document.getElementById("phrase").value);
   st.className = "status " + (r.ok ? "ok" : "bad");
   st.textContent = r.msg;
@@ -1141,10 +1231,10 @@ async function verify(){
   if(r.ok){
     const vp = document.getElementById("verifyPass").value, lines = [r.msg];
     let fp0, a0, fp1, a1;
-    try { fp0 = await mnemonicFingerprint(r.mnemonic, ""); a0 = await mnemonicFirstAddress(r.mnemonic, ""); lines.push("Without passphrase: fingerprint " + fp0 + " | first address " + a0); }
+    try { fp0 = await mnemonicFingerprint(r.mnemonic, ""); a0 = await mnemonicFirstAddress(r.mnemonic, ""); lines.push("Without passphrase: fingerprint " + fp0 + " | first address " + a0); showFpIcon("vIcon0", fp0, "vFig0"); }
     catch(e) { lines.push("Without passphrase: unavailable (" + e.message + ")"); }
     if(vp){
-      try { fp1 = await mnemonicFingerprint(r.mnemonic, vp); a1 = await mnemonicFirstAddress(r.mnemonic, vp); lines.push("With passphrase (" + Array.from(vp).length + " characters, not shown): fingerprint " + fp1 + " | first address " + a1); }
+      try { fp1 = await mnemonicFingerprint(r.mnemonic, vp); a1 = await mnemonicFirstAddress(r.mnemonic, vp); lines.push("With passphrase (" + Array.from(vp).length + " characters, not shown): fingerprint " + fp1 + " | first address " + a1); showFpIcon("vIcon1", fp1, "vFig1"); }
       catch(e) { lines.push("With passphrase: unavailable (" + e.message + ")"); }
     } else {
       lines.push("No passphrase entered. To check one, type it in the passphrase box above and press VERIFY again.");
