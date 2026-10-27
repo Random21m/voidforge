@@ -145,6 +145,8 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     t.$('passphrase').value=''; t.$('passphrase2').value=''; t.w.updateAdvSummary(); ok(!/PASSPHRASE SET/.test(t.$('advSummary').textContent),'advanced summary flag clears');
     t.$('rolls').value='123'; t.w.updateCount(); await t.w.generate(); eq(t.$('genResult').textContent,'Enter 47 more rolls (3 of 50).','too few rolls: plain message');
     t.$('rolls').value='1'.repeat(53); t.w.updateCount(); await t.w.generate(); eq(t.$('genResult').textContent,'Remove 3 rolls (53 of 50).','too many rolls: plain message');
+    t.$('rolls').value='1'.repeat(49); t.w.updateCount(); await t.w.generate(); eq(t.$('genResult').textContent,'Enter 1 more roll (49 of 50).','one roll short: singular');
+    t.$('rolls').value='1'.repeat(51); t.w.updateCount(); await t.w.generate(); eq(t.$('genResult').textContent,'Remove 1 roll (51 of 50).','one roll over: singular');
     ok(t.$('statusLine').contains(t.$('netTag'))&&t.$('statusLine').contains(t.$('selfTestBadge')),'network tag and self-test badge share one status line');
     ok(/^NETWORK: (ONLINE|OFFLINE)$/.test(t.$('netTag').textContent),'network tag is short');
     t.$('rolls').value=''; t.w.updateCount();

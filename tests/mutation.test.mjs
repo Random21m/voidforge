@@ -70,14 +70,14 @@ async function probe(w) {
     $('rolls').value = D50; $('passphrase').value = 'a'; $('passphrase2').value = 'b'; await w.generate(); $('phrase').value = ''; await w.sendToVerify();
     if ($('phrase').value !== '') fails.push('an error message is never used as a seed');
     $('passphrase').value = ''; $('passphrase2').value = ''; }
-  r = await run('dice', 12, D50 + '1', ''); if (r !== 'Remove 1 rolls (51 of 50).') fails.push('too many rolls message');
+  r = await run('dice', 12, D50 + '1', ''); if (r !== 'Remove 1 roll (51 of 50).') fails.push('too many rolls message');
   r = await run('dice', 12, D50.slice(0, 40), ''); if (r !== 'Enter 10 more rolls (40 of 50).') fails.push('too few rolls message');
   { const bs = [...w.document.querySelectorAll('#tapRow button')];
     if (bs.length !== 6 || !bs.every((b, i) => b.querySelectorAll('svg circle').length === i + 1)) fails.push('dice faces have the right pips'); }
   r = await run('dice', 24, D99);     if (r !== expect.d99) fails.push('dice 24 words');
   r = await run('coin', 12, C128);    if (r !== expect.c128) fails.push('coin 12 words');
   r = await run('dice', 12, D50.replace(/(.{5})/g, '$1 ') + ' x,y;z'); if (r !== expect.d50) fails.push('input cleaning (spaces/junk)');
-  r = await run('dice', 12, D50 + '1');   if (!/^Remove 1 rolls \(51 of 50\)\./.test(r)) fails.push('rejects wrong length');
+  r = await run('dice', 12, D50 + '1');   if (!/^Remove 1 roll \(51 of 50\)\./.test(r)) fails.push('rejects wrong length');
   r = await run('dice', 12, D50, UNI);    if (fpOf() !== fp(expect.d50, UNI)) fails.push('unicode passphrase fingerprint');
   if (adOf() !== addr(expect.d50, UNI)) fails.push('first receive address with unicode passphrase');
   if ($('wZpub').textContent !== watch(expect.d50, UNI).zpub) fails.push('watch-only zpub with unicode passphrase');

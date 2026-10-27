@@ -445,6 +445,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.8.1</b> &mdash; Wording fix: the roll count message says &ldquo;1 more roll&rdquo; instead of &ldquo;1 more rolls&rdquo; (same for flips). The release process was also hardened (tests run in a separate read-only job, files are re-checked against the git tag before signing); this does not change the app itself or any seed it makes.</li>
         <li><b>1.8.0</b> &mdash; Fingerprint picture: a small LifeHash picture is drawn next to the master fingerprint in FORGE and next to the fingerprints in VERIFY. It is the same picture Sparrow Wallet shows beside the same fingerprint, so you can compare at a glance (the 8-character fingerprint stays the real check). LifeHash is an open visual-hash algorithm by Blockchain Commons, drawn by code inside this page. 1 more self-test (34 in all). Seed words, fingerprints, addresses, zpub, descriptors and QR codes are unchanged.</li>
         <li><b>1.7.1</b> &mdash; Added a short disclaimer under the top warning (provided as is, you are responsible, lost words mean lost funds, test with a small amount) and a fuller one in Security notes. No change to seed words, fingerprints, addresses, zpub, descriptors or QR codes.</li>
         <li><b>1.7.0</b> &mdash; QR codes for the watch-only export: SHOW QR buttons draw the zpub or descriptor as a QR code on screen (drawn by code inside this page, no library, no network) so a phone or other device can scan it into a watch-only wallet app. Public keys only. 1 more self-test (33 in all). Seed words, fingerprints, addresses, zpub and descriptors are unchanged.</li>
@@ -469,7 +470,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.8.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.8.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -1006,7 +1007,7 @@ async function generate(){
   const wc = parseInt(document.querySelector('input[name="words"]:checked').value);
   const need = getNeeded(wc);
   if(rolls.length!==need){
-    const unit = getMode()==="coin" ? "flips" : "rolls", diff = Math.abs(need - rolls.length);
+    const diff = Math.abs(need - rolls.length), unit = (getMode()==="coin" ? "flip" : "roll") + (diff === 1 ? "" : "s");
     setResult(rolls.length < need ? "Enter " + diff + " more " + unit + " (" + rolls.length + " of " + need + ")." : "Remove " + diff + " " + unit + " (" + rolls.length + " of " + need + ").");
     document.getElementById("fingerprint").textContent = "";
     document.getElementById("address").textContent = "";
