@@ -8,7 +8,7 @@
     "test": "node tests/test.js && node tests/oracle.test.mjs && node tests/mutation.test.mjs"
   },
   "devDependencies": {
-    "@scure/bip32": "^1.7.0",
+    "@scure/bip32": "^2.4.0",
     "@scure/bip39": "^1.6.0",
     "jsdom": "^26.0.0",
     "lifehash": "^1.0.0"
