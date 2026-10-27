@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security problem (private)
+    url: https://github.com/Random21m/voidforge/security/advisories/new
+    about: Anything that could leak a seed, produce a wrong seed or address, or weaken the offline guarantees. Please do not post details in a public issue.

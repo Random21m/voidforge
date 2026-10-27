@@ -1,0 +1,23 @@
+name: Bug report
+description: Something does not work or looks wrong (not a security problem)
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never paste real seed words, passphrases, dice rolls or private keys here.** This page is public. Use the demo rolls from the README if you need an example.
+        Security problems go to the private form instead: https://github.com/Random21m/voidforge/security/advisories/new
+  - type: input
+    id: version
+    attributes:
+      label: VOIDFORGE version (shown at the bottom of the page)
+    validations: { required: true }
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version, and computer type
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations: { required: true }
