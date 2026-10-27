@@ -7,6 +7,8 @@ Offline dice- and coin-based BIP39 seed phrase generator (12 or 24 words). One H
 <p align="center"><a href="https://github.com/Random21m/voidforge/releases/latest"><b>&#11015; Download the latest release</b></a><br>
 Get <code>voidforge.html</code> and <code>SHA256SUMS</code> from the release page, check the hash, then copy the file to a USB stick for your offline computer. This is the only place to download it; there is no hosted web version, by design.</p>
 
+<p align="center"><a href="https://x.com/Random21m/status/2114875904518471929">&#9654; Watch the tutorial video</a></p>
+
 > **Not independently audited.** For serious amounts, generate on dedicated hardware (SeedSigner, Coldcard) and use VOIDFORGE to cross-check the words and fingerprint.
 
 ## Disclaimer: please read
