@@ -2,6 +2,8 @@
 #   1. checks that the tagged voidforge.html matches SHA256SUMS and passes all tests,
 #   2. records a signed GitHub build-provenance attestation for voidforge.html and SHA256SUMS,
 #   3. attaches both files to the release.
+# The tests run in a SEPARATE job that has read-only access and no signing rights. The job that attests and
+# uploads installs no npm packages and runs no third-party code; it re-checks the files against the git tag itself.
 # It proves WHICH repo, commit and workflow the files came from. It does not make the code safe;
 # that still depends on review. Verify with:  gh attestation verify voidforge.html --repo Random21m/voidforge
 name: release
@@ -13,15 +15,15 @@ on:
       tag:
         description: "Existing release tag to attest (for example v1.2.2)"
         required: true
-permissions:
-  contents: write       # attach files to the release
-  id-token: write       # sign the attestation
-  attestations: write   # store the attestation
+permissions: {}
+env:
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
 jobs:
-  attest:
+  test:
+    # Runs dependency code (npm), so it gets read-only access and never sees a signing or upload token.
     runs-on: ubuntu-latest
-    env:
-      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    permissions:
+      contents: read
     steps:
       - name: Check the tag name
         run: |
@@ -32,13 +34,38 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event.release.tag_name || inputs.tag }}
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 20 }
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - name: Tests
         run: npm test
-      - name: Tagged file matches SHA256SUMS
-        run: sha256sum -c SHA256SUMS
+  attest:
+    # Installs no packages and runs no project code. Signs and uploads only bytes taken from the git tag.
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # attach files to the release
+      id-token: write       # sign the attestation
+      attestations: write   # store the attestation
+    steps:
+      - name: Check the tag name
+        run: |
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "Unexpected tag name: $TAG" >&2; exit 1 ;;
+          esac
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          persist-credentials: false
+      - name: Files are exactly what the tag contains, and match SHA256SUMS
+        run: |
+          git diff --exit-code HEAD -- voidforge.html SHA256SUMS
+          for f in voidforge.html SHA256SUMS; do
+            test "$(git show "refs/tags/$TAG:$f" | sha256sum | cut -d' ' -f1)" = "$(sha256sum "$f" | cut -d' ' -f1)"
+          done
+          sha256sum -c SHA256SUMS
       - name: Attest build provenance
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
