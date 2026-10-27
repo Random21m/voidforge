@@ -1,6 +1,6 @@
 # Review guide
 
-VOIDFORGE is meant to be read. The security-relevant code is a few hundred lines in `voidforge.html`. Line numbers are approximate (v1.8.1).
+VOIDFORGE is meant to be read. The security-relevant code is a few hundred lines in `voidforge.html`. Line numbers are approximate (v1.9.0).
 
 | What | Where | Look for |
 |---|---|---|

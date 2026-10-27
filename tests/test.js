@@ -147,6 +147,13 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     t.$('rolls').value='1'.repeat(53); t.w.updateCount(); await t.w.generate(); eq(t.$('genResult').textContent,'Remove 3 rolls (53 of 50).','too many rolls: plain message');
     t.$('rolls').value='1'.repeat(49); t.w.updateCount(); await t.w.generate(); eq(t.$('genResult').textContent,'Enter 1 more roll (49 of 50).','one roll short: singular');
     t.$('rolls').value='1'.repeat(51); t.w.updateCount(); await t.w.generate(); eq(t.$('genResult').textContent,'Remove 1 roll (51 of 50).','one roll over: singular');
+    // roll chart: counts per face, display only
+    t.$('rolls').value=''; t.w.updateCount(); eq(t.$('rollChart').style.display,'none','chart hidden when empty');
+    t.$('rolls').value='1122223 6x6 6'; t.w.updateCount();
+    const nums=[...t.$('rollChart').querySelectorAll('.rc-num')].map(e=>e.textContent).join(',');
+    eq(nums,'2,4,1,0,0,3','chart counts per dice face (1..6), ignoring invalid characters');
+    eq(t.$('rollChart').querySelectorAll('.rc-bar').length,6,'chart has six bars for dice');
+    eq(t.$('rollChart').querySelectorAll('img,script,a').length,0,'chart contains no images, scripts or links');
     ok(t.$('statusLine').contains(t.$('netTag'))&&t.$('statusLine').contains(t.$('selfTestBadge')),'network tag and self-test badge share one status line');
     ok(/^NETWORK: (ONLINE|OFFLINE)$/.test(t.$('netTag').textContent),'network tag is short');
     t.$('rolls').value=''; t.w.updateCount();

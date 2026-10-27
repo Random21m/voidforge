@@ -166,6 +166,16 @@
     min-height: 46px;
     word-break: break-word;
   }
+  .rc { margin-top:10px; padding:8px 10px 6px; border:1px solid var(--border); border-radius:8px; background:var(--surface); }
+  .rc-title { font-size:11px; color:var(--muted); margin-bottom:6px; }
+  .rc-cols { display:flex; gap:6px; align-items:flex-end; height:84px; position:relative; }
+  .rc-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; min-width:0; }
+  .rc-num { font-size:12px; font-weight:700; line-height:1.1; }
+  .rc-bar { width:70%; max-width:34px; background:var(--accent); border-radius:3px 3px 0 0; min-height:1px; }
+  .rc-exp { position:absolute; left:0; right:0; border-top:1px dashed var(--muted); pointer-events:none; }
+  .rc-labels { display:flex; gap:6px; margin-top:3px; }
+  .rc-label { flex:1; text-align:center; font-size:15px; color:var(--muted); line-height:1.1; }
+  .rc-note { font-size:11px; color:var(--muted); margin-top:4px; }
   .hint { font-size: 12px; color: var(--muted); }
   .wlabel { margin-top: 10px; font-size: 12px; color: var(--muted); }
   .wval { font-family: monospace; font-size: 12px; word-break: break-all; margin: 4px 0 6px; user-select: all; }
@@ -325,6 +335,7 @@
     </details>
     <div id="rollHistory" style="font-size:11px;color:#7a7a90;margin-top:6px;min-height:16px;"></div>
     <div id="diceVisual" style="font-size:30px; letter-spacing:4px; margin-top:4px; min-height:28px;"></div>
+    <div id="rollChart" class="rc" role="img" aria-label="Chart of how many times each face came up" style="display:none;"></div>
     <div class="btn-row">
       <button id="forgeBtn" onclick="generate()" disabled>FORGE SEED</button>
       <button class="secondary" onclick="clearAll()">CLEAR</button>
@@ -445,6 +456,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.9.0</b> &mdash; Roll chart: a small bar chart under the roll box shows how many times each dice face (or coin side) has come up, with a dashed line for an even share. It is a display only: it does not change the randomness check, the seed or any result.</li>
         <li><b>1.8.1</b> &mdash; Wording fix: the roll count message says &ldquo;1 more roll&rdquo; instead of &ldquo;1 more rolls&rdquo; (same for flips). The release process was also hardened (tests run in a separate read-only job, files are re-checked against the git tag before signing); this does not change the app itself or any seed it makes.</li>
         <li><b>1.8.0</b> &mdash; Fingerprint picture: a small LifeHash picture is drawn next to the master fingerprint in FORGE and next to the fingerprints in VERIFY. It is the same picture Sparrow Wallet shows beside the same fingerprint, so you can compare at a glance (the 8-character fingerprint stays the real check). LifeHash is an open visual-hash algorithm by Blockchain Commons, drawn by code inside this page. 1 more self-test (34 in all). Seed words, fingerprints, addresses, zpub, descriptors and QR codes are unchanged.</li>
         <li><b>1.7.1</b> &mdash; Added a short disclaimer under the top warning (provided as is, you are responsible, lost words mean lost funds, test with a small amount) and a fuller one in Security notes. No change to seed words, fingerprints, addresses, zpub, descriptors or QR codes.</li>
@@ -470,7 +482,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.8.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.9.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -543,6 +555,38 @@ function analyzeRolls(str, isCoin){
   return {level, problems, chi};
 }
 
+// Small bar chart of how many times each face / side has come up. Display only: it never touches the seed.
+function renderRollChart(rolls, isCoin){
+  const box = document.getElementById("rollChart");
+  if(!rolls.length){ box.style.display = "none"; box.textContent = ""; return; }
+  const faces = isCoin ? ["1","0"] : ["1","2","3","4","5","6"];
+  const glyph = isCoin ? {"1":"1","0":"0"} : {"1":"\u2680","2":"\u2681","3":"\u2682","4":"\u2683","5":"\u2684","6":"\u2685"};
+  const counts = faces.map(f => { let c = 0; for(const ch of rolls) if(ch === f) c++; return c; });
+  const expected = rolls.length / faces.length;
+  const top = Math.max(Math.max.apply(null, counts), expected) || 1;
+  const px = 64;
+  box.textContent = "";
+  const title = document.createElement("div"); title.className = "rc-title";
+  title.textContent = "How many times each " + (isCoin ? "side" : "face") + " came up (dashed line = even share)";
+  box.appendChild(title);
+  const cols = document.createElement("div"); cols.className = "rc-cols";
+  const labels = document.createElement("div"); labels.className = "rc-labels";
+  faces.forEach((f, i) => {
+    const col = document.createElement("div"); col.className = "rc-col";
+    const num = document.createElement("div"); num.className = "rc-num"; num.textContent = String(counts[i]);
+    const bar = document.createElement("div"); bar.className = "rc-bar"; bar.style.height = Math.round(counts[i] / top * px) + "px";
+    col.appendChild(num); col.appendChild(bar); cols.appendChild(col);
+    const lab = document.createElement("div"); lab.className = "rc-label"; lab.textContent = glyph[f]; labels.appendChild(lab);
+  });
+  const exp = document.createElement("div"); exp.className = "rc-exp"; exp.style.bottom = Math.round(expected / top * px) + "px";
+  cols.appendChild(exp);
+  box.appendChild(cols); box.appendChild(labels);
+  const note = document.createElement("div"); note.className = "rc-note";
+  note.textContent = "Even share: " + (Math.round(expected * 10) / 10) + " each. Real dice or coins drift above and below it; only large, lasting gaps are a concern.";
+  box.appendChild(note);
+  box.style.display = "";
+  box.setAttribute("aria-label", "Counts: " + faces.map((f, i) => f + " came up " + counts[i] + " times").join(", "));
+}
 function updateCount(){
   const n = clean(document.getElementById("rolls").value).length;
   const wc = document.querySelector('input[name="words"]:checked').value;
@@ -557,6 +601,7 @@ function updateCount(){
     ? "Ignored " + ignored.length + " invalid character" + (ignored.length>1?"s":"") + " (" + Array.from(new Set(ignored)).slice(0,10).join(" ") + "): only " + (isCoin ? "1 and 0" : "1-6") + " count."
     : "";
   const rolls = clean(rawVal);
+  renderRollChart(rolls, isCoin);
   const statusEl = document.getElementById("entropyStatus");
   const fillEl = document.getElementById("entropyFill");
   const an = analyzeRolls(rolls, isCoin);
