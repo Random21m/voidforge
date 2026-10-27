@@ -31,6 +31,13 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
   // --- self-test (known-answer vectors) ---
   await t.w.runSelfTests();
   ok(/^ALL \d+ TESTS PASSED/.test(t.$('testResults').textContent),'in-page SELF-TEST passes: '+t.$('testResults').textContent.split('\n')[0]);
+  // SELF-TEST button toggles: press again hides the results without CLEAR
+  t.w.toggleSelfTests();
+  ok(t.$('testResults').textContent==='','SELF-TEST button: press while results are shown hides them');
+  await t.w.toggleSelfTests();
+  ok(/^ALL \d+ TESTS PASSED/.test(t.$('testResults').textContent),'SELF-TEST button: press again shows them');
+  t.w.toggleSelfTests();
+  ok(t.$('testResults').textContent==='','SELF-TEST button: second press hides the results');
   // --- RIPEMD-160 fuzz vs Node ---
   let bad=0; for(let n=0;n<300;n++){ const b=nc.randomBytes(n<130?n:nc.randomInt(0,2000));
     if(Buffer.from(t.w.ripemd160(new t.w.Uint8Array(b))).toString('hex')!==nc.createHash('ripemd160').update(b).digest('hex')) bad++; }

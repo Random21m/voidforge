@@ -343,7 +343,7 @@
     <div class="btn-row">
       <button id="forgeBtn" onclick="generate()" disabled>FORGE SEED</button>
       <button class="secondary" onclick="clearAll()">CLEAR</button>
-      <button class="secondary small" onclick="runSelfTests()">SELF-TEST</button>
+      <button class="secondary small" onclick="toggleSelfTests()">SELF-TEST</button>
     </div>
     <div id="wordGrid" aria-hidden="true"></div>
     <div id="abbrNote" class="hint" aria-live="polite"></div>
@@ -479,6 +479,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.10.1</b> &mdash; Fix: the SELF-TEST button now toggles. Pressing it a second time hides the results; before, they stayed until you pressed CLEAR. No change to any crypto or output.</li>
         <li><b>1.10.0</b> &mdash; Three additions, all display only: (1) the first 5 receiving addresses (m/84'/0'/0'/0/0 to 0/4) are listed under the first address, with a COPY ALL button, so you can compare more than one address in another wallet; (2) a SHOW FIRST 4 LETTERS button for the word grid (every BIP39 word is unique by its first four letters), handy for stamping metal backups; (3) a short step-by-step guide to checking the wallet in a second tool. The self-test now has 35 checks. Seeds and wallets are unchanged.</li>
         <li><b>1.9.0</b> &mdash; Roll chart: a small bar chart under the roll box shows how many times each dice face (or coin side) has come up, with a dashed line for an even share. It is a display only: it does not change the randomness check, the seed or any result.</li>
         <li><b>1.8.1</b> &mdash; Wording fix: the roll count message says &ldquo;1 more roll&rdquo; instead of &ldquo;1 more rolls&rdquo; (same for flips). The release process was also hardened (tests run in a separate read-only job, files are re-checked against the git tag before signing); this does not change the app itself or any seed it makes.</li>
@@ -506,7 +507,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.10.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.10.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -1010,6 +1011,12 @@ async function checkPhrase(phrase){
   return {ok:true, msg:"Valid "+words.length+"-word BIP39 phrase", mnemonic:words.join(" ")};
 }
 
+// SELF-TEST button: first press shows the results, second press hides them
+function toggleSelfTests(){
+  const out=document.getElementById("testResults");
+  if(out.textContent){ out.textContent=""; out.className="status"; return; }
+  return runSelfTests();
+}
 // ================= SELF-TEST: known-answer tests from independent sources =================
 async function runSelfTests(auto){
   const out=document.getElementById("testResults");
