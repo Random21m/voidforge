@@ -112,6 +112,20 @@ for (const bytes of [16, 20, 24, 28, 32]) for (let i = 0; i < 12; i++) {
 }
 R.ok(bad === 0, `${n} random phrases (all lengths, odd passphrases): first receive address matches the independent libraries (${bad} mismatches)`);
 
+// 2c. first five receive addresses (BIP84 m/84'/0'/0'/0/0..4) against the independent libraries
+const addrOracleN = (mn, pw, i) => {
+  const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/84'/0'/0'/0/${i}`);
+  return bech32.encode('bc', [0, ...bech32.toWords(ripemd160(sha256(k.publicKey)))]);
+};
+bad = 0; n = 0;
+for (const bytes of [16, 24, 32]) for (let i = 0; i < 10; i++) {
+  const mn = entropyToMnemonic(new Uint8Array(nc.randomBytes(bytes)), wordlist), pw = PASS[nc.randomInt(PASS.length)];
+  n++;
+  const got = await w.mnemonicAddresses(mn, pw, 5);
+  for (let j = 0; j < 5; j++) if (got[j] !== addrOracleN(mn, pw, j)) { bad++; console.log('ADDR5 MISMATCH', j, bytes, JSON.stringify(pw)); }
+}
+R.ok(bad === 0, `${n} random phrases: all five receive addresses match the independent libraries (${bad} mismatches)`);
+
 // 3. phrase checker agrees with @scure on valid, corrupted, and random phrases
 bad = 0; n = 0;
 for (let i = 0; i < 300; i++) {
@@ -139,6 +153,8 @@ for (let i = 0; i < 6; i++) {
   const want = entropyToMnemonic(sha(rolls).slice(0, words === 12 ? 16 : 32), wordlist);
   const fp = ($('fingerprint').textContent.match(/: ([0-9a-f]{8})/) || [])[1];
   const ad = ($('address').textContent.match(/: (bc1[0-9a-z]+)/) || [])[1];
+  const five = Array.from(w.document.querySelectorAll('#addrList li')).map((x) => x.textContent).join(' ');
+  if (five !== [0, 1, 2, 3, 4].map((j) => addrOracleN(want, pw, j)).join(' ')) { bad++; console.log('UI ADDR LIST MISMATCH', coin, words); }
   if ($('genResult').textContent.split('\n')[0] !== want || fp !== fpOracle(want, pw) || ad !== addrOracle(want, pw)) { bad++; console.log('UI MISMATCH', coin, words); }
 }
 R.ok(bad === 0, `6 end-to-end UI runs (words, fingerprint, address) match the independent libraries (${bad} mismatches)`);

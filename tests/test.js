@@ -154,6 +154,21 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     eq(nums,'2,4,1,0,0,3','chart counts per dice face (1..6), ignoring invalid characters');
     eq(t.$('rollChart').querySelectorAll('.rc-bar').length,6,'chart has six bars for dice');
     eq(t.$('rollChart').querySelectorAll('img,script,a').length,0,'chart contains no images, scripts or links');
+    // five addresses, 4-letter view, guide
+    t.$('rolls').value='65515223131652132161133154444123616466443112153441'; t.w.updateCount(); await t.w.generate();
+    eq(t.$('addrList').querySelectorAll('li').length,5,'five receive addresses are listed after FORGE');
+    ok(t.$('addrList').querySelector('li').textContent===/First receive address[^:]*: (bc1[0-9a-z]+)/.exec(t.$('address').textContent)[1],'first listed address equals the single first-address line');
+    eq(t.$('addrBox').style.display,'','address list is shown after FORGE');
+    eq(t.$('checkGuide').style.display,'','second-tool guide is shown after FORGE');
+    const full=[...t.$('wordGrid').querySelectorAll('.wtxt')].map(e=>e.textContent);
+    t.w.toggleAbbr();
+    const abbr=[...t.$('wordGrid').querySelectorAll('.wtxt')].map(e=>e.textContent);
+    ok(abbr.every((a,i)=>a===full[i].slice(0,4)),'4-letter view shows only the first four letters of each word');
+    ok(new Set(abbr).size===abbr.length,'4-letter abbreviations are all distinct in this phrase');
+    eq(t.$('genResult').textContent.split('\n')[0],full.join(' '),'4-letter view does not change the stored phrase');
+    t.w.toggleAbbr();
+    ok([...t.$('wordGrid').querySelectorAll('.wtxt')].map(e=>e.textContent).join(' ')===full.join(' '),'toggling again restores the full words');
+    t.w.clearAll(); eq(t.$('addrBox').style.display,'none','address list is hidden after CLEAR');
     ok(t.$('statusLine').contains(t.$('netTag'))&&t.$('statusLine').contains(t.$('selfTestBadge')),'network tag and self-test badge share one status line');
     ok(/^NETWORK: (ONLINE|OFFLINE)$/.test(t.$('netTag').textContent),'network tag is short');
     t.$('rolls').value=''; t.w.updateCount();

@@ -233,6 +233,10 @@
   #wordGrid { display: none; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 10px; }
   @media (min-width: 520px) { #wordGrid { grid-template-columns: repeat(3, 1fr); } }
   .wcell { background: #0a0a10; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-family: "Courier New", monospace; font-size: 16px; display: flex; gap: 8px; align-items: baseline; }
+  .addr-list { margin:8px 0 4px; padding-left:1.8em; font-family:"Courier New",monospace; font-size:13px; word-break:break-all; }
+  .addr-list li { margin:4px 0; }
+  #checkGuide ol { margin:8px 0 4px; padding-left:1.4em; font-size:13px; }
+  #checkGuide li { margin:5px 0; }
   .wcell b { color: var(--muted); min-width: 1.9em; text-align: right; font-weight: 600; font-size: 12px; }
   body.light .wcell { background: #fff; }
   #passNote, #nextStep { font-size: 13px; margin-top: 8px; }
@@ -342,10 +346,12 @@
       <button class="secondary small" onclick="runSelfTests()">SELF-TEST</button>
     </div>
     <div id="wordGrid" aria-hidden="true"></div>
+    <div id="abbrNote" class="hint" aria-live="polite"></div>
     <div id="passNote"></div>
     <div id="nextStep" aria-live="polite"></div>
     <div class="result" id="genResult" role="status">—</div>
     <div class="btn-row" style="margin-top:6px;">
+      <button class="secondary small" id="abbrBtn" onclick="toggleAbbr()">SHOW FIRST 4 LETTERS</button>
       <button class="secondary small" onclick="sendToVerify()">SEND TO VERIFY</button>
       <button class="secondary small" onclick="copyFingerprint(this)">COPY FINGERPRINT</button>
       <button class="secondary small" onclick="copyAddress(this)">COPY ADDRESS</button>
@@ -353,6 +359,23 @@
     </div>
     <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;"><div class="fp" id="fingerprint"></div><div id="fpIcon" class="lh" title="Fingerprint picture (LifeHash): the same picture Sparrow Wallet shows for this fingerprint"></div></div>
     <div id="address" style="margin-top:6px; font-size:13px; word-break:break-all; color:var(--muted);"></div>
+    <details id="addrBox" style="display:none; margin-top:8px;">
+      <summary>First 5 receiving addresses (to compare in another wallet)</summary>
+      <ol id="addrList" class="addr-list"></ol>
+      <button class="secondary small" onclick="copyAddrList(this)">COPY ALL 5</button>
+      <p class="hint" style="margin:8px 0 0;">BIP84 native SegWit, m/84'/0'/0'/0/0 to 0/4. These are public addresses (no spending power), but anyone who sees them can link them to this wallet.</p>
+    </details>
+    <details id="checkGuide" style="display:none; margin-top:8px;">
+      <summary>How to check this wallet in a second tool (recommended)</summary>
+      <ol>
+        <li>On a <b>different</b> device or app, open a watch-only wallet (Sparrow, Electrum, Blue Wallet or Nunchuk).</li>
+        <li>Import the <b>zpub</b> or the <b>receiving descriptor</b> from the Watch-only box above (copy it, or show the QR and scan it). <b>Never type your seed words into a connected device.</b></li>
+        <li>Compare that app&rsquo;s first <b>5</b> receiving addresses with the list above. All five must match exactly, character for character.</li>
+        <li>With a descriptor import, Sparrow also shows the master fingerprint and the same fingerprint picture. A zpub import does not carry the master fingerprint, which is normal.</li>
+        <li>If anything differs, <b>do not use this wallet</b>. Start again, and check your words against a second offline tool.</li>
+      </ol>
+      <p class="hint" style="margin:6px 0 0;">This checks the public side only. It cannot prove your dice were fair, or that the words you wrote down are right: check those with the VERIFY box below.</p>
+    </details>
     <details id="watchBox" style="display:none; margin-top:10px;">
       <summary>Watch-only wallet (public keys only, cannot spend)</summary>
       <p class="hint" style="margin:8px 0;">Use this to see this wallet&rsquo;s addresses and balance on a phone or online computer <b>without the seed words</b>. It cannot spend. Anyone who gets it can see every address and balance of this wallet, so share it only with your own wallet app. If you used a passphrase, it belongs to this passphrase only.</p>
@@ -456,6 +479,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.10.0</b> &mdash; Three additions, all display only: (1) the first 5 receiving addresses (m/84'/0'/0'/0/0 to 0/4) are listed under the first address, with a COPY ALL button, so you can compare more than one address in another wallet; (2) a SHOW FIRST 4 LETTERS button for the word grid (every BIP39 word is unique by its first four letters), handy for stamping metal backups; (3) a short step-by-step guide to checking the wallet in a second tool. The self-test now has 35 checks. Seeds and wallets are unchanged.</li>
         <li><b>1.9.0</b> &mdash; Roll chart: a small bar chart under the roll box shows how many times each dice face (or coin side) has come up, with a dashed line for an even share. It is a display only: it does not change the randomness check, the seed or any result.</li>
         <li><b>1.8.1</b> &mdash; Wording fix: the roll count message says &ldquo;1 more roll&rdquo; instead of &ldquo;1 more rolls&rdquo; (same for flips). The release process was also hardened (tests run in a separate read-only job, files are re-checked against the git tag before signing); this does not change the app itself or any seed it makes.</li>
         <li><b>1.8.0</b> &mdash; Fingerprint picture: a small LifeHash picture is drawn next to the master fingerprint in FORGE and next to the fingerprints in VERIFY. It is the same picture Sparrow Wallet shows beside the same fingerprint, so you can compare at a glance (the 8-character fingerprint stays the real check). LifeHash is an open visual-hash algorithm by Blockchain Commons, drawn by code inside this page. 1 more self-test (34 in all). Seed words, fingerprints, addresses, zpub, descriptors and QR codes are unchanged.</li>
@@ -482,7 +506,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.9.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.10.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -763,6 +787,18 @@ async function firstAddressFromSeed(seed){
   const h160=ripemd160(await sha256bytes(pubkeyBytes(k)));
   return bech32Encode("bc",0,h160);
 }
+// First n receive addresses (BIP84, m/84'/0'/0'/0/i), for cross-checking in another wallet.
+async function addressesFromSeed(seed, n){
+  let [k,c]=await masterFromSeed(seed);
+  for(const [i,h] of [[84,true],[0,true],[0,true],[0,false]]) [k,c]=await ckdPriv(k,c,i,h);
+  const out=[];
+  for(let i=0;i<n;i++){
+    const [ck]=await ckdPriv(k,c,i,false);
+    out.push(bech32Encode("bc",0,ripemd160(await sha256bytes(pubkeyBytes(ck)))));
+  }
+  return out;
+}
+async function mnemonicAddresses(mnemonic, passphrase, n){ return addressesFromSeed(await mnemonicToSeed(mnemonic, passphrase), n); }
 // Watch-only export: account-level public key for m/84'/0'/0' (BIP32 serialization, Base58Check), plus output descriptors.
 const B58="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 async function base58check(payload){
@@ -1013,6 +1049,7 @@ async function runSelfTests(auto){
   eq("passphrase is NFKD-normalized (composed vs decomposed accent)", async()=>(await mnemonicFingerprint("abandon ".repeat(11)+"about","caf\u00e9"))+"/"+(await mnemonicFingerprint("abandon ".repeat(11)+"about","cafe\u0301")), "75902abe/75902abe");
   // first receive address: BIP84 published vector, a passphrase vector from two independent libraries, and the BIP173 bech32 example
   eq("BIP84 first address 'abandon..about' (published BIP84 vector)", ()=>mnemonicFirstAddress("abandon ".repeat(11)+"about",""),"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu");
+  eq("first five receive addresses 'abandon..about' (embit)", async()=>(await mnemonicAddresses("abandon ".repeat(11)+"about","",5)).join(" "),"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu bc1qnjg0jd8228aq7egyzacy8cys3knf9xvrerkf9g bc1qp59yckz4ae5c4efgw2s5wfyvrz0ala7rgvuz8z bc1qgl5vlg0zdl7yvprgxj9fevsc6q6x5dmcyk3cn3 bc1qm97vqzgj934vnaq9s53ynkyf9dgr05rargr04n");
   eq("first address 'abandon..about' + TREZOR (two independent libraries)", ()=>mnemonicFirstAddress("abandon ".repeat(11)+"about","TREZOR"),"bc1qv5rmq0kt9yz3pm36wvzct7p3x6mtgehjul0feu");
   eq("watch-only zpub 'abandon..about' (published BIP84 vector)", async()=>(await mnemonicWatchOnly("abandon ".repeat(11)+"about","")).zpub,"zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs");
   eq("watch-only zpub + TREZOR (two independent libraries)", async()=>(await mnemonicWatchOnly("abandon ".repeat(11)+"about","TREZOR")).zpub,"zpub6rXDN3yuixCtvAyzKn3uWLDr8qXKEQ2orduEL5AAysdHZmuPVUL2vbMQDEhp8L9hRsgM8J8idDNPdZjrob8R5e7x7UoYXVdfjDG96TLa7La");
@@ -1085,6 +1122,7 @@ async function generate(){
   } catch(e) {
     adEl.textContent = "First address unavailable: " + e.message;
   }
+  try { showAddrs(await mnemonicAddresses(mnemonic, pass, 5)); } catch(e) { clearAddrs(); }
   try {
     const w = await mnemonicWatchOnly(mnemonic, pass);
     document.getElementById("wZpub").textContent = w.zpub;
@@ -1113,7 +1151,21 @@ function clearFpIcons(){
   for(const id of ["fpIcon","vIcon0","vIcon1"]) document.getElementById(id).textContent = "";
   for(const id of ["vFig0","vFig1"]) document.getElementById(id).style.display = "none";
 }
+function clearAddrs(){
+  document.getElementById("addrList").textContent = "";
+  for(const id of ["addrBox","checkGuide"]){ const d = document.getElementById(id); d.style.display = "none"; d.open = false; }
+}
+function showAddrs(list){
+  const ol = document.getElementById("addrList"); ol.textContent = "";
+  list.forEach(a => { const li = document.createElement("li"); li.textContent = a; ol.appendChild(li); });
+  document.getElementById("addrBox").style.display = ""; document.getElementById("checkGuide").style.display = "";
+}
+function copyAddrList(btn){
+  const t = Array.from(document.querySelectorAll("#addrList li")).map(li => li.textContent).join("\n");
+  safeCopy(t).then(()=>showCopied(btn)).catch(()=>alert("Copy failed. Select the addresses and copy them manually."));
+}
 function clearWatch(){
+  clearAddrs();
   hideQr();
   for(const id of ["wZpub","wDescR","wDescC"]) document.getElementById(id).textContent = "";
   const b = document.getElementById("watchBox"); b.style.display = "none"; b.open = false;
@@ -1180,17 +1232,28 @@ function updateAdvSummary(){
   document.getElementById("advSummary").textContent = "Advanced options (passphrase, note)" + (has ? " \u2014 PASSPHRASE SET" : "");
 }
 // One place that sets the result area. `words` (array) means a real seed is showing.
+// Display-only: show just the first four letters of each word (every BIP39 word is unique by its first four letters), e.g. for stamping metal backups.
+let abbrOn = false;
+function toggleAbbr(){
+  abbrOn = !abbrOn;
+  document.querySelectorAll("#wordGrid .wtxt").forEach(e => { e.textContent = abbrOn ? e.dataset.w.slice(0, 4) : e.dataset.w; });
+  const b = document.getElementById("abbrBtn"); b.textContent = abbrOn ? "SHOW FULL WORDS" : "SHOW FIRST 4 LETTERS";
+  updateAbbrNote();
+}
+function updateAbbrNote(){
+  document.getElementById("abbrNote").textContent = (abbrOn && hasSeed()) ? "Showing only the first 4 letters of each word. The full words are still your backup; write down full words unless your backup method uses 4-letter abbreviations." : "";
+}
 function setResult(text, words){
   const g = document.getElementById("genResult"), grid = document.getElementById("wordGrid");
   g.textContent = text; grid.textContent = "";
   if(words){
     g.dataset.seed = "1"; g.classList.add("sr");
-    words.forEach((w, i) => { const c = document.createElement("div"); c.className = "wcell"; const n = document.createElement("b"); n.textContent = (i + 1) + "."; c.appendChild(n); c.appendChild(document.createTextNode(w)); grid.appendChild(c); });
-    grid.style.display = "grid";
+    words.forEach((w, i) => { const c = document.createElement("div"); c.className = "wcell"; const n = document.createElement("b"); n.textContent = (i + 1) + "."; c.appendChild(n); const ws = document.createElement("span"); ws.className = "wtxt"; ws.dataset.w = w; ws.textContent = abbrOn ? w.slice(0, 4) : w; c.appendChild(ws); grid.appendChild(c); });
+    grid.style.display = "grid"; updateAbbrNote();
     document.getElementById("passNote").textContent = text.split("\n").slice(-1)[0];
     document.getElementById("nextStep").textContent = "Write these " + words.length + " words down in order, then check your backup below. PRINT SEED prints them.";
   } else {
-    delete g.dataset.seed; g.classList.remove("sr"); grid.style.display = "none";
+    delete g.dataset.seed; g.classList.remove("sr"); grid.style.display = "none"; updateAbbrNote();
     document.getElementById("passNote").textContent = ""; document.getElementById("nextStep").textContent = "";
     clearWatch();
     clearFpIcons();
