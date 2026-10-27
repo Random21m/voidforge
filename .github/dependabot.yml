@@ -1,8 +1,16 @@
 version: 2
 updates:
+  # Only small (minor/patch) updates are proposed. Major-version jumps are done by hand,
+  # and the workflow actions are re-tested right before a release.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule: { interval: "monthly" }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/"
     schedule: { interval: "monthly" }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
