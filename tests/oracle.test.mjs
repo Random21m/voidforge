@@ -10,6 +10,8 @@ import { secp256k1, schnorr } from '@noble/curves/secp256k1';
 import { ripemd160 } from '@noble/hashes/ripemd160';
 import { sha256 } from '@noble/hashes/sha256';
 import { LifeHash } from 'lifehash';
+import * as btc from '@scure/btc-signer';
+import { base64, hex as bhex } from '@scure/base';
 import { loadPage, ready, readHtml, rnd, makeReporter } from './harness.mjs';
 
 const R = makeReporter();
@@ -239,5 +241,31 @@ for (const len of [11, 14, 17, 20, 23, 11, 23, 14]) {
   if (got.join(' ') !== want.join(' ') || !got.includes(full[len])) { bad++; console.log('LAST WORD MISMATCH', len, got.length, want.length); }
 }
 R.ok(bad === 0, `${n} last-word candidate lists (11 to 23 words) equal the independent brute-force validation (${bad} mismatches)`);
+
+// 2g. Read-only PSBT inspector against @scure/btc-signer (independent PSBT builder and decoder)
+{
+  const K = (n) => new Uint8Array(32).fill(n), pubE = (n) => secp256k1.getPublicKey(K(n), true), pubS = (n) => schnorr.getPublicKey(K(n));
+  const kinds = { p2wpkh: (n) => btc.p2wpkh(pubE(n)), p2pkh: (n) => btc.p2pkh(pubE(n)), p2tr: (n) => btc.p2tr(pubS(n)), p2sh: (n) => btc.p2sh(btc.p2wpkh(pubE(n))), p2wsh: (n) => btc.p2wsh(btc.p2ms(1, [pubE(n), pubE(n + 1)])) };
+  let n = 0, bad = 0;
+  for (const test of [false, true]) {
+    const NET = test ? btc.TEST_NETWORK : btc.NETWORK;
+    for (const [ik, ok] of [['p2wpkh', 'p2tr'], ['p2tr', 'p2wsh'], ['p2wpkh', 'p2pkh'], ['p2tr', 'p2sh']]) {
+      const tx = new btc.Transaction({ allowUnknownOutputs: true }), amts = [123456n, 98765n];
+      amts.forEach((a, i) => tx.addInput({ txid: bhex.encode(nc.randomBytes(32)), index: i, witnessUtxo: { script: kinds[ik](20 + i).script, amount: a } }));
+      const outs = [[kinds[ok](40).script, 50000n], [kinds.p2wpkh(41).script, 120001n]];
+      for (const [sc, a] of outs) tx.addOutput({ script: sc, amount: a });
+      tx.addOutput({ script: btc.OutScript.encode({ type: 'unknown', script: Uint8Array.from([0x6a, 0x04, 1, 2, 3, 4]) }), amount: 0n });
+      for (const bytes of [tx.toPSBT(0), ]) {
+        const res = await w.inspectPsbt(new Uint8Array(bytes), test ? 'test' : 'main'); n++;
+        const addr = (sc) => btc.Address(NET).encode(btc.OutScript.decode(sc));
+        const okIn = res.ins.every((x, i) => x.amount === amts[i] && x.address === addr(kinds[ik](20 + i).script) && x.txid === bhex.encode(tx.getInput(i).txid) && x.vout === i);
+        const okOut = res.outs[0].address === addr(outs[0][0]) && res.outs[0].amount === 50000n && res.outs[1].address === addr(outs[1][0]) && res.outs[2].address.startsWith('OP_RETURN') && res.outs[2].amount === 0n;
+        const okFee = res.fee === amts[0] + amts[1] - 50000n - 120001n && res.totalOut === 170001n;
+        if (!(okIn && okOut && okFee)) { bad++; console.log('PSBT MISMATCH', test, ik, ok, okIn, okOut, okFee); }
+      }
+    }
+  }
+  R.ok(bad === 0, `${n} PSBTs (every address type, mainnet and testnet) are read the same as by the independent library: inputs, outputs, addresses, fee (${bad} mismatches)`);
+}
 
 R.done('oracle');

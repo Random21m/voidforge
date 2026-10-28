@@ -459,6 +459,21 @@
       <div class="status" id="lwStatus" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
       <pre id="lwOut" style="display:none; white-space:pre-wrap; word-break:break-word; font-family:'Courier New',monospace; font-size:14px; margin:8px 0 0;"></pre>
     </details>
+    <details id="psbtBox" style="margin-top:14px;">
+      <summary>Inspect a transaction (PSBT), read only</summary>
+      <p class="hint" style="margin:8px 0;">Shows what a partly signed Bitcoin transaction (PSBT) from a wallet app would do: where the money comes from, where it goes, and the fee, so you can check it before signing on your hardware wallet. <b>This only reads and displays. It cannot sign, never uses your seed words, and sends nothing.</b> Paste the PSBT (base64 or hex) or choose the .psbt file. If you typed your words above, outputs that carry this wallet&rsquo;s key information are marked.</p>
+      <textarea id="psbtInput" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="PSBT (base64 or hex)" placeholder="Paste the PSBT here (starts with cHNidP8 or 70736274ff)"></textarea>
+      <div style="display:flex; gap:6px; align-items:center; margin-top:6px; flex-wrap:wrap;">
+        <input type="file" id="psbtFile" accept=".psbt,application/octet-stream" aria-label="Choose a PSBT file" style="flex:1; min-width:0;">
+        <select id="psbtNet" aria-label="Network" style="width:auto; flex:none;"><option value="main">Mainnet</option><option value="test">Testnet</option></select>
+      </div>
+      <div style="display:flex; gap:6px; margin-top:6px;">
+        <button type="button" class="secondary" id="psbtBtn" onclick="runPsbt()">INSPECT</button>
+        <button type="button" class="secondary small" onclick="clearPsbt(true)">CLEAR</button>
+      </div>
+      <div class="status" id="psbtStatus" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
+      <pre id="psbtOut" style="display:none; white-space:pre-wrap; word-break:break-all; font-family:'Courier New',monospace; font-size:12px; margin:8px 0 0;"></pre>
+    </details>
     <details id="childBox" style="margin-top:14px;">
       <summary>Child seed (BIP85)</summary>
       <p class="hint" style="margin:8px 0;">Makes a brand new seed phrase from the parent words (and passphrase) typed above, for a separate wallet, using the BIP85 standard. The same parent, word count and index always give the same child. <b>The child is as secret as the parent.</b> It is only shown here: there is no copy, save or print for it. Use the same safety steps as for a new seed, and keep the parent safe: if you lose the parent you lose every child.</p>
@@ -1230,6 +1245,133 @@ async function findLastWords(){
     o.textContent = c.join("  "); o.style.display = "block";
   } catch(e) { say("bad", e.message); }
 }
+// ================= Read-only PSBT inspector (BIP174 version 0). Only parses and displays: never signs, never uses a key. =================
+function psbtReader(b){
+  let o=0;
+  const need=(n)=>{ if(n<0 || o+n>b.length) throw new Error("The PSBT is cut short or damaged."); };
+  const r={
+    get pos(){ return o; }, get done(){ return o>=b.length; },
+    byte(){ need(1); return b[o++]; },
+    bytes(n){ need(n); const x=b.slice(o,o+n); o+=n; return x; },
+    u32(){ need(4); const v=(b[o]|(b[o+1]<<8)|(b[o+2]<<16)|(b[o+3]<<24))>>>0; o+=4; return v; },
+    i64(){ need(8); let v=0n; for(let i=7;i>=0;i--) v=(v<<8n)|BigInt(b[o+i]); o+=8; return v; },
+    varint(){ const f=r.byte(); if(f<0xfd) return f; if(f===0xfd){ need(2); const v=b[o]|(b[o+1]<<8); o+=2; return v; }
+      if(f===0xfe) return r.u32(); const v=r.i64(); if(v>0xffffffffn) throw new Error("Number too large in the PSBT."); return Number(v); }
+  };
+  return r;
+}
+function psbtReadMap(r){
+  const m=[];
+  for(;;){
+    const kl=r.varint(); if(kl===0) return m;
+    const key=r.bytes(kl), vl=r.varint(), val=r.bytes(vl);
+    m.push({type:key[0], key:key.slice(1), val});
+  }
+}
+function psbtParseTx(bytes){
+  const r=psbtReader(bytes), tx={version:r.u32(), ins:[], outs:[]};
+  let n=r.varint(); if(n===0) throw new Error("This transaction already has witness data; expected an unsigned one.");
+  for(let i=0;i<n;i++){ const txid=hex(Uint8Array.from(r.bytes(32)).reverse()), vout=r.u32(), sl=r.varint(); r.bytes(sl); tx.ins.push({txid, vout, seq:r.u32()}); }
+  n=r.varint(); for(let i=0;i<n;i++){ const value=r.i64(), sl=r.varint(); tx.outs.push({value, script:r.bytes(sl)}); }
+  tx.locktime=r.u32(); return tx;
+}
+function psbtParseTxOutputs(bytes){ // a full previous transaction (possibly with witness data): only its outputs are needed
+  const r=psbtReader(bytes); r.u32(); let n=r.varint(), seg=false;
+  if(n===0){ r.byte(); seg=true; n=r.varint(); }
+  for(let i=0;i<n;i++){ r.bytes(32); r.u32(); r.bytes(r.varint()); r.u32(); }
+  n=r.varint(); const outs=[]; for(let i=0;i<n;i++){ const value=r.i64(); outs.push({value, script:r.bytes(r.varint())}); }
+  return outs;
+}
+const eqBytes=(a,b)=>a.length===b.length && a.every((x,i)=>x===b[i]);
+async function psbtAddress(script, net){
+  const N=NETS[net||"main"];
+  if(script.length===25 && script[0]===0x76 && script[1]===0xa9 && script[2]===20 && script[23]===0x88 && script[24]===0xac) return base58check(Uint8Array.from([N.pkh, ...script.slice(3,23)]));
+  if(script.length===23 && script[0]===0xa9 && script[1]===20 && script[22]===0x87) return base58check(Uint8Array.from([N.sh, ...script.slice(2,22)]));
+  if(script.length===22 && script[0]===0 && script[1]===20) return bech32Encode(N.hrp,0,script.slice(2));
+  if(script.length===34 && script[0]===0 && script[1]===32) return bech32Encode(N.hrp,0,script.slice(2));
+  if(script.length===34 && script[0]===0x51 && script[1]===32) return bech32Encode(N.hrp,1,script.slice(2));
+  if(script.length>0 && script[0]===0x6a) return "OP_RETURN (no address, carries data)";
+  return "Unrecognized script: " + hex(script);
+}
+function psbtFromText(text){
+  const t=text.replace(/\s+/g,"");
+  if(/^70736274ff/i.test(t) && /^[0-9a-f]+$/i.test(t) && t.length%2===0) return fromHex(t.toLowerCase());
+  if(/^[A-Za-z0-9+/]+={0,2}$/.test(t)){ const bin=atob(t), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; }
+  throw new Error("Paste the PSBT as base64 (starts with cHNidP8) or hex (starts with 70736274ff), or choose the file.");
+}
+async function inspectPsbt(bytes, net){
+  const magic=[0x70,0x73,0x62,0x74,0xff];
+  if(bytes.length<5 || !magic.every((x,i)=>bytes[i]===x)) throw new Error("This is not a PSBT (it does not start with the PSBT marker).");
+  const r=psbtReader(bytes); r.bytes(5);
+  const glob=psbtReadMap(r), txRec=glob.find(x=>x.type===0 && x.key.length===0);
+  if(glob.some(x=>x.type===0xfb && x.key.length===0 && x.val.length===4 && (x.val[0]|x.val[1]|x.val[2]|x.val[3])!==0)) throw new Error("PSBT version 2 is not supported by this inspector; export version 0.");
+  if(!txRec) throw new Error("No unsigned transaction found in this PSBT.");
+  const tx=psbtParseTx(txRec.val), res={version:tx.version, locktime:tx.locktime, ins:[], outs:[]};
+  for(let i=0;i<tx.ins.length;i++){
+    const m=psbtReadMap(r), inp={txid:tx.ins[i].txid, vout:tx.ins[i].vout, amount:null, sigs:m.filter(x=>x.type===2).length, final:m.some(x=>x.type===7||x.type===8)};
+    const wu=m.find(x=>x.type===1), nw=m.find(x=>x.type===0);
+    if(wu){ const q=psbtReader(wu.val); inp.amount=q.i64(); inp.script=q.bytes(q.varint()); }
+    else if(nw){ const o=psbtParseTxOutputs(nw.val)[tx.ins[i].vout]; if(o){ inp.amount=o.value; inp.script=o.script; } }
+    if(inp.script) inp.address=await psbtAddress(inp.script, net);
+    res.ins.push(inp);
+  }
+  for(let i=0;i<tx.outs.length;i++){
+    const m=psbtReadMap(r), out={amount:tx.outs[i].value, address:await psbtAddress(tx.outs[i].script, net), fps:[]};
+    for(const x of m){
+      if(x.type===2 && x.val.length>=4) out.fps.push(hex(x.val.slice(0,4)));
+      if(x.type===7 && x.val.length>=5){ const q=psbtReader(x.val), nh=q.varint(); q.bytes(32*nh); out.fps.push(hex(q.bytes(4))); }
+    }
+    res.outs.push(out);
+  }
+  if(!r.done) res.trailing=true;
+  res.totalOut=res.outs.reduce((a,o)=>a+o.amount,0n);
+  res.fee=res.ins.every(x=>x.amount!==null) ? res.ins.reduce((a,x)=>a+x.amount,0n)-res.totalOut : null;
+  return res;
+}
+function btcText(sats){ const neg=sats<0n, v=neg?-sats:sats, w=v/100000000n, f=(v%100000000n).toString().padStart(8,"0"); return (neg?"-":"")+w+"."+f+" BTC ("+v+" sats)"; }
+function psbtReport(res, fpWallet){
+  const L=[];
+  L.push("Transaction version " + res.version + ", locktime " + res.locktime + ", " + res.ins.length + " input" + (res.ins.length===1?"":"s") + ", " + res.outs.length + " output" + (res.outs.length===1?"":"s") + ".");
+  L.push("");
+  res.ins.forEach((x,i)=>{ L.push("INPUT " + i + ": " + (x.amount===null ? "amount unknown (the PSBT does not include the coin being spent)" : btcText(x.amount)) + (x.address ? "\n   from " + x.address : "") + "\n   coin " + x.txid + ":" + x.vout + "\n   " + (x.final ? "finalized" : x.sigs + " signature" + (x.sigs===1?"":"s") + " so far")); });
+  L.push("");
+  res.outs.forEach((x,i)=>{ L.push("OUTPUT " + i + ": " + btcText(x.amount) + "\n   to " + x.address + (x.fps.length ? "\n   has wallet key information (fingerprint " + [...new Set(x.fps)].join(", ") + "): usually this wallet's own change" + (fpWallet && x.fps.includes(fpWallet) ? ", and it matches the wallet typed above" : "") : "\n   no wallet key information: treat as a payment to someone else")); });
+  L.push("");
+  L.push(res.fee===null ? "FEE: cannot be worked out because some inputs have no amount." : "FEE: " + btcText(res.fee) + (res.totalOut>0n ? " (" + (Number(res.fee*10000n/res.totalOut)/100).toFixed(2) + "% of the total of all outputs)" : ""));
+  if(res.trailing) L.push("Note: extra data follows the PSBT; it was ignored.");
+  return L.join("\n");
+}
+function clearPsbt(all){
+  const o=document.getElementById("psbtOut"); o.textContent=""; o.style.display="none";
+  const t=document.getElementById("psbtStatus"); t.textContent=""; t.className="status";
+  if(all){ document.getElementById("psbtInput").value=""; document.getElementById("psbtFile").value=""; }
+}
+async function showPsbt(bytes){
+  const st=document.getElementById("psbtStatus"), o=document.getElementById("psbtOut");
+  clearPsbt(false);
+  try {
+    const net=document.getElementById("psbtNet").value, res=await inspectPsbt(bytes, net);
+    let fpw=null; const r=await checkPhrase(document.getElementById("phrase").value);
+    if(r.ok) fpw=await fingerprintFromSeed(await mnemonicToSeed(r.mnemonic, document.getElementById("verifyPass").value));
+    st.className="status ok"; st.textContent="Read OK. Check every address and amount below against what you expect.";
+    o.textContent=psbtReport(res, fpw); o.style.display="block";
+  } catch(e){ st.className="status bad"; st.textContent=e.message; }
+}
+async function runPsbt(){
+  if(!gateOk()) return;
+  clearPsbt(false);
+  try { await showPsbt(psbtFromText(document.getElementById("psbtInput").value)); }
+  catch(e){ const t=document.getElementById("psbtStatus"); t.className="status bad"; t.textContent=e.message; }
+}
+function onPsbtFile(file){
+  if(!gateOk() || !file) return;
+  if(file.size>2000000){ const t=document.getElementById("psbtStatus"); t.className="status bad"; t.textContent="That file is too large to be a PSBT."; return; }
+  return new Promise(res=>{ const fr=new FileReader(); fr.onload=async()=>{ const u=new Uint8Array(fr.result);
+      let bytes=u; if(!(u[0]===0x70&&u[1]===0x73&&u[2]===0x62&&u[3]===0x74&&u[4]===0xff)){ try{ bytes=psbtFromText(new TextDecoder().decode(u)); }catch(e){ bytes=u; } }
+      document.getElementById("psbtInput").value=""; await showPsbt(bytes); res(); };
+    fr.onerror=()=>{ const t=document.getElementById("psbtStatus"); t.className="status bad"; t.textContent="Could not read the file."; res(); };
+    fr.readAsArrayBuffer(file); });
+}
 // SELF-TEST button: first press shows the results, second press hides them
 function toggleSelfTests(){
   const out=document.getElementById("testResults");
@@ -1295,6 +1437,7 @@ async function runSelfTests(auto){
   eq("last-word helper: 11 x abandon gives 128 words, and 'about' is one (published test vector)", async()=>{ const c=await lastWordCandidates(Array(11).fill("abandon")); return c.length+" "+c.includes("about"); }, "128 true");
   eq("last-word helper: 23 x abandon gives 8 words, and 'art' is one (published test vector)", async()=>{ const c=await lastWordCandidates(Array(23).fill("abandon")); return c.length+" "+c.includes("art"); }, "8 true");
   eq("last-word helper: 11 x zoo gives 'wrong' among 128 (published test vector)", async()=>{ const c=await lastWordCandidates(Array(11).fill("zoo")); return c.length+" "+c.includes("wrong"); }, "128 true");
+  eq("PSBT inspector: fee, amounts and output address of a known PSBT (built by an independent library)", async()=>{ const r=await inspectPsbt(psbtFromText("cHNidP8BAHECAAAAAaurq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urAgAAAAD/////AqCGAQAAAAAAFgAU1L4sXWjQfnhBc67qrnReNudrsjoIRgIAAAAAABYAFKPGse5KSdnyrzs4ApdHRPupJBZKAAAAAAABAR+Q0AMAAAAAABYAFJ1pVHSjA6xtdNF5bTdS8HiVkYvSAAAiAgKYnAt2y1Y5cf3JvvMewGw1YPMknW7p5dg8V2JVluBfbxhPv3VmVAAAgAAAAIAAAACAAQAAAAMAAAAA")); return r.fee+" "+r.ins[0].amount+" "+r.outs[0].amount+" "+r.outs[0].address+" "+r.outs[1].fps.join(); }, "1000 250000 100000 bc1q6jlzchtg6pl8sstn4m42uaz7xmnkhv369ud973 4fbf7566");
   eq("Taproot BIP86 first two receive addresses 'abandon..about' (published BIP86 vectors)", async()=>(await mnemonicTaproot("abandon ".repeat(11)+"about","",2)).join(" "),"bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr bc1p4qhjn9zdvkux4e44uhx8tc55attvtyu358kutcqkudyccelu0was9fqzwh");
   eq("Taproot BIP86 first change address 'abandon..about' (published BIP86 vector)", async()=>taprootChangeFirstFromSeed(await mnemonicToSeed("abandon ".repeat(11)+"about","")),"bc1p3qkhfews2uk44qtvauqyr2ttdsw7svhkl9nkm9s9c3x4ax5h60wqwruhk7");
   eq("bech32m BIP350 example address", ()=>bech32Encode("bc",1,fromHex("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")),"bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0");
@@ -1802,6 +1945,9 @@ document.getElementById("wNet").addEventListener("change", refreshWatch);
 document.getElementById("wAcct").addEventListener("input", refreshWatch);
 document.getElementById("childWords").addEventListener("change", clearChild);
 document.getElementById("lwInput").addEventListener("input", () => clearLastWords(false));
+document.getElementById("psbtInput").addEventListener("input", () => clearPsbt(false));
+document.getElementById("psbtNet").addEventListener("change", () => clearPsbt(false));
+document.getElementById("psbtFile").addEventListener("change", (e) => { onPsbtFile(e.target.files[0]); });
 let savedTheme = null;
 try { savedTheme = localStorage.getItem("voidforge-theme"); } catch(e) {}
 if (savedTheme === "light") {
