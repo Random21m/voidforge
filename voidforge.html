@@ -597,6 +597,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.18.0</b> &mdash; Visual polish only. A subtle forge-style background, a small identity badge in the header, numbered word cards, short animations when you tap a dice or coin button and when FORGE finishes, and a brief flash when something is copied. Every animation is switched off if your device is set to reduce motion. Seed words, fingerprints, addresses, keys, descriptors and every check are exactly the same as 1.17.0.</li>
         <li><b>1.17.0</b> &mdash; Friendlier layout, no change to how seeds are made. A short &ldquo;Start here&rdquo; strip says what to do first; the page is now grouped as <b>Make a seed</b>, <b>Check a backup</b> and <b>Extra tools</b>, with small tags that say what each tool is for and whether it only reads. Spacing and tap targets are better on phones. Seed words, fingerprints, addresses, keys, descriptors and every check are exactly the same as 1.16.0.</li>
         <li><b>1.16.0</b> &mdash; Two tools in the new section for extras. (1) <b>Find the last word:</b> type all but the last word of a seed (11, 14, 17, 20 or 23 words) and it lists every word that makes the checksum valid (128 for a 12-word seed). It cannot tell you which one you had. (2) <b>Inspect a transaction (PSBT):</b> paste or choose a partly signed Bitcoin transaction (BIP174 version 0, base64 or hex, mainnet or testnet) to see its inputs, outputs, addresses and fee before signing it on a hardware wallet; outputs that carry key information are marked as likely change. <b>Read only:</b> it cannot sign, never uses your seed words, and sends nothing. Self-test is now 60 checks.</li>
         <li><b>1.15.0</b> &mdash; Testnet and multisig cosigner keys in the Watch-only box. A <b>Network</b> menu switches the export and the address finder to <b>testnet</b> (tpub/upub/vpub keys, tb1... / 2... / m... / n... addresses, coin type 1). Two new types, <b>Multisig cosigner key</b> (BIP48, native SegWit Zpub or nested SegWit Ypub, m/48&rsquo;/coin&rsquo;/account&rsquo;/script&rsquo;), give the single key and origin a multisig coordinator (Sparrow, Specter, Nunchuk, Electrum) asks for; a cosigner key has no address of its own, so those boxes are hidden. Seven new self-test vectors (56 checks). Display only.</li>
@@ -632,7 +633,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.17.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.18.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
