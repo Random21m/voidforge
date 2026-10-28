@@ -909,13 +909,13 @@ async function mnemonicBip85(mnemonic, passphrase, words, index){
   return bip85Mnemonic(k, c, words, index);
 }
 async function mnemonicTaproot(mnemonic, passphrase, n){ return taprootAddressesFromSeed(await mnemonicToSeed(mnemonic, passphrase), n); }
-// Address types a wallet can use. purpose = the BIP number in the derivation path m/purpose'/0'/account'; ver = extended public key version bytes.
+// Address types a wallet can use. purpose = the BIP number in the derivation path m/purpose'/coin'/account' (extended key versions are in NETS below).
 const XPUB_VER=[0x04,0x88,0xb2,0x1e];
 const SCRIPT_TYPES={
-  wpkh:{purpose:84, ver:[0x04,0xb2,0x47,0x46], kname:"zpub", label:"Native SegWit (bc1q...)"},
-  tr:{purpose:86, ver:XPUB_VER, kname:"xpub", label:"Taproot (bc1p...)"},
-  "sh-wpkh":{purpose:49, ver:[0x04,0x9d,0x7c,0xb2], kname:"ypub", label:"Nested SegWit (3...)"},
-  pkh:{purpose:44, ver:XPUB_VER, kname:"xpub", label:"Legacy (1...)"}
+  wpkh:{purpose:84, kname:"zpub", label:"Native SegWit (bc1q...)"},
+  tr:{purpose:86, kname:"xpub", label:"Taproot (bc1p...)"},
+  "sh-wpkh":{purpose:49, kname:"ypub", label:"Nested SegWit (3...)"},
+  pkh:{purpose:44, kname:"xpub", label:"Legacy (1...)"}
 };
 // Networks. coin = the coin type in the derivation path; hrp = bech32 prefix; pkh/sh = Base58 address version bytes; ver = extended public key versions per type.
 const NETS={

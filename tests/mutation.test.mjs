@@ -414,7 +414,7 @@ const M = [
   ['tap button appends wrong value',        'el.value += v; updateCount();', 'el.value += "1"; updateCount();'],
   ['address: child key not reduced mod n (needed about half the time)', 'child=(il+k)%SN;', 'child=(il+k);'],
   ['VERIFY ignores the typed passphrase (fingerprint)', 'fp1 = await mnemonicFingerprint(r.mnemonic, vp)', 'fp1 = await mnemonicFingerprint(r.mnemonic, "")'],
-  ['watch: ypub version bytes wrong', 'ver:[0x04,0x9d,0x7c,0xb2]', 'ver:[0x04,0x9d,0x7c,0xb3]'],
+  ['watch: ypub version bytes wrong', '"sh-wpkh":[0x04,0x9d,0x7c,0xb2], other:XPUB_VER', '"sh-wpkh":[0x04,0x9d,0x7c,0xb3], other:XPUB_VER'],
   ['watch: taproot purpose wrong', 'tr:{purpose:86,', 'tr:{purpose:84,'],
   ['watch: nested descriptor not wrapped in sh()', 'type === "sh-wpkh" ? "sh(wpkh(" + inner + "))"', 'type === "sh-wpkh" ? "wpkh(" + inner + ")"'],
   ['watch: first address uses the wrong type', 'first:await addressFromKey(type, fk, net)', 'first:await addressFromKey("wpkh", fk, net)'],
