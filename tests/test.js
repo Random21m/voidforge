@@ -31,6 +31,17 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
   // --- self-test (known-answer vectors) ---
   await t.w.runSelfTests();
   ok(/^ALL \d+ TESTS PASSED/.test(t.$('testResults').textContent),'in-page SELF-TEST passes: '+t.$('testResults').textContent.split('\n')[0]);
+  // address finder
+  { const AB='abandon '.repeat(11)+'about'; t.$('phrase').value=AB; t.$('verifyPass').value='';
+    const C=async(x,r)=>{ t.$('checkAddr').value=x; await t.w.checkAddress(r); return [t.$('addrCheckStatus').textContent,t.$('addrCheckStatus').className]; };
+    let [tx,cl]=await C('bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu',4); ok(/^FOUND: this SegWit address is receive address #0 \(m\/84'\/0'\/0'\/0\/0\)/.test(tx)&&/ok/.test(cl),'address finder: SegWit receive #0 found');
+    [tx,cl]=await C('bc1qnjg0jd8228aq7egyzacy8cys3knf9xvrerkf9g',4); ok(/receive address #1 /.test(tx),'address finder: SegWit receive #1 found');
+    [tx,cl]=await C('bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr',4); ok(/^FOUND: this Taproot address is receive address #0 \(m\/86'\/0'\/0'\/0\/0\)/.test(tx),'address finder: Taproot receive #0 found');
+    [tx,cl]=await C('bc1p3qkhfews2uk44qtvauqyr2ttdsw7svhkl9nkm9s9c3x4ax5h60wqwruhk7',4); ok(/change address #0 /.test(tx),'address finder: Taproot change #0 found');
+    [tx,cl]=await C('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4',4); ok(/^NOT FOUND in indices 0 to 3 /.test(tx)&&/bad/.test(cl),'address finder: another address is NOT FOUND');
+    [tx,cl]=await C('hello',4); ok(/Enter a bc1q/.test(tx),'address finder: rejects text that is not an address');
+    t.$('phrase').value='abandon abandon'; [tx,cl]=await C('bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu',4); ok(/valid seed phrase/.test(tx),'address finder: needs a valid phrase');
+    t.$('phrase').value=''; t.$('checkAddr').value=''; t.$('addrCheckStatus').textContent=''; }
   // SELF-TEST button toggles: press again hides the results without CLEAR
   t.w.toggleSelfTests();
   ok(t.$('testResults').textContent==='','SELF-TEST button: press while results are shown hides them');

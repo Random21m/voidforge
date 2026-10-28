@@ -9,7 +9,8 @@ import { entropyToMnemonic, validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { mnemonicToSeedSync } from '@scure/bip39';
 import { HDKey } from '@scure/bip32';
-import { bech32 } from '@scure/base';
+import { bech32, bech32m } from '@scure/base';
+import { secp256k1, schnorr } from '@noble/curves/secp256k1';
 import { ripemd160 } from '@noble/hashes/ripemd160';
 import { sha256 as nsha } from '@noble/hashes/sha256';
 import { LifeHash } from 'lifehash';
@@ -24,6 +25,13 @@ const addr = (mn, pw) => {
   const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive("m/84'/0'/0'/0/0");
   return bech32.encode('bc', [0, ...bech32.toWords(ripemd160(nsha(k.publicKey)))]);
 };
+
+const segAt = (mn, pw, chain, i) => { const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/84'/0'/0'/${chain}/${i}`);
+  return bech32.encode('bc', [0, ...bech32.toWords(ripemd160(nsha(k.publicKey)))]); };
+const trAt = (mn, pw, chain, i) => { const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/86'/0'/0'/${chain}/${i}`); const xo = k.publicKey.slice(1);
+  const P = secp256k1.ProjectivePoint.fromHex('02' + Buffer.from(xo).toString('hex')); const t = schnorr.utils.taggedHash('TapTweak', xo);
+  const Q = P.add(secp256k1.ProjectivePoint.BASE.multiply(BigInt('0x' + Buffer.from(t).toString('hex'))));
+  return bech32m.encode('bc', [1, ...bech32m.toWords(Q.toRawBytes(true).slice(1))]); };
 
 const ZV = { private: 0x04b2430c, public: 0x04b24746 };
 const watch = (mn, pw) => { const seed = mnemonicToSeedSync(mn, pw);
@@ -132,6 +140,56 @@ async function probe(w) {
     [tx, cl] = await M('bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu', 'TREZOR'); if (!/^MATCH \(without passphrase\)/.test(tx)) fails.push('match: address without passphrase');
     [tx, cl] = await M('deadbeef', 'TREZOR'); if (!/^NO MATCH:/.test(tx) || !/bad/.test(cl)) fails.push('match: neither');
     [tx, cl] = await M('b4e3f5ed', ''); if (!/^NO MATCH without a passphrase/.test(tx)) fails.push('match: needs passphrase');
+    // zpub / xpub / descriptor / Taproot address, expected values from the independent libraries
+    { const wp = watch(ABOUT, 'TREZOR'), w0 = watch(ABOUT, ''), other = watch('legal winner thank year wave sausage worth useful legal winner thank yellow', '');
+      const chk = (b) => w.descriptorChecksum(b);
+      const dsc = (fpv, xp, br, withSum) => { const body = `wpkh([${fpv}/84h/0h/0h]${xp}/${br}/*)`; return withSum ? chk(body) : body; };
+      [tx, cl] = await M(wp.zpub, 'TREZOR'); if (!/^MATCH \(with passphrase\)/.test(tx) || !/ok/.test(cl)) fails.push('compare: zpub with passphrase');
+      [tx, cl] = await M(w0.zpub, 'TREZOR'); if (!/^MATCH \(without passphrase\)/.test(tx)) fails.push('compare: zpub without passphrase');
+      [tx, cl] = await M(wp.xpub, 'TREZOR'); if (!/^MATCH \(with passphrase\)/.test(tx)) fails.push('compare: xpub with passphrase');
+      [tx, cl] = await M(w0.xpub, ''); if (!/^MATCH \(without passphrase\)/.test(tx)) fails.push('compare: xpub without passphrase');
+      [tx, cl] = await M(other.zpub, 'TREZOR'); if (!/^NO MATCH:/.test(tx) || !/bad/.test(cl)) fails.push('compare: another wallet zpub is NO MATCH');
+      [tx, cl] = await M(other.xpub, ''); if (!/^NO MATCH without/.test(tx)) fails.push('compare: another wallet xpub is NO MATCH');
+      [tx, cl] = await M(dsc(wp.fp, wp.xpub, '0', true), 'TREZOR'); if (!/^MATCH \(with passphrase\)/.test(tx)) fails.push('compare: receive descriptor');
+      [tx, cl] = await M(dsc(wp.fp, wp.xpub, '1', true), 'TREZOR'); if (!/^MATCH \(with passphrase\)/.test(tx)) fails.push('compare: change descriptor');
+      [tx, cl] = await M(dsc(w0.fp, w0.xpub, '0', false), ''); if (!/^MATCH \(without passphrase\)/.test(tx)) fails.push('compare: descriptor without checksum');
+      [tx, cl] = await M(dsc(w0.fp, w0.xpub, '0', true).replace(/.$/, (c) => (c === 'q' ? 'p' : 'q')), ''); if (!/checksum/.test(tx) || !/bad/.test(cl)) fails.push('compare: wrong descriptor checksum is rejected');
+      [tx, cl] = await M(dsc(other.fp, other.xpub, '0', true), ''); if (!/^NO MATCH/.test(tx) || !/bad/.test(cl)) fails.push('compare: another wallet descriptor is NO MATCH');
+      [tx, cl] = await M(dsc(w0.fp, other.xpub, '0', true), ''); if (!/^NO MATCH/.test(tx)) fails.push('compare: right fingerprint with another key is NO MATCH');
+      [tx, cl] = await M(dsc(other.fp, w0.xpub, '0', true), ''); if (!/^NO MATCH/.test(tx)) fails.push('compare: right key with another fingerprint is NO MATCH');
+      const tr = (pw, i) => { const k = HDKey.fromMasterSeed(mnemonicToSeedSync(ABOUT, pw)).derive(`m/86'/0'/0'/0/${i}`); const xo = k.publicKey.slice(1);
+        const P = secp256k1.ProjectivePoint.fromHex('02' + Buffer.from(xo).toString('hex')); const t = schnorr.utils.taggedHash('TapTweak', xo);
+        const Q = P.add(secp256k1.ProjectivePoint.BASE.multiply(BigInt('0x' + Buffer.from(t).toString('hex'))));
+        return bech32m.encode('bc', [1, ...bech32m.toWords(Q.toRawBytes(true).slice(1))]); };
+      [tx, cl] = await M(tr('', 0), ''); if (!/^MATCH \(without passphrase\)/.test(tx)) fails.push('compare: Taproot address 0');
+      [tx, cl] = await M(tr('TREZOR', 4), 'TREZOR'); if (!/^MATCH \(with passphrase\)/.test(tx)) fails.push('compare: Taproot address 4 with passphrase');
+      [tx, cl] = await M(tr('', 5), ''); if (!/^NO MATCH/.test(tx)) fails.push('compare: Taproot address 5 is outside the first five');
+      [tx, cl] = await M(tr('TREZOR', 0), ''); if (!/^NO MATCH/.test(tx)) fails.push('compare: Taproot address of the passphrase wallet without passphrase');
+      [tx, cl] = await M('wpkh(garbage)', ''); if (!/Not recognized/.test(tx)) fails.push('compare: garbage descriptor not recognized'); }
+    // "Is this address yours?" (search range 4 per press to keep the run short)
+    { $('phrase').value = ABOUT; $('verifyRecorded').value = '';
+      const ev = (id) => $(id).dispatchEvent(new w.Event('input'));
+      const CA = async (pw, x, press = 1) => { $('verifyPass').value = pw; $('checkAddr').value = x; ev('verifyPass'); ev('checkAddr'); let r; for (let n = 0; n < press; n++) { await w.checkAddress(4); r = [$('addrCheckStatus').textContent, $('addrCheckStatus').className]; } return r; };
+      let [t1, c1] = await CA('', segAt(ABOUT, '', 0, 2)); if (!/^FOUND: this SegWit address is receive address #2 \(m\/84'\/0'\/0'\/0\/2\)/.test(t1) || !/ok/.test(c1)) fails.push('find: SegWit receive address');
+      [t1] = await CA('', segAt(ABOUT, '', 1, 3)); if (!/change address #3 \(m\/84'\/0'\/0'\/1\/3\)/.test(t1)) fails.push('find: SegWit change address');
+      [t1] = await CA('', trAt(ABOUT, '', 0, 1)); if (!/^FOUND: this Taproot address is receive address #1 \(m\/86'\/0'\/0'\/0\/1\)/.test(t1)) fails.push('find: Taproot receive address');
+      [t1] = await CA('', trAt(ABOUT, '', 1, 2)); if (!/Taproot address is change address #2 \(m\/86'\/0'\/0'\/1\/2\)/.test(t1)) fails.push('find: Taproot change address');
+      [t1, c1] = await CA('', segAt(ABOUT, '', 0, 6)); if (!/^NOT FOUND in indices 0 to 3 /.test(t1) || !/bad/.test(c1)) fails.push('find: index beyond the first range is NOT FOUND');
+      [t1] = await CA('', segAt(ABOUT, '', 0, 6), 2); if (!/^FOUND: .*receive address #6 /.test(t1)) fails.push('find: second press continues with the next indices');
+      [t1] = await CA('', segAt(ABOUT, '', 0, 6), 3); if (!/^NOT FOUND in indices 0 to 3 /.test(t1)) fails.push('find: after a FOUND the next search starts at 0 again');
+      await CA('', segAt(ABOUT, '', 0, 6)); $('checkAddr').value = segAt(ABOUT, '', 0, 1); ev('checkAddr'); await w.checkAddress(4);
+      if (!/^FOUND: .*receive address #1 /.test($('addrCheckStatus').textContent)) fails.push('find: changing the address restarts the search at index 0');
+      await CA('', segAt(ABOUT, '', 0, 6)); $('checkAddr').value = segAt(ABOUT, '', 0, 1); await w.checkAddress(4);
+      if (!/^NOT FOUND in indices 4 to 7 /.test($('addrCheckStatus').textContent)) fails.push('find: a continued search covers only the next indices');
+      await CA('', segAt(ABOUT, '', 0, 6)); $('phrase').value = ABOUT + ' '; ev('phrase'); $('phrase').value = ABOUT; await w.checkAddress(4);
+      if (!/^NOT FOUND in indices 0 to 3 /.test($('addrCheckStatus').textContent)) fails.push('find: changing the phrase restarts the search at index 0');
+      [t1] = await CA('', segAt(ABOUT, 'TREZOR', 0, 1)); if (!/^NOT FOUND/.test(t1)) fails.push('find: passphrase-wallet address is not found without the passphrase');
+      [t1] = await CA('TREZOR', segAt(ABOUT, 'TREZOR', 0, 1)); if (!/^FOUND: .*receive address #1 .*with passphrase/.test(t1)) fails.push('find: passphrase-wallet address found with the passphrase');
+      [t1] = await CA('TREZOR', segAt(ABOUT, '', 0, 1)); if (!/^FOUND: .*without passphrase/.test(t1)) fails.push('find: no-passphrase address still found when a passphrase is typed');
+      [t1] = await CA('', segAt('legal winner thank year wave sausage worth useful legal winner thank yellow', '', 0, 0)); if (!/^NOT FOUND/.test(t1)) fails.push('find: address of another wallet is NOT FOUND');
+      [t1, c1] = await CA('', 'bc1qxyz'); if (!/Enter a bc1q/.test(t1) || !/bad/.test(c1)) fails.push('find: rejects text that is not an address');
+      $('phrase').value = 'abandon abandon'; [t1] = await CA('', segAt(ABOUT, '', 0, 0)); if (!/valid seed phrase/.test(t1)) fails.push('find: needs a valid phrase');
+      $('phrase').value = ABOUT; $('verifyPass').value = ''; $('checkAddr').value = ''; $('addrCheckStatus').textContent = ''; }
     $('verifyRecorded').value = ''; $('verifyPass').value = ''; }
   r = await run('dice', 12, D50, ''); if (!/Passphrase: none/.test($('genResult').textContent) || !/Passphrase used: NO/.test(w.passLine('printed'))) fails.push('passphrase none line');
   r = await run('dice', 12, D50, 'abc'); if (!/Passphrase: used \(3 characters/.test($('genResult').textContent) || !/Passphrase used: YES/.test(w.passLine('saved'))) fails.push('passphrase used line');
@@ -259,10 +317,38 @@ const M = [
   ['lifehash: icon not cleared on errors', '    clearWatch();\n    clearFpIcons();\n  }\n}', '    clearWatch();\n  }\n}'],
   ['VERIFY ignores the typed passphrase (address)', 'a1 = await mnemonicFirstAddress(r.mnemonic, vp)', 'a1 = await mnemonicFirstAddress(r.mnemonic, "")'],
   ['VERIFY without-passphrase line uses the typed passphrase', 'fp0 = await mnemonicFingerprint(r.mnemonic, "");', 'fp0 = await mnemonicFingerprint(r.mnemonic, vp);'],
-  ['match: with-passphrase check compares the wrong values', '(kind === "fp" ? fp1 : a1)', '(kind === "fp" ? fp0 : a0)'],
-  ['match: address backups compared against the fingerprint', 'q === (kind === "fp" ? fp0 : a0)', 'q === fp0'],
-  ['match: NO MATCH shown as success', 'return {ok:false, text:"NO MATCH:', 'return {ok:true, text:"NO MATCH:'],
-  ['match: hasPass guard dropped (a1/fp1 are undefined without a passphrase)', 'if(hasPass && q ===', 'if(q ===', true],
+  ['match: with-passphrase check compares the wrong values', 'if(hasPass && test(fp1, a1, ids1))', 'if(hasPass && test(fp0, a0, ids0))'],
+  ['match: address backups compared against the fingerprint', 'test = (f, a) => ql === (kind === "fp" ? f : a);', 'test = (f, a) => ql === f;'],
+  ['match: NO MATCH without passphrase shown as success', 'return {ok:false, text:"NO MATCH without a passphrase.', 'return {ok:true, text:"NO MATCH without a passphrase.'],
+  ['match: NO MATCH with passphrase shown as success', 'if(hasPass) return {ok:false, text:"NO MATCH:', 'if(hasPass) return {ok:true, text:"NO MATCH:'],
+  ['match: hasPass guard dropped (a1/fp1 are undefined without a passphrase)', 'if(hasPass && test(fp1, a1, ids1))', 'if(test(fp1, a1, ids1))', true],
+  ['compare: zpub compared against the xpub', 'test = (f, a, ids) => !!ids && (q.charAt(0) === "z" ? ids.zpub : ids.xpub) === q;', 'test = (f, a, ids) => !!ids && ids.xpub === q;'],
+  ['compare: key check always passes', 'test = (f, a, ids) => !!ids && (q.charAt(0) === "z" ? ids.zpub : ids.xpub) === q;', 'test = (f, a, ids) => !!ids;'],
+  ['compare: descriptor fingerprint ignored', 'ids.fp === d.fp && ids.xpub === d.key;', 'ids.xpub === d.key;'],
+  ['compare: descriptor key ignored', 'ids.fp === d.fp && ids.xpub === d.key;', 'ids.fp === d.fp;'],
+  ['compare: descriptor checksum not enforced', 'if(!d.sumOk) return', 'if(false) return'],
+  ['compare: taproot address check always passes', 'test = (f, a, ids) => !!ids && ids.tr.some(t => t === ql);', 'test = (f, a, ids) => !!ids;'],
+  ['find: taproot searched as SegWit', 'const taproot = addr.slice(0, 4) === "bc1p", purpose = taproot ? 86 : 84;', 'const taproot = false, purpose = 84;'],
+  ['find: wrong purpose for SegWit', 'const taproot = addr.slice(0, 4) === "bc1p", purpose = taproot ? 86 : 84;', 'const taproot = addr.slice(0, 4) === "bc1p", purpose = taproot ? 86 : 44;'],
+  ['find: change chain never searched', 'for(const chain of [0,1]){\n    const [ck,cc]', 'for(const chain of [0]){\n    const [ck,cc]'],
+  ['find: receive chain never searched', 'for(const chain of [0,1]){\n    const [ck,cc]', 'for(const chain of [1]){\n    const [ck,cc]'],
+  ['find: search starts at index 0 ignoring from', 'for(let i=from;i<from+count;i++){\n      const [kk]', 'for(let i=0;i<from+count;i++){\n      const [kk]'],
+  ['find: last index skipped', 'for(let i=from;i<from+count;i++){\n      const [kk]', 'for(let i=from;i<from+count-1;i++){\n      const [kk]'],
+  ['find: child index off by one', 'const [kk]=await ckdPriv(ck,cc,i,false);', 'const [kk]=await ckdPriv(ck,cc,i+1,false);'],
+  ['find: reports the wrong chain', 'return {chain, index:i, path:', 'return {chain:0, index:i, path:'],
+  ['find: reports the wrong index', 'return {chain, index:i, path:', 'return {chain, index:i+1, path:'],
+  ['find: always found', 'if(a === addr) return {chain', 'if(true) return {chain'],
+  ['find: address compared case-insensitively wrong (never matches)', 'if(a === addr) return {chain', 'if(a === addr + "x") return {chain'],
+  ['find: next press does not continue', 'addrScanFrom = to;\n    say(', 'addrScanFrom = 0;\n    say('],
+  ['find: search position not reset after FOUND', 'if(f){ addrScanFrom = 0; return say("ok"', 'if(f){ return say("ok"'],
+  ['find: passphrase wallet never searched', 'if(vp) variants.push(["with passphrase", vp]);', ''],
+  ['find: no-passphrase wallet not searched', 'const variants = [["without passphrase", ""]]; if(vp) variants.push(["with passphrase", vp]);', 'const variants = []; if(vp) variants.push(["with passphrase", vp]); else variants.push(["without passphrase", ""]);'],
+  ['find: NOT FOUND shown as success', 'say("bad", "NOT FOUND in indices', 'say("ok", "NOT FOUND in indices'],
+  ['find: FOUND shown as failure', 'return say("ok", "FOUND: this "', 'return say("bad", "FOUND: this "'],
+  ['find: invalid phrase not rejected', 'if(!r.ok) return say("bad", "Type a valid seed phrase in the box above first. " + r.msg);', ''],
+  ['find: address format not validated', 'if(!kind) return say("bad", "Enter a bc1q... (SegWit) or bc1p... (Taproot) address.");', 'if(false) return say("", "");'],
+  ['find: scan position not reset when the address changes', 'for(const id of ["checkAddr","phrase","verifyPass"]) document.getElementById(id).addEventListener("input", resetAddrScan);', ''],
+  ['compare: taproot list only first address', 'ids.tr.some(t => t === ql)', 'ids.tr.slice(0,1).some(t => t === ql)'],
   ['passphrase line: YES/NO swapped (print and download)', '(used ? "YES (keep it separate; it is not " + kind + " here)" : "NO")', '(used ? "NO" : "YES (keep it separate; it is not " + kind + " here)")'],
   ['result line: no-passphrase wording wrong', ': "none"), mnemonic.split(" "));', ': "used"), mnemonic.split(" "));'],
   ['grid: word numbers off by one',           '(i + 1) + "."', 'i + "."'],

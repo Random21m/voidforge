@@ -417,7 +417,7 @@
       <input type="password" id="verifyPass" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Passphrase (only if you used one)" style="flex:1; min-width:0;">
       <button type="button" class="secondary small" onclick="toggleVerifyPassphrase(this)">SHOW</button>
     </div>
-    <input type="text" id="verifyRecorded" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Backup fingerprint/address (optional)" style="margin-top:6px;">
+    <input type="text" id="verifyRecorded" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Backup fingerprint, address, zpub or descriptor (optional)" style="margin-top:6px;">
     <div class="btn-row" style="margin-top:8px;">
       <button id="verifyBtn" onclick="verify()" disabled>VERIFY</button>
     </div>
@@ -427,6 +427,12 @@
     </div>
     <div class="status" id="verifyStatus" aria-live="polite" style="white-space:pre-wrap; word-break:break-all;"></div>
     <div class="status" id="verifyMatch" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
+    <div style="margin-top:14px;">
+      <div class="hint" style="margin:0 0 6px;"><b>Is this address yours?</b> Paste a receive or change address from a wallet app (bc1q... SegWit or bc1p... Taproot). It is searched in the wallet made by the words and passphrase above.</div>
+      <input type="text" id="checkAddr" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Address to look for (bc1q... or bc1p...)">
+      <div class="btn-row" style="margin-top:8px;"><button type="button" class="secondary" id="checkAddrBtn" onclick="checkAddress()">CHECK ADDRESS</button></div>
+      <div class="status" id="addrCheckStatus" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
+    </div>
   </div>
 
 
@@ -484,6 +490,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.12.0</b> &mdash; Two checking tools in CHECK YOUR BACKUP, display only. (1) The &ldquo;Backup&rdquo; box now also accepts a <b>zpub or xpub</b> (account key, m/84'/0'/0'), a <b>wpkh descriptor</b> (the xpub form, as VOIDFORGE and Sparrow show it; its checksum is verified) or one of the first five <b>Taproot (bc1p) addresses</b>, and says MATCH or NO MATCH against the words, with and without the typed passphrase. Public keys cannot reveal the words, and nothing new is shown. (2) <b>Is this address yours?</b> Paste a bc1q (SegWit) or bc1p (Taproot) address from a wallet app and CHECK ADDRESS searches the typed words, with and without the passphrase, on the receive and change chains, 50 indices per press (press again for the next 50), and tells you which address number it is. Checked against independent libraries and with 28 new mutation tests. Seeds, words, fingerprints and addresses are exactly the same as 1.11.0.</li>
         <li><b>1.11.0</b> &mdash; Two additions, display only. (1) Taproot (BIP86) addresses: the first five <code>bc1p&hellip;</code> receiving addresses (m/86'/0'/0'/0/0 to 0/4) are listed under the SegWit ones, with their own COPY ALL, for checking in wallets that use Taproot. Checked in the self-test against the three published BIP86 vectors and the BIP350 bech32m example, and in the test suite against independent code (@scure and @noble). The zpub, descriptors and QR codes are unchanged and still describe the SegWit wallet only. (2) A fuller PRINT SEED backup sheet: two-column numbered words, fingerprint, first address, passphrase-used line, blank lines for notes, and a short warning. The passphrase is still never printed. Seeds, words, fingerprints and SegWit addresses are exactly the same as 1.10.1. The in-page self-test now has 38 checks.</li>
         <li><b>1.10.1</b> &mdash; Fix: the SELF-TEST button now toggles. Pressing it a second time hides the results; before, they stayed until you pressed CLEAR. No change to any crypto or output.</li>
         <li><b>1.10.0</b> &mdash; Three additions, all display only: (1) the first 5 receiving addresses (m/84'/0'/0'/0/0 to 0/4) are listed under the first address, with a COPY ALL button, so you can compare more than one address in another wallet; (2) a SHOW FIRST 4 LETTERS button for the word grid (every BIP39 word is unique by its first four letters), handy for stamping metal backups; (3) a short step-by-step guide to checking the wallet in a second tool. The self-test now has 35 checks. Seeds and wallets are unchanged.</li>
@@ -513,7 +520,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.11.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.12.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -833,6 +840,22 @@ async function taprootChangeFirstFromSeed(seed){
   return taprootAddress(k);
 }
 async function mnemonicTaproot(mnemonic, passphrase, n){ return taprootAddressesFromSeed(await mnemonicToSeed(mnemonic, passphrase), n); }
+// Is this address one of the wallet's? Looks at `count` indices from `from` on both the receive (0) and change (1) chains.
+// A bc1q address is searched as SegWit (BIP84), a bc1p address as Taproot (BIP86). Returns {chain, index, path} or null.
+async function findAddress(seed, addr, from, count){
+  const taproot = addr.slice(0, 4) === "bc1p", purpose = taproot ? 86 : 84;
+  let [k,c]=await masterFromSeed(seed);
+  for(const [i,h] of [[purpose,true],[0,true],[0,true]]) [k,c]=await ckdPriv(k,c,i,h);
+  for(const chain of [0,1]){
+    const [ck,cc]=await ckdPriv(k,c,chain,false);
+    for(let i=from;i<from+count;i++){
+      const [kk]=await ckdPriv(ck,cc,i,false);
+      const a = taproot ? await taprootAddress(kk) : bech32Encode("bc",0,ripemd160(await sha256bytes(pubkeyBytes(kk))));
+      if(a === addr) return {chain, index:i, path:"m/" + purpose + "'/0'/0'/" + chain + "/" + i};
+    }
+  }
+  return null;
+}
 // Watch-only export: account-level public key for m/84'/0'/0' (BIP32 serialization, Base58Check), plus output descriptors.
 const B58="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 async function base58check(payload){
@@ -1258,18 +1281,96 @@ function copyAddress(btn){
   if(!m) return alert("Generate a seed first");
   safeCopy(m[1]).then(()=>showCopied(btn)).catch(()=>alert("Copy failed. Select the address and copy it manually."));
 }
-// Compares a fingerprint (8 hex) or first address (bc1q...) the user wrote down with what this phrase gives
-// without a passphrase and with the passphrase typed in VERIFY.
-function matchRecorded(raw, fp0, a0, fp1, a1, hasPass){
-  const q = (raw || "").replace(/\s+/g, "").toLowerCase();
+// What kind of backup item did the user type? fingerprint, first SegWit address, Taproot address, account key (zpub/xpub) or descriptor.
+function classifyRecorded(raw){
+  const q = (raw || "").replace(/\s+/g, "");
   if(!q) return null;
-  const kind = /^[0-9a-f]{8}$/.test(q) ? "fp" : /^bc1q[0-9a-z]{38}$/.test(q) ? "addr" : null;
-  if(!kind) return {ok:false, text:"Not recognized. Enter the 8-character fingerprint or the bc1q... address you wrote down."};
-  const hint = kind === "fp" ? " A fingerprint is a short check; matching the first address is stronger." : "";
-  if(hasPass && q === (kind === "fp" ? fp1 : a1)) return {ok:true, text:"MATCH (with passphrase): your backup matches this phrase WITH the passphrase you typed." + hint};
-  if(q === (kind === "fp" ? fp0 : a0)) return {ok:true, text:"MATCH (without passphrase): your backup matches this phrase with NO passphrase." + hint};
-  if(hasPass) return {ok:false, text:"NO MATCH: your backup matches neither this phrase without a passphrase nor with the passphrase you typed. Recheck every word and the passphrase (capitals, spaces, accents)."};
+  if(/^[0-9a-fA-F]{8}$/.test(q)) return "fp";
+  if(/^bc1q[0-9a-z]{38}$/i.test(q)) return "addr";
+  if(/^bc1p[0-9a-z]{58}$/i.test(q)) return "tr";
+  if(/^[xz]pub[1-9A-HJ-NP-Za-km-z]{100,115}$/.test(q)) return "key";
+  if(/^wpkh\(/.test(q)) return "desc";
+  return "other";
+}
+// Reads a wpkh descriptor at m/84'/0'/0' : returns {fp, key, chain, sumOk, sumGiven} or null.
+function parseDescriptor(raw){
+  const q = (raw || "").replace(/\s+/g, "");
+  const m = /^wpkh\(\[([0-9a-fA-F]{8})\/84(?:h|')\/0(?:h|')\/0(?:h|')\]([xz]pub[1-9A-HJ-NP-Za-km-z]{100,115})\/(0|1|<0;1>)\/\*\)(?:#([0-9a-z]{8}))?$/.exec(q);
+  if(!m) return null;
+  let sumOk = true;
+  if(m[4]){ try { sumOk = descriptorChecksum(q.slice(0, q.indexOf("#"))) === q; } catch(e) { sumOk = false; } }
+  return {fp: m[1].toLowerCase(), key: m[2], chain: m[3], sumOk, sumGiven: !!m[4]};
+}
+// Keys and addresses of a phrase (with one passphrase) that a wallet app could show, for matching.
+async function walletIds(mnemonic, passphrase){
+  const seed = await mnemonicToSeed(mnemonic, passphrase), w = await watchOnlyFromSeed(seed);
+  return {fp: w.fp, xpub: w.xpub, zpub: w.zpub, tr: await taprootAddressesFromSeed(seed, 5)};
+}
+// Compares a fingerprint (8 hex), first address (bc1q...), Taproot address (bc1p...), account key (zpub/xpub) or descriptor the user
+// copied from a wallet app or wrote down with what this phrase gives without a passphrase and with the passphrase typed in VERIFY.
+function matchRecorded(raw, fp0, a0, fp1, a1, hasPass, ids0, ids1){
+  const kind = classifyRecorded(raw);
+  if(!kind) return null;
+  const q = (raw || "").replace(/\s+/g, ""), ql = q.toLowerCase();
+  if(kind === "other") return {ok:false, text:"Not recognized. Enter the 8-character fingerprint, the bc1q... or bc1p... address, the zpub/xpub, or the wpkh(...) descriptor from your backup or wallet app."};
+  let label = "", test = null, hint = "";
+  if(kind === "fp" || kind === "addr"){
+    label = kind === "fp" ? "fingerprint" : "first address";
+    test = (f, a) => ql === (kind === "fp" ? f : a);
+    hint = kind === "fp" ? " A fingerprint is a short check; matching the first address is stronger." : "";
+  } else if(kind === "tr"){
+    label = "Taproot address";
+    test = (f, a, ids) => !!ids && ids.tr.some(t => t === ql);
+    hint = " It is one of the first five Taproot (BIP86) receiving addresses.";
+  } else if(kind === "key"){
+    label = q.slice(0, 4) + " account key";
+    test = (f, a, ids) => !!ids && (q.charAt(0) === "z" ? ids.zpub : ids.xpub) === q;
+    hint = " This is the public account key for m/84'/0'/0'.";
+  } else {
+    const d = parseDescriptor(q);
+    if(!d) return {ok:false, text:"Not recognized. This tool checks wpkh descriptors at m/84'/0'/0' (as made by VOIDFORGE or Sparrow for a native SegWit wallet)."};
+    if(!d.sumOk) return {ok:false, text:"NO MATCH: the descriptor checksum after # is wrong, so it was copied or typed incorrectly. Copy it again."};
+    if(d.key.charAt(0) !== "x") return {ok:false, text:"Not recognized. Use the xpub form of the descriptor (wpkh([fingerprint/84h/0h/0h]xpub.../0/*)), as VOIDFORGE and Sparrow show it."};
+    label = "descriptor";
+    test = (f, a, ids) => !!ids && ids.fp === d.fp && ids.xpub === d.key;
+    hint = d.sumGiven ? " Its checksum is correct." : " It had no checksum.";
+  }
+  if(hasPass && test(fp1, a1, ids1)) return {ok:true, text:"MATCH (with passphrase): your " + label + " matches this phrase WITH the passphrase you typed." + hint};
+  if(test(fp0, a0, ids0)) return {ok:true, text:"MATCH (without passphrase): your " + label + " matches this phrase with NO passphrase." + hint};
+  if(hasPass) return {ok:false, text:"NO MATCH: your " + label + " matches neither this phrase without a passphrase nor with the passphrase you typed. Recheck every word and the passphrase (capitals, spaces, accents)."};
   return {ok:false, text:"NO MATCH without a passphrase. If you used one, type it in the passphrase box above and press VERIFY again. Otherwise recheck the words."};
+}
+// "Is this address mine?": searches the typed phrase (and the passphrase, if typed) for an address copied from a wallet app.
+// Each press searches `range` more indices on each chain (default 50); the next press continues where the last one stopped.
+let addrScanFrom = 0;
+function resetAddrScan(){ addrScanFrom = 0; }
+async function checkAddress(range){
+  if(!gateOk()) return;
+  const size = range || 50, st = document.getElementById("addrCheckStatus");
+  const say = (cls, t) => { st.className = "status " + cls; st.textContent = t; };
+  const r = await checkPhrase(document.getElementById("phrase").value);
+  if(!r.ok) return say("bad", "Type a valid seed phrase in the box above first. " + r.msg);
+  const addr = document.getElementById("checkAddr").value.replace(/\s+/g, "").toLowerCase();
+  const kind = /^bc1q[0-9a-z]{38}$/.test(addr) ? "SegWit" : /^bc1p[0-9a-z]{58}$/.test(addr) ? "Taproot" : null;
+  if(!kind) return say("bad", "Enter a bc1q... (SegWit) or bc1p... (Taproot) address.");
+  const vp = document.getElementById("verifyPass").value;
+  const variants = [["without passphrase", ""]]; if(vp) variants.push(["with passphrase", vp]);
+  const from = addrScanFrom, to = from + size, btn = document.getElementById("checkAddrBtn");
+  btn.disabled = true;
+  try {
+    for(const [label, pw] of variants){
+      const seed = await mnemonicToSeed(r.mnemonic, pw);
+      for(let s0 = from; s0 < to; s0 += 10){
+        say("", "Searching " + label + ": indices " + s0 + " to " + (Math.min(s0 + 10, to) - 1) + "...");
+        await new Promise(res => setTimeout(res, 0));
+        const f = await findAddress(seed, addr, s0, Math.min(10, to - s0));
+        if(f){ addrScanFrom = 0; return say("ok", "FOUND: this " + kind + " address is " + (f.chain ? "change" : "receive") + " address #" + f.index + " (" + f.path + ") of these words, " + label + "."); }
+      }
+    }
+    addrScanFrom = to;
+    say("bad", "NOT FOUND in indices " + from + " to " + (to - 1) + " of the receive and change chains (" + kind + ", " + variants.map(v => v[0]).join(" and ") + "). Press CHECK ADDRESS again to search the next " + size + ". If you expected it, recheck the address (one wrong character gives a different address), the words and the passphrase.");
+  } catch(e) { say("bad", "Could not check: " + e.message); }
+  finally { btn.disabled = false; }
 }
 function toggleVerifyPassphrase(btn){
   const el = document.getElementById("verifyPass");
@@ -1406,7 +1507,12 @@ async function verify(){
       lines.push("No passphrase entered. To check one, type it in the passphrase box above and press VERIFY again.");
     }
     st.textContent = lines.join("\n");
-    const mt = document.getElementById("verifyMatch"), m = matchRecorded(document.getElementById("verifyRecorded").value, fp0, a0, fp1, a1, !!vp);
+    const rawRec = document.getElementById("verifyRecorded").value, kindRec = classifyRecorded(rawRec);
+    let ids0 = null, ids1 = null;
+    if(kindRec === "tr" || kindRec === "key" || kindRec === "desc"){
+      try { ids0 = await walletIds(r.mnemonic, ""); if(vp) ids1 = await walletIds(r.mnemonic, vp); } catch(e) { ids0 = null; ids1 = null; }
+    }
+    const mt = document.getElementById("verifyMatch"), m = matchRecorded(rawRec, fp0, a0, fp1, a1, !!vp, ids0, ids1);
     mt.className = "status " + (m ? (m.ok ? "ok" : "bad") : ""); mt.textContent = m ? m.text : "";
   }
 }
@@ -1418,6 +1524,7 @@ function toggleTheme() {
   btn.textContent = isLight ? "LIGHT" : "DARK";
   try { localStorage.setItem("voidforge-theme", isLight ? "light" : "dark"); } catch(e) {}
 }
+for(const id of ["checkAddr","phrase","verifyPass"]) document.getElementById(id).addEventListener("input", resetAddrScan);
 let savedTheme = null;
 try { savedTheme = localStorage.getItem("voidforge-theme"); } catch(e) {}
 if (savedTheme === "light") {
@@ -1463,6 +1570,7 @@ function setGate(state, text, cls){
   const on = state === "pass";
   document.getElementById("forgeBtn").disabled = !on;
   document.getElementById("verifyBtn").disabled = !on;
+  document.getElementById("checkAddrBtn").disabled = !on;
 }
 window.selfTestDone = (async function(){
   if(!CRYPTO_OK){

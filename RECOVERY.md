@@ -14,7 +14,7 @@ Never store the words as a photo, text, email, cloud note or password-manager en
 ## Check the backup before you rely on it
 
 1. On the same offline computer, press **FORGE SEED** and write everything down (the printout and download say plainly whether a passphrase was used). Then use **VERIFY**: type the words back from your paper, add the passphrase if you used one, and paste the fingerprint or first address you wrote down into the last box. VERIFY says **MATCH (with passphrase)**, **MATCH (without passphrase)**, or **NO MATCH**. Matching the first address is the stronger check. VERIFY never displays or saves the passphrase.
-2. Compare the words, fingerprint and the **first five addresses** (SegWit, plus Taproot if your wallet uses it; shown under the first address after FORGE; there is also a short guide on the page) with a **second independent tool** (for example a hardware wallet or SeedSigner set up with the same words, or a wallet that can import a seed).
+2. Compare the words, fingerprint and the **first five addresses** (or paste the wallet app's zpub, descriptor or any address into CHECK YOUR BACKUP; SegWit, plus Taproot if your wallet uses it; shown under the first address after FORGE; there is also a short guide on the page) with a **second independent tool** (for example a hardware wallet or SeedSigner set up with the same words, or a wallet that can import a seed).
 3. Import the words into a wallet that supports BIP39 and BIP84 (native SegWit, "bc1q" addresses). Its first receive address should equal the one VOIDFORGE showed. If you used a passphrase, enter it exactly as written in the wallet's passphrase field.
 4. Only then move real funds, and start with a small amount.
 
