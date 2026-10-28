@@ -77,6 +77,17 @@ async function probe(w) {
     if (!dc.startsWith(`wpkh([${wo.fp}/84h/0h/0h]${wo.xpub}/1/*)#`)) fails.push('watch-only change descriptor');
     if (dr.split('#')[1] === dc.split('#')[1]) fails.push('descriptor checksums differ per branch');
     if ($('watchBox').style.display !== '') fails.push('watch-only box shown after FORGE'); }
+  { const ABOUT = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'; const seedB = mnemonicToSeedSync(ABOUT, ''); const VER = { wpkh: 0x04b24746, 'sh-wpkh': 0x049d7cb2, pkh: 0x0488b21e, tr: 0x0488b21e }, PUR = { wpkh: 84, 'sh-wpkh': 49, pkh: 44, tr: 86 };
+    for (const [type, acct] of [['wpkh', 0], ['sh-wpkh', 0], ['pkh', 0], ['tr', 0], ['sh-wpkh', 3], ['pkh', 7], ['tr', 2147483647]]) {
+      const wo = await w.watchOnlyFromSeed(seedB, type, acct), pu = PUR[type], hk = HDKey.fromMasterSeed(seedB, { private: 0, public: VER[type] }), hx = HDKey.fromMasterSeed(seedB);
+      const tag = `watch ${type} account ${acct}`, path = `m/${pu}'/0'/${acct}'`;
+      if (wo.key !== hk.derive(path).publicExtendedKey) fails.push(tag + ': key (' + (type === 'wpkh' ? 'zpub' : type === 'sh-wpkh' ? 'ypub' : 'xpub') + ')');
+      if (wo.xpub !== hx.derive(path).publicExtendedKey) fails.push(tag + ': xpub');
+      const first = { wpkh: segAt, tr: trAt }[type] ? null : altAt(type, ABOUT, '', acct, 0, 0);
+      if (type === 'wpkh' || type === 'tr') { const k = hx.derive(`${path}/0/0`); const exp = type === 'wpkh' ? bech32.encode('bc', [0, ...bech32.toWords(ripemd160(nsha(k.publicKey)))]) : (acct === 0 ? trAt(ABOUT, '', 0, 0) : null); if (exp && wo.first !== exp) fails.push(tag + ': first address'); }
+      else if (wo.first !== first) fails.push(tag + ': first address');
+      const o = `${wo.fp}/${pu}h/0h/${acct}h`, wrap = (b) => type === 'sh-wpkh' ? `sh(wpkh([${o}]${wo.xpub}/${b}/*))#` : `${type}([${o}]${wo.xpub}/${b}/*)#`;
+      if (!wo.receive.startsWith(wrap(0)) || !wo.change.startsWith(wrap(1))) fails.push(tag + ': descriptors'); } }
   { const cells = [...w.document.querySelectorAll('#wordGrid .wcell')]; await run('dice', 12, D50);
     const cs = [...w.document.querySelectorAll('#wordGrid .wcell')];
     if (cs.length !== 12 || cs[0].textContent !== '1.' + expect.d50.split(' ')[0] || cs[11].textContent !== '12.' + expect.d50.split(' ')[11]) fails.push('numbered word grid');
@@ -307,7 +318,7 @@ const M = [
   ['watch: zpub version bytes -> xpub', 'ser([0x04,0xb2,0x47,0x46])', 'ser([0x04,0x88,0xb2,0x1e])'],
   ['watch: base58 alphabet swapped', 'B58="123456789ABCDEFGHJKLMNPQRSTUVWXYZ', 'B58="123456789ABCDEFGHJKLMNPQRSTUVWXZY'],
   ['watch: base58 checksum skips second SHA-256', 'await sha256bytes(await sha256bytes(payload))', 'await sha256bytes(payload)'],
-  ['watch: leading-zero bytes not encoded (payload always starts with a non-zero version byte)', 'if(b===0) out="1"+out;', 'if(b===0) out=out;', true],
+  ['watch: leading-zero bytes not encoded (payload always starts with a non-zero version byte)', 'if(b===0) out="1"+out;', 'if(b===0) out=out;'],
   ['watch: account path wrong (m/84h/0h/1h)', 'for(const i of [T.purpose,0,account]){', 'for(const i of [T.purpose,0,account+1]){'],
   ['watch: descriptor checksum final xor removed', 'chk^=1n; let out="";', 'let out="";'],
   ['watch: descriptor origin path wrong', '"h/0h/" + account + "h"', '"h/0h/" + (account+1) + "h"'],
