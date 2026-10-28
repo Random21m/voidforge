@@ -309,6 +309,8 @@ async function probe(w) {
     w.showSeedQr('compact'); if (sz() !== 25 || !/^CompactSeedQR for these 24 words, 25 x 25 squares/.test($('sqCaption').textContent)) fails.push('seedqr: 24 words give a 25 x 25 CompactSeedQR');
     w.setResult('x', Array(15).fill('abandon')); if ($('seedQrBox').style.display !== 'none') fails.push('seedqr: no SeedQR box for a 15-word phrase'); w.setResult('x', null); if ($('seedQrBox').style.display !== 'none') fails.push('seedqr: no SeedQR box without words');
     w.setResult(sw, Array(12).fill('abandon')); if ($('seedQrBox').style.display !== '') fails.push('seedqr: box shown for 12 words');
+    if (w.qrRowRuns([false, true, true]) !== '2-3' || w.qrRowRuns([true, false, true, true]) !== '1, 3-4' || w.qrRowRuns([true]) !== '1' || w.qrRowRuns([false, false]) !== '') fails.push('seedqr: row lists are written as runs, also at the right edge');
+    { const q = w.qrMatrix('a'), svg = w.qrGridSvg(q.rows, 18, 18, 25, 25, 7, false), t = (svg.match(/<text/g) || []).length; if (t !== 2 * (q.rows.length - 18)) fails.push('seedqr: no numbers for squares outside the code'); }
     w.print = () => {}; w.confirm = () => true; w.alert = () => {};
   } catch (e) { fails.push('seedqr: the probe crashed: ' + e.message); }
   if ($('fpIcon').querySelector('svg')) { /* keep icon until an error */ }
