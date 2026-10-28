@@ -12,6 +12,8 @@
     "@scure/bip39": "^1.6.0",
     "@scure/btc-signer": "^2.4.1",
     "jsdom": "^26.0.0",
-    "lifehash": "^1.0.0"
+    "jsqr": "^1.4.0",
+    "lifehash": "^1.0.0",
+    "qrcode-generator": "^1.4.4"
   }
 }

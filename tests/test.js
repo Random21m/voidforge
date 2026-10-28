@@ -15,7 +15,7 @@ function load(opts={}){
       w.addEventListener('error',e=>errors.push(e.message));
       w.URL.createObjectURL=b=>{st.blob=b;return 'blob:x';}; w.URL.revokeObjectURL=()=>{};
       w.HTMLAnchorElement.prototype.click=function(){};
-      w.print=()=>{ st.printed++; st.printHTML=w.document.getElementById('printOnly').textContent; st.printClass=w.document.body.className; };
+      w.print=()=>{ st.printed++; st.printHTML=w.document.getElementById('printOnly').textContent; st.printClass=w.document.body.className; st.printQrText=w.document.getElementById('printQr').textContent; st.printQrHTML=w.document.getElementById('printQr').innerHTML; };
       Object.defineProperty(w.navigator,'clipboard',{value:{writeText:async t=>{st.clip.push(t);}}});
     }});
   const w=dom.window; return {w,ready:()=>w.selfTestDone,d:w.document,$:id=>w.document.getElementById(id),st,errors,
@@ -104,6 +104,20 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
   t.w.printSeed();
   ok(t.st.printed===1&&words.split(' ').every((w,i)=>t.st.printHTML.includes(String(i+1).padStart(2,' ')+'. '+w))&&!t.st.printHTML.includes('SECRETPASS')&&/print-seed/.test(t.st.printClass),'PRINT SEED prints numbered words + fingerprint only, no passphrase');
   t.w.dispatchEvent(new t.w.Event('afterprint')); ok(t.$('printOnly').textContent===''&&!t.d.body.classList.contains('print-seed'),'print area cleaned up after printing');
+  // --- SeedQR / CompactSeedQR on screen and on paper ---
+  { const sz=()=>{ const v=t.$('sqImg').querySelector('svg'); return v?Math.round(v.viewBox.baseVal.width)-8:0; };
+    ok(t.$('seedQrBox').style.display==='','SeedQR box appears after FORGE');
+    t.w.showSeedQr('seedqr'); ok(sz()===25&&t.$('sqBox').style.display===''&&/^SeedQR for these 12 words, 25 x 25 squares/.test(t.$('sqCaption').textContent),'SEEDQR draws a 25 x 25 code for 12 words');
+    t.w.showSeedQr('compact'); ok(sz()===21&&/^CompactSeedQR for these 12 words, 21 x 21 squares/.test(t.$('sqCaption').textContent),'COMPACTSEEDQR draws a 21 x 21 code for 12 words');
+    t.w.hideSeedQr(); ok(t.$('sqImg').innerHTML===''&&t.$('sqBox').style.display==='none'&&t.$('sqCaption').textContent==='','HIDE removes the SeedQR');
+    t.st.alerts.length=0; const p0=t.st.printed; t.w.printSeedQr(); ok(t.st.printed===p0&&/Press SHOW SEEDQR/.test(t.st.alerts.join('|')),'PRINT THIS QR needs a shown code first');
+    t.w.showSeedQr('seedqr'); t.w.printSeedQr();
+    ok(t.st.printed===p0+1&&/print-qr/.test(t.st.printClass)&&/VOIDFORGE SEEDQR \(12 words, 25 x 25 squares\)/.test(t.st.printQrText)&&/<svg/.test(t.st.printQrHTML)&&!t.st.printQrText.includes('SECRETPASS')&&words.split(' ').every(w=>!t.st.printQrText.includes(w+' ')),'PRINT THIS QR prints the code, no words and no passphrase');
+    t.w.dispatchEvent(new t.w.Event('afterprint')); ok(t.$('printQr').textContent===''&&!t.d.body.classList.contains('print-qr'),'SeedQR print area cleaned up after printing');
+    t.w.showSeedQr('compact'); t.set(rnd(50)); await t.w.generate(); ok(t.$('sqImg').innerHTML===''&&t.$('sqBox').style.display==='none','a new FORGE removes the old SeedQR');
+    t.w.showSeedQr('seedqr'); t.w.clearAll(); ok(t.$('sqImg').innerHTML===''&&t.$('seedQrBox').style.display==='none','CLEAR removes the SeedQR and hides its box');
+    t.st.alerts.length=0; t.w.showSeedQr('seedqr'); ok(t.$('sqImg').innerHTML===''&&/Generate a seed first/.test(t.st.alerts.join('|')),'SHOW SEEDQR needs a seed first');
+    t.words(24); t.set(rnd(99)); await t.w.generate(); t.w.showSeedQr('seedqr'); ok(sz()===29&&/24 words, 29 x 29/.test(t.$('sqCaption').textContent),'SEEDQR is 29 x 29 for 24 words'); t.w.showSeedQr('compact'); ok(sz()===25,'COMPACTSEEDQR is 25 x 25 for 24 words'); t.words(12); }
   // --- download seed: confirm, no passphrase ---
   t.w.downloadSeed(); const txt=await blobText(t.w,t.st.blob);
   ok(t.st.confirms>=2&&txt.includes(words)&&!txt.includes('SECRETPASS'),'DOWNLOAD seed asks first and omits passphrase');
