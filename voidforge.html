@@ -460,6 +460,7 @@
       <div id="sqGuide" style="display:none; margin-top:10px; text-align:center;">
         <div id="sqGuideCaption" class="hint"></div>
         <div id="sqGuideImg" style="width:min(100%,420px); margin:8px auto; background:#fff; line-height:0;"></div>
+        <div id="sqMini" style="width:110px; margin:6px auto; background:#fff; line-height:0;"></div>
         <div class="btn-row" style="justify-content:center;">
           <button class="secondary small" onclick="sqGuideBlock(-1)">&larr; PREVIOUS BLOCK</button>
           <button class="secondary small" onclick="sqGuideBlock(1)">NEXT BLOCK &rarr;</button>
@@ -1217,21 +1218,30 @@ function seedQrMatrix(words, kind, mask){
   return qrBuild(kind==="compact" ? {mode:"byte", bytes:d.bytes, level:"L"} : {mode:"numeric", digits:d.digits, level:"L"}, mask);
 }
 // Hand-copy helpers: a numbered grid of the code (whole or one block) and a row-by-row list of the squares to fill, for pen and paper.
-function qrBlockSize(n){ return n===21 ? 7 : 5; }
+function qrBlockSize(n){ return 7; }
 function qrRowRuns(row){
   const out=[]; let x=0;
   while(x<row.length){ if(row[x]){ let e=x; while(e+1<row.length && row[e+1]) e++; out.push(e===x ? String(x+1) : (x+1)+"-"+(e+1)); x=e+1; } else x++; }
   return out.join(", ");
 }
 function qrGridSvg(rows, x0, y0, x1, y1, step, blank){
-  const C=10, L=14, w=(x1-x0)*C, h=(y1-y0)*C; let cells="", lines="", labels="";
-  if(!blank) for(let y=y0;y<y1;y++) for(let x=x0;x<x1;x++) if(rows[y][x]) cells+="M"+(L+(x-x0)*C)+" "+(L+(y-y0)*C)+"h"+C+"v"+C+"h-"+C+"z";
+  const n=rows.length, C=10, L=14, w=(x1-x0)*C, h=(y1-y0)*C; let cells="", grey="", lines="", labels="";
+  for(let y=y0;y<y1;y++) for(let x=x0;x<x1;x++){
+    const sq="M"+(L+(x-x0)*C)+" "+(L+(y-y0)*C)+"h"+C+"v"+C+"h-"+C+"z";
+    if(x>=n || y>=n) grey+=sq; else if(!blank && rows[y][x]) cells+=sq; }
   for(let i=0;i<=x1-x0;i++){ const major=(x0+i)%step===0 || x0+i===x1; lines+="M"+(L+i*C)+" "+(L-(major?3:0))+"v"+(h+(major?3:0)); }
   for(let i=0;i<=y1-y0;i++){ const major=(y0+i)%step===0 || y0+i===y1; lines+="M"+(L-(major?3:0))+" "+(L+i*C)+"h"+(w+(major?3:0)); }
-  for(let x=x0;x<x1;x++) labels+='<text x="'+(L+(x-x0)*C+C/2)+'" y="'+(L-4)+'">'+(x+1)+"</text>";
-  for(let y=y0;y<y1;y++) labels+='<text x="'+(L-4)+'" y="'+(L+(y-y0)*C+C/2+1.6)+'" text-anchor="end">'+(y+1)+"</text>";
+  for(let x=x0;x<Math.min(x1,n);x++) labels+='<text x="'+(L+(x-x0)*C+C/2)+'" y="'+(L-4)+'">'+(x+1)+"</text>";
+  for(let y=y0;y<Math.min(y1,n);y++) labels+='<text x="'+(L-4)+'" y="'+(L+(y-y0)*C+C/2+1.6)+'" text-anchor="end">'+(y+1)+"</text>";
   const W=L+w+4, H=L+h+4;
-  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="QR code grid"><rect width="'+W+'" height="'+H+'" fill="#fff"/><path d="'+cells+'" fill="#000"/><path d="'+lines+'" stroke="#777" stroke-width="0.35" fill="none"/><g font-size="4.6" font-family="sans-serif" fill="#000" text-anchor="middle">'+labels+"</g></svg>";
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="QR code grid"><rect width="'+W+'" height="'+H+'" fill="#fff"/><path d="'+grey+'" fill="#c8c8c8"/><path d="'+cells+'" fill="#000"/><path d="'+lines+'" stroke="#777" stroke-width="0.35" fill="none"/><g font-size="4.6" font-family="sans-serif" fill="#000" text-anchor="middle">'+labels+"</g></svg>";
+}
+// Small overview of the whole code with the block being copied outlined (like SeedSigner's mini-map).
+function qrMiniMapSvg(rows, x0, y0, x1, y1){
+  const n=rows.length, q=2; let d="";
+  for(let y=0;y<n;y++) for(let x=0;x<n;x++) if(rows[y][x]) d+="M"+(x+q)+" "+(y+q)+"h1v1h-1z";
+  const bx=Math.min(x1,n)-x0, by=Math.min(y1,n)-y0;
+  return '<svg viewBox="0 0 '+(n+2*q)+' '+(n+2*q)+'" shape-rendering="crispEdges" role="img" aria-label="Where this block is in the whole code"><rect width="'+(n+2*q)+'" height="'+(n+2*q)+'" fill="#fff"/><path d="'+d+'" fill="#000"/><rect x="'+(x0+q)+'" y="'+(y0+q)+'" width="'+bx+'" height="'+by+'" fill="rgba(255,60,60,0.25)" stroke="#e00" stroke-width="0.5"/></svg>';
 }
 // LifeHash (version 2): a small picture derived from a master fingerprint, the same one Sparrow Wallet shows beside it.
 // Algorithm by Blockchain Commons. Display only; it never touches keys. Input is SHA-256 of the 4 fingerprint bytes.
@@ -1701,7 +1711,7 @@ function hideSeedQr(){
 }
 function closeSqGuide(){
   sqBlock = 0;
-  document.getElementById("sqGuideImg").textContent = ""; document.getElementById("sqGuideCaption").textContent = "";
+  document.getElementById("sqGuideImg").textContent = ""; document.getElementById("sqMini").textContent = ""; document.getElementById("sqGuideCaption").textContent = "";
   document.getElementById("sqGuide").style.display = "none";
 }
 function openSqGuide(){
@@ -1711,6 +1721,7 @@ function openSqGuide(){
 function sqGuideFull(){
   if(!sqRows) return;
   const n = sqRows.length; sqBlock = 0;
+  document.getElementById("sqMini").textContent = "";
   document.getElementById("sqGuideImg").innerHTML = qrGridSvg(sqRows, 0, 0, n, n, qrBlockSize(n), false);
   document.getElementById("sqGuideCaption").textContent = "Whole " + seedQrName(sqKind) + " grid, " + n + " x " + n + " squares. SECRET. Use NEXT BLOCK to copy it a piece at a time.";
   document.getElementById("sqGuide").style.display = "";
@@ -1719,9 +1730,10 @@ function sqGuideBlock(delta, first){
   if(!sqRows) return;
   const n = sqRows.length, b = qrBlockSize(n), per = Math.ceil(n / b), total = per * per;
   sqBlock = first ? 1 : ((sqBlock - 1 + delta + total) % total) + 1;
-  const r = Math.floor((sqBlock - 1) / per), c = (sqBlock - 1) % per, x0 = c * b, y0 = r * b, x1 = Math.min(n, x0 + b), y1 = Math.min(n, y0 + b);
+  const r = Math.floor((sqBlock - 1) / per), c = (sqBlock - 1) % per, x0 = c * b, y0 = r * b, x1 = x0 + b, y1 = y0 + b;
   document.getElementById("sqGuideImg").innerHTML = qrGridSvg(sqRows, x0, y0, x1, y1, b, false);
-  document.getElementById("sqGuideCaption").textContent = "Block " + sqBlock + " of " + total + ": rows " + (y0 + 1) + " to " + y1 + ", columns " + (x0 + 1) + " to " + x1 + " of the " + n + " x " + n + " grid. SECRET.";
+  document.getElementById("sqMini").innerHTML = qrMiniMapSvg(sqRows, x0, y0, x1, y1);
+  document.getElementById("sqGuideCaption").textContent = "Block " + sqBlock + " of " + total + ": rows " + (y0 + 1) + " to " + Math.min(n, y1) + ", columns " + (x0 + 1) + " to " + Math.min(n, x1) + " of the " + n + " x " + n + " grid. Grey squares are outside the code. SECRET.";
   document.getElementById("sqGuide").style.display = "";
 }
 function printSqSheet(title, svg, wide, extra, rowsText){
