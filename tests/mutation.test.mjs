@@ -458,7 +458,7 @@ async function detect(mutated) {
   await ready(w);
   const badge = w.document.getElementById('selfTestBadge').textContent;
   if (!/PASSED/.test(badge)) return { by: 'self-test gate' };
-  const f = await probe(w);
+  let f; try { f = await probe(w); } catch (e) { return { by: 'end-to-end probe (page error: ' + String(e && e.message).slice(0, 60) + ')' }; }
   return f.length ? { by: 'end-to-end probe (' + f[0] + ')' } : { by: null };
 }
 
