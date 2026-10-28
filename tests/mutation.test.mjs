@@ -317,6 +317,7 @@ async function probe(w) {
   } catch (e) { fails.push('seedqr: the probe crashed: ' + e.message); }
   if ($('fpIcon').querySelector('svg')) { /* keep icon until an error */ }
   // passphrase confirmation must block a mismatch
+  await run('dice', 12, D50, ''); w.showQr('wZpub', 'zpub');
   mode('dice'); words(12); $('rolls').value = D50; $('rolls').oninput(); $('passphrase').value = 'abc'; $('passphrase2').value = 'abd'; await w.generate();
   if (!/do not match/.test($('genResult').textContent) || adOf()) fails.push('passphrase confirmation blocks a mismatch');
   if ($('wZpub').textContent !== '' || $('watchBox').style.display !== 'none') fails.push('watch-only export hidden after an error');
