@@ -29,7 +29,7 @@ VOIDFORGE is free software provided **"as is", without warranty of any kind** (s
 
 1. Download `voidforge.html` from the [latest release](../../releases/latest) and check it: `sha256sum -c SHA256SUMS`.
 2. Copy it to a USB stick and open it in a desktop browser (Safari 14+, Chrome or Firefox) on an **offline computer**. Do not use a phone: phones and file previews often will not run the page, and a phone is the wrong place for a seed anyway.
-3. Confirm the green **SELF-TEST PASSED (43/43)** badge and the **NETWORK: OFFLINE** tag. A red notice saying the script is not running means the page did not start; do not use it.
+3. Confirm the green **SELF-TEST PASSED (49/49)** badge and the **NETWORK: OFFLINE** tag. A red notice saying the script is not running means the page did not start; do not use it.
 4. Choose 12 or 24 words and Dice or Coin, enter your physical rolls or flips (type, paste, or tap the buttons), and press FORGE SEED. The words appear as a numbered grid. A passphrase, if you want one, goes in "Advanced options".
 5. Write the words down, then compare the words and the master fingerprint with a second independent offline tool before trusting real funds.
 
@@ -47,6 +47,7 @@ VOIDFORGE is free software provided **"as is", without warranty of any kind** (s
 - **SeedQR input:** the words box in CHECK YOUR BACKUP also reads a SeedSigner SeedQR digit string or CompactSeedQR hex and shows the words (typed in; no camera).
 - **Child seed (BIP85):** derives a new seed phrase from your parent words and passphrase (12, 18 or 24 words, any index) for a separate wallet. Shown on screen only. The parent plus the word count and index recreate it.
 - **Fingerprint picture:** a small LifeHash picture next to the master fingerprint (the same one Sparrow Wallet shows), for a quick visual match.
+- **Address types and accounts:** the watch-only export can be switched to Taproot, Nested SegWit (ypub) or Legacy, with any account number, and "Is this address yours?" finds bc1q, bc1p, 3... and 1... addresses for the chosen account.
 - **Watch-only export:** after FORGE, copy the wallet's public key (zpub) or descriptor into a watch-only wallet app to see addresses and balance without the seed. Public keys only; it cannot spend. SHOW QR draws it as a QR code on screen for scanning.
 - Shows the master fingerprint **and the first native SegWit (BIP84) receive address** so you can cross-check with a wallet; asks you to type any passphrase twice; tap buttons for dice 1-6 and coin 1/0. VERIFY can check a phrase with and without a passphrase and tell you whether a fingerprint or address from your backup matches with a passphrase, without one, or neither.
 - Guides: [RECOVERY.md](RECOVERY.md) (what to back up, how to restore) and [SECURITY.md](SECURITY.md) (reporting, known limits).
