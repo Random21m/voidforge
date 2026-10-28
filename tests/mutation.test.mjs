@@ -257,7 +257,7 @@ async function probe(w) {
     if (bd) fails.push('seedqr: digits and bytes from the words');
     if (bs) fails.push('seedqr: QR codes match the independent library');
     if (bg) fails.push('seedqr: hand-copy grid, blocks and row lists');
-    const bad = [['abandon', 'abandon'], 'abandon '.repeat(11).split(' ').concat('zzzz'), entropyToMnemonic(new Uint8Array(20), wordlist).split(' ')];
+    const bad = [['abandon', 'abandon'], Array(11).fill('abandon').concat('zzzz'), entropyToMnemonic(new Uint8Array(20), wordlist).split(' ')];
     if (bad.some(x => w.seedQrData(x) !== null)) fails.push('seedqr: only 12 and 24 known words give a SeedQR');
     { let m = ''; try { w.seedQrMatrix(['abandon', 'abandon'], 'seedqr'); } catch (e) { m = e.message; } if (!/only for 12 and 24/.test(m)) fails.push('seedqr: a short phrase gives an error, not a code'); }
     // the page: show, hide, blocks, mini-map, print
@@ -307,6 +307,8 @@ async function probe(w) {
     w.openSqGuide(); if (!/^Block 1 of 25: rows 1 to 7, columns 1 to 7 of the 29 x 29/.test(gc())) fails.push('seedqr: a 29 x 29 code has 25 blocks');
     for (let i = 0; i < 4; i++) w.sqGuideBlock(1); if (!/^Block 5 of 25: rows 1 to 7, columns 29 to 29/.test(gc())) fails.push('seedqr: the last block column of a 29 x 29 code is one square wide');
     w.showSeedQr('compact'); if (sz() !== 25 || !/^CompactSeedQR for these 24 words, 25 x 25 squares/.test($('sqCaption').textContent)) fails.push('seedqr: 24 words give a 25 x 25 CompactSeedQR');
+    w.setResult('x', Array(15).fill('abandon')); if ($('seedQrBox').style.display !== 'none') fails.push('seedqr: no SeedQR box for a 15-word phrase'); w.setResult('x', null); if ($('seedQrBox').style.display !== 'none') fails.push('seedqr: no SeedQR box without words');
+    w.setResult(sw, Array(12).fill('abandon')); if ($('seedQrBox').style.display !== '') fails.push('seedqr: box shown for 12 words');
     w.print = () => {}; w.confirm = () => true; w.alert = () => {};
   } catch (e) { fails.push('seedqr: the probe crashed: ' + e.message); }
   if ($('fpIcon').querySelector('svg')) { /* keep icon until an error */ }
