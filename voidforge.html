@@ -570,6 +570,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.16.0</b> &mdash; Two tools in the new section for extras. (1) <b>Find the last word:</b> type all but the last word of a seed (11, 14, 17, 20 or 23 words) and it lists every word that makes the checksum valid (128 for a 12-word seed). It cannot tell you which one you had. (2) <b>Inspect a transaction (PSBT):</b> paste or choose a partly signed Bitcoin transaction (BIP174 version 0, base64 or hex, mainnet or testnet) to see its inputs, outputs, addresses and fee before signing it on a hardware wallet; outputs that carry key information are marked as likely change. <b>Read only:</b> it cannot sign, never uses your seed words, and sends nothing. Self-test is now 60 checks.</li>
         <li><b>1.15.0</b> &mdash; Testnet and multisig cosigner keys in the Watch-only box. A <b>Network</b> menu switches the export and the address finder to <b>testnet</b> (tpub/upub/vpub keys, tb1... / 2... / m... / n... addresses, coin type 1). Two new types, <b>Multisig cosigner key</b> (BIP48, native SegWit Zpub or nested SegWit Ypub, m/48&rsquo;/coin&rsquo;/account&rsquo;/script&rsquo;), give the single key and origin a multisig coordinator (Sparrow, Specter, Nunchuk, Electrum) asks for; a cosigner key has no address of its own, so those boxes are hidden. Seven new self-test vectors (56 checks). Display only.</li>
         <li><b>1.14.0</b> &mdash; Watch-only export and address finder now cover more wallet types. In the Watch-only box you can pick <b>Native SegWit (bc1q), Taproot (bc1p), Nested SegWit (3...) or Legacy (1...)</b> and an <b>account number</b>; the box shows the matching key (zpub, ypub or xpub), the descriptors and the first address. &ldquo;Is this address yours?&rdquo; now also finds 3... and 1... addresses and takes an account number. Six new self-test vectors (49 checks). Display only; nothing new is saved or sent.</li>
         <li><b>1.13.0</b> &mdash; Two additions in CHECK YOUR BACKUP. (1) <b>SeedQR input:</b> the words box also accepts a SeedSigner <b>SeedQR digit string</b> (each word as its 4-digit number 0000 to 2047; 48 digits for 12 words, 96 for 24) or <b>CompactSeedQR hex</b> (the raw entropy, 32 or 64 hex characters), turns it into words, checks the checksum, and shows the words so you can compare them with your backup. Type it in; there is no camera and no new way to display a seed. (2) <b>Child seed (BIP85):</b> a new seed phrase derived from the typed parent words and passphrase (English, 12, 18 or 24 words, any index 0 to 2147483647), shown on screen only with its fingerprint and first address; no copy, save or print. The parent, word count and index recreate it, and the parent recreates every child. Checked against the published BIP85 vectors in the self-test (now 43 checks) and against independent libraries. Seeds, words, fingerprints and addresses are exactly the same as 1.12.0.</li>
@@ -603,7 +604,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.15.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.16.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -936,13 +937,13 @@ async function mnemonicBip85(mnemonic, passphrase, words, index){
   return bip85Mnemonic(k, c, words, index);
 }
 async function mnemonicTaproot(mnemonic, passphrase, n){ return taprootAddressesFromSeed(await mnemonicToSeed(mnemonic, passphrase), n); }
-// Address types a wallet can use. purpose = the BIP number in the derivation path m/purpose'/0'/account'; ver = extended public key version bytes.
+// Address types a wallet can use. purpose = the BIP number in the derivation path m/purpose'/coin'/account' (extended key versions are in NETS below).
 const XPUB_VER=[0x04,0x88,0xb2,0x1e];
 const SCRIPT_TYPES={
-  wpkh:{purpose:84, ver:[0x04,0xb2,0x47,0x46], kname:"zpub", label:"Native SegWit (bc1q...)"},
-  tr:{purpose:86, ver:XPUB_VER, kname:"xpub", label:"Taproot (bc1p...)"},
-  "sh-wpkh":{purpose:49, ver:[0x04,0x9d,0x7c,0xb2], kname:"ypub", label:"Nested SegWit (3...)"},
-  pkh:{purpose:44, ver:XPUB_VER, kname:"xpub", label:"Legacy (1...)"}
+  wpkh:{purpose:84, kname:"zpub", label:"Native SegWit (bc1q...)"},
+  tr:{purpose:86, kname:"xpub", label:"Taproot (bc1p...)"},
+  "sh-wpkh":{purpose:49, kname:"ypub", label:"Nested SegWit (3...)"},
+  pkh:{purpose:44, kname:"xpub", label:"Legacy (1...)"}
 };
 // Networks. coin = the coin type in the derivation path; hrp = bech32 prefix; pkh/sh = Base58 address version bytes; ver = extended public key versions per type.
 const NETS={
