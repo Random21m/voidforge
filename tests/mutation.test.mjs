@@ -282,6 +282,7 @@ async function probe(w) {
     if (pr.n !== 2 || !/HAND-COPY GUIDE \(12 words, 25 x 25 squares\)/.test(pr.text) || !/Row 1: /.test(pr.text) || !/Row 25: /.test(pr.text) || /Row 26/.test(pr.text) || pr.text.includes('SECRETPASS') || sw.split(' ').some(x => pr.text.includes(x + ' '))) fails.push('seedqr: PRINT HAND-COPY GUIDE sheet (rows, no words, no passphrase)');
     w.dispatchEvent(new w.Event('afterprint')); conf.n = 0; w.printSqBlank();
     if (pr.n !== 3 || conf.n !== 0 || !/BLANK 25 x 25 GRID FOR SEEDQR/.test(pr.text) || /Row 1: /.test(pr.text)) fails.push('seedqr: PRINT BLANK GRID sheet (no question, no rows)');
+    { const bm = pr.html.match(/<path d="([^"]*)" fill="#000"/); if (!bm || bm[1] !== '') fails.push('seedqr: the blank grid sheet has no black squares'); }
     w.dispatchEvent(new w.Event('afterprint'));
     w.openSqGuide();
     if ($('sqGuide').style.display !== '' || !/^Block 1 of 16: rows 1 to 7, columns 1 to 7 of the 25 x 25 grid\./.test(gc()) || !$('sqGuideImg').querySelector('svg') || !$('sqMini').querySelector('svg')) fails.push('seedqr: COPY BY HAND opens block 1 of 16 with a mini-map');
