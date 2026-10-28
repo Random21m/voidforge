@@ -109,6 +109,12 @@ async function probe(w) {
       if (wo.key !== HDKey.fromMasterSeed(seedB, { private: 0, public: MV[net][type] }).derive(path).publicExtendedKey) fails.push(tag + ': key');
       if (wo.receive !== `[${wo.fp}/48h/${coin}h/${acct}h/${SC[type]}h]${HDKey.fromMasterSeed(seedB, { private: 0, public: net === 'test' ? 0x043587cf : 0x0488b21e }).derive(path).publicExtendedKey}`) fails.push(tag + ': key origin');
       if (wo.change !== '' || wo.first !== '') fails.push(tag + ': has no addresses'); } }
+  { const LW = async (x) => { $('lwInput').value = x; await w.findLastWords(); return [$('lwStatus').textContent, $('lwOut').textContent]; };
+    let [a, o] = await LW('abandon '.repeat(10) + 'xyzzy'); if (!/^Unknown word: xyzzy/.test(a) || o !== '') fails.push('last word: unknown word is rejected');
+    [a, o] = await LW('abandon '.repeat(11)); if (!/^128 words complete this 12-word phrase/.test(a) || o.split(/\s+/).length !== 128) fails.push('last word: 12-word list');
+    [a, o] = await LW('abandon '.repeat(10)); if (!/^Type 11, 14, 17, 20 or 23/.test(a)) fails.push('last word: wrong word count rejected');
+    await LW('abandon '.repeat(11)); $('lwInput').dispatchEvent(new w.Event('input')); if ($('lwOut').textContent !== '') fails.push('last word: list cleared when the words change');
+    await LW('abandon '.repeat(11)); w.clearLastWords(true); if ($('lwInput').value !== '' || $('lwOut').textContent !== '') fails.push('last word: CLEAR empties the box'); }
   { const cells = [...w.document.querySelectorAll('#wordGrid .wcell')]; await run('dice', 12, D50);
     const cs = [...w.document.querySelectorAll('#wordGrid .wcell')];
     if (cs.length !== 12 || cs[0].textContent !== '1.' + expect.d50.split(' ')[0] || cs[11].textContent !== '12.' + expect.d50.split(' ')[11]) fails.push('numbered word grid');
