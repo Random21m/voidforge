@@ -311,6 +311,7 @@ async function probe(w) {
     w.setResult(sw, Array(12).fill('abandon')); if ($('seedQrBox').style.display !== '') fails.push('seedqr: box shown for 12 words');
     if (w.qrRowRuns([false, true, true]) !== '2-3' || w.qrRowRuns([true, false, true, true]) !== '1, 3-4' || w.qrRowRuns([true]) !== '1' || w.qrRowRuns([false, false]) !== '') fails.push('seedqr: row lists are written as runs, also at the right edge');
     { const q = w.qrMatrix('a'), svg = w.qrGridSvg(q.rows, 18, 18, 25, 25, 7, false), t = (svg.match(/<text/g) || []).length; if (t !== 2 * (q.rows.length - 18)) fails.push('seedqr: no numbers for squares outside the code'); }
+    { const q = w.qrMatrix('a'), mm2 = w.qrMiniMapSvg(q.rows, 18, 18, 25, 25).match(/<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)" fill="rgba/); if (!mm2 || mm2.slice(3).join() !== '3,3') fails.push('seedqr: the mini-map outline is cut at the bottom and right edges'); }
     w.print = () => {}; w.confirm = () => true; w.alert = () => {};
   } catch (e) { fails.push('seedqr: the probe crashed: ' + e.message); }
   if ($('fpIcon').querySelector('svg')) { /* keep icon until an error */ }
