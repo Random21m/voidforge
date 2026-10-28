@@ -229,6 +229,19 @@
   button:disabled { opacity: .4; cursor: not-allowed; }
   #statusLine { display: flex; justify-content: center; gap: 4px 14px; flex-wrap: wrap; margin-bottom: 12px; }
   #statusLine #netTag, #statusLine #selfTestBadge { margin: 0; }
+  .start { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 4px; }
+  .start button { display: flex; flex-direction: column; gap: 3px; align-items: center; padding: 10px 6px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; font-size: 13px; font-weight: 700; letter-spacing: .3px; }
+  .start button small { font-weight: 400; font-size: 11px; color: var(--muted); letter-spacing: 0; }
+  .start button:hover { border-color: var(--accent); }
+  .sub { font-size: 12.5px; color: var(--muted); margin: -4px 0 12px; line-height: 1.5; }
+  .tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .8px; padding: 2px 7px; border-radius: 99px; border: 1px solid; margin-left: 6px; vertical-align: middle; white-space: nowrap; }
+  .tag-secret { color: var(--bad-text); border-color: var(--bad-text); }
+  .tag-public { color: var(--ok-text); border-color: var(--ok-text); }
+  .tag-ro { color: var(--accent); border-color: var(--accent); }
+  .tools details { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-top: 10px !important; }
+  .tools summary { cursor: pointer; font-weight: 600; }
+  .tools summary small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  @media (max-width: 480px) { .start button { font-size: 12px; } .start button small { display: none; } .card { padding: 14px 12px; } }
   .steps { font-size: 12px; color: var(--muted); text-align: center; margin-top: 8px; line-height: 1.6; }
   .result.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; padding: 0; border: 0; margin: -1px; min-height: 0; }
   #wordGrid { display: none; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 10px; }
@@ -292,7 +305,12 @@
     </div>
     <h1>VOIDFORGE</h1>
     <div class="subtitle">DICE / COIN ENTROPY → BIP39 SEED</div>
-    <div class="steps"><b>1</b> Choose length and type &nbsp;&middot;&nbsp; <b>2</b> Enter your rolls or flips &nbsp;&middot;&nbsp; <b>3</b> FORGE SEED and write the words down &nbsp;&middot;&nbsp; <b>4</b> Check your backup</div>
+    <div class="steps">Start here</div>
+    <div class="start">
+      <button type="button" onclick="jumpTo('cardGen')">MAKE A SEED<small>new wallet words from dice or coins</small></button>
+      <button type="button" onclick="jumpTo('cardCheck')">CHECK A BACKUP<small>words, address or key you already have</small></button>
+      <button type="button" onclick="jumpTo('cardTools')">EXTRA TOOLS<small>last word, transaction, child seed</small></button>
+    </div>
   </header>
 
   
@@ -306,8 +324,9 @@
     <div id="disclaimer" style="margin-top:8px; font-size:12px; opacity:.9;">Provided as is, without warranty. You alone are responsible for your funds and backups. Lost words or passphrase mean lost funds. Test the backup and start with a small amount.</div>
   </div>
 
-  <div class="card">
-    <h2>1-3 &middot; GENERATE</h2>
+  <div class="card" id="cardGen">
+    <h2>MAKE A SEED</h2>
+    <p class="sub">Pick 12 or 24 words, enter your dice rolls or coin flips, then press FORGE SEED and write the words on paper.</p>
     <div class="radio-group" id="wordRadios">
       <label><input type="radio" name="words" value="12" checked onchange="updateLabels()"><span id="lbl12">12 (50)</span></label>
       <label><input type="radio" name="words" value="24" onchange="updateLabels()"><span id="lbl24">24 (99)</span></label>
@@ -350,10 +369,11 @@
     <div id="abbrNote" class="hint" aria-live="polite"></div>
     <div id="passNote"></div>
     <div id="nextStep" aria-live="polite"></div>
+    <div class="hint" style="margin:0 0 4px;"><span class="tag tag-secret" style="margin-left:0;">SECRET</span> The words below are your money. Write them on paper and never share them.</div>
     <div class="result" id="genResult" role="status">—</div>
     <div class="btn-row" style="margin-top:6px;">
       <button class="secondary small" id="abbrBtn" onclick="toggleAbbr()">SHOW FIRST 4 LETTERS</button>
-      <button class="secondary small" onclick="sendToVerify()">SEND TO VERIFY</button>
+      <button class="secondary small" onclick="sendToVerify()">SEND TO CHECK</button>
       <button class="secondary small" onclick="copyFingerprint(this)">COPY FINGERPRINT</button>
       <button class="secondary small" onclick="copyAddress(this)">COPY ADDRESS</button>
       <button class="secondary small" onclick="downloadSeed()">DOWNLOAD</button>
@@ -383,7 +403,7 @@
       <p class="hint" style="margin:6px 0 0;">This checks the public side only. It cannot prove your dice were fair, or that the words you wrote down are right: check those with the VERIFY box below.</p>
     </details>
     <details id="watchBox" style="display:none; margin-top:10px;">
-      <summary>Watch-only wallet (public keys only, cannot spend)</summary>
+      <summary>Watch-only wallet<span class="tag tag-public">PUBLIC KEYS ONLY</span><small>See balances on a phone without the seed. Cannot spend.</small></summary>
       <p class="hint" style="margin:8px 0;">Use this to see this wallet&rsquo;s addresses and balance on a phone or online computer <b>without the seed words</b>. It cannot spend. Anyone who gets it can see every address and balance of this wallet, so share it only with your own wallet app. If you used a passphrase, it belongs to this passphrase only.</p>
       <div style="display:flex; gap:6px; align-items:center; margin:6px 0;">
         <select id="wType" aria-label="Address type" style="flex:1; min-width:0;"><option value="wpkh">Native SegWit (bc1q...), most wallets</option><option value="tr">Taproot (bc1p...)</option><option value="sh-wpkh">Nested SegWit (3...)</option><option value="pkh">Legacy (1...)</option><option value="ms-wsh">Multisig cosigner key, native SegWit (BIP48)</option><option value="ms-sh-wsh">Multisig cosigner key, nested SegWit (BIP48)</option></select>
@@ -424,15 +444,17 @@
     
   </div>
 
-  <div class="card">
-    <h2>4 &middot; CHECK YOUR BACKUP</h2>
+  <div class="card" id="cardCheck">
+    <h2>CHECK A BACKUP</h2>
+    <p class="sub">Type the words from your backup to see that they are valid and match your wallet. Nothing is saved or sent.</p>
     <textarea id="phrase" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Type or paste your seed words to check..."></textarea>
     <div class="hint" style="margin:4px 0 0;">Also accepts a SeedSigner SeedQR digit string (48 or 96 digits) or CompactSeedQR hex. Type it in; do not scan a real seed QR with a connected phone.</div>
     <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
-      <input type="password" id="verifyPass" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Passphrase (only if you used one)" style="flex:1; min-width:0;">
+      <input type="password" id="verifyPass" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Passphrase (if you used one)" style="flex:1; min-width:0;">
       <button type="button" class="secondary small" onclick="toggleVerifyPassphrase(this)">SHOW</button>
     </div>
-    <input type="text" id="verifyRecorded" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Backup fingerprint, address, zpub or descriptor (optional)" style="margin-top:6px;">
+    <input type="text" id="verifyRecorded" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="What your wallet app shows (optional)" style="margin-top:6px;">
+    <div class="hint" style="margin:4px 0 0;">Optional: paste the fingerprint, first address, zpub or descriptor your wallet app showed, and VERIFY tells you MATCH or NO MATCH.</div>
     <div class="btn-row" style="margin-top:8px;">
       <button id="verifyBtn" onclick="verify()" disabled>VERIFY</button>
     </div>
@@ -444,12 +466,17 @@
     <div class="status" id="verifyMatch" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
     <div style="margin-top:14px;">
       <div class="hint" style="margin:0 0 6px;"><b>Is this address yours?</b> Paste a receive or change address from a wallet app (bc1q SegWit, bc1p Taproot, 3 nested SegWit or 1 legacy; the box on the right is the account, almost always 0). It is searched in the wallet made by the words and passphrase above.</div>
-      <div style="display:flex; gap:6px;"><input type="text" id="checkAddr" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Address to look for (bc1q, bc1p, 3 or 1)" style="flex:1; min-width:0;"><input type="text" id="checkAcct" value="0" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="Account number" title="Account number (almost always 0)" style="width:56px; flex:none;"></div>
+      <div style="display:flex; gap:6px;"><input type="text" id="checkAddr" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Address (bc1q, bc1p, 3 or 1)" style="flex:1; min-width:0;"><input type="text" id="checkAcct" value="0" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="Account number" title="Account number (almost always 0)" style="width:56px; flex:none;"></div>
       <div class="btn-row" style="margin-top:8px;"><button type="button" class="secondary" id="checkAddrBtn" onclick="checkAddress()">CHECK ADDRESS</button></div>
       <div class="status" id="addrCheckStatus" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
     </div>
-    <details id="lwBox" style="margin-top:14px;">
-      <summary>Find the last word</summary>
+  </div>
+
+  <div class="card tools" id="cardTools">
+    <h2>EXTRA TOOLS</h2>
+    <p class="sub">Optional helpers. They only display; none of them can spend or sign.</p>
+    <details id="lwBox">
+      <summary>Find the last word<small>You have all but the last word of a seed: list the words that fit.</small></summary>
       <p class="hint" style="margin:8px 0;">If you have all but the last word of a seed phrase (11, 14, 17, 20 or 23 words), this lists every word that makes the checksum valid. The last word is partly a checksum, so only about 1 in 16 of the 2048 words fits (128 for 12 words). It does not tell you which one you had: a valid last word is not necessarily yours. Type the words from your own backup; they are not saved or sent.</p>
       <textarea id="lwInput" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="All words except the last" placeholder="Type the first 11 (or 14, 17, 20, 23) words"></textarea>
       <div style="display:flex; gap:6px; margin-top:6px;">
@@ -459,8 +486,8 @@
       <div class="status" id="lwStatus" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
       <pre id="lwOut" style="display:none; white-space:pre-wrap; word-break:break-word; font-family:'Courier New',monospace; font-size:14px; margin:8px 0 0;"></pre>
     </details>
-    <details id="psbtBox" style="margin-top:14px;">
-      <summary>Inspect a transaction (PSBT), read only</summary>
+    <details id="psbtBox">
+      <summary>Inspect a transaction (PSBT)<span class="tag tag-ro">READ ONLY</span><small>See where the money goes and the fee before signing.</small></summary>
       <p class="hint" style="margin:8px 0;">Shows what a partly signed Bitcoin transaction (PSBT) from a wallet app would do: where the money comes from, where it goes, and the fee, so you can check it before signing on your hardware wallet. <b>This only reads and displays. It cannot sign, never uses your seed words, and sends nothing.</b> Paste the PSBT (base64 or hex) or choose the .psbt file. If you typed your words above, outputs that carry this wallet&rsquo;s key information are marked.</p>
       <textarea id="psbtInput" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="PSBT (base64 or hex)" placeholder="Paste the PSBT here (starts with cHNidP8 or 70736274ff)"></textarea>
       <div style="display:flex; gap:6px; align-items:center; margin-top:6px; flex-wrap:wrap;">
@@ -474,10 +501,10 @@
       <div class="status" id="psbtStatus" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
       <pre id="psbtOut" style="display:none; white-space:pre-wrap; word-break:break-all; font-family:'Courier New',monospace; font-size:12px; margin:8px 0 0;"></pre>
     </details>
-    <details id="childBox" style="margin-top:14px;">
-      <summary>Child seed (BIP85)</summary>
+    <details id="childBox">
+      <summary>Child seed (BIP85)<span class="tag tag-secret">SECRET</span><small>Make a separate new seed from this one, for another wallet.</small></summary>
       <p class="hint" style="margin:8px 0;">Makes a brand new seed phrase from the parent words (and passphrase) typed above, for a separate wallet, using the BIP85 standard. The same parent, word count and index always give the same child. <b>The child is as secret as the parent.</b> It is only shown here: there is no copy, save or print for it. Use the same safety steps as for a new seed, and keep the parent safe: if you lose the parent you lose every child.</p>
-      <div style="display:flex; gap:6px; align-items:center;">
+      <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
         <select id="childWords" aria-label="Child seed length" style="width:auto; flex:none;"><option value="12">12 words</option><option value="18">18 words</option><option value="24">24 words</option></select>
         <input type="text" id="childIndex" value="0" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="Child index" placeholder="Index" style="width:90px; flex:none;">
         <button type="button" class="secondary" id="childBtn" onclick="deriveChild()">DERIVE CHILD SEED</button>
@@ -1341,6 +1368,7 @@ function psbtReport(res, fpWallet){
   if(res.trailing) L.push("Note: extra data follows the PSBT; it was ignored.");
   return L.join("\n");
 }
+function jumpTo(id){ const e=document.getElementById(id); if(e) e.scrollIntoView({behavior:"smooth", block:"start"}); }
 function clearPsbt(all){
   const o=document.getElementById("psbtOut"); o.textContent=""; o.style.display="none";
   const t=document.getElementById("psbtStatus"); t.textContent=""; t.className="status";
