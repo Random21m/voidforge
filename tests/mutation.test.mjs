@@ -451,7 +451,9 @@ const base = await detect(html);
 R.ok(base.by === null, "control: the unmodified file passes the self-test and every probe" + (base.by ? " [" + base.by + "]" : ""));
 
 const survivors = [];
+const ONLY = process.env.MUT_ONLY ? new RegExp(process.env.MUT_ONLY) : null; // optional: run only the mutations whose name matches
 for (const [name, find, rep, equivalent] of M) {
+  if (ONLY && !ONLY.test(name)) continue;
   const count = html.split(find).length - 1;
   if (count !== 1) { R.ok(false, `mutation target must occur exactly once (${count}x): ${name}`); continue; }
   const res = await detect(html.replace(find, () => rep));
