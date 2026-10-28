@@ -9,7 +9,7 @@ import { entropyToMnemonic, validateMnemonic, mnemonicToEntropy } from '@scure/b
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { mnemonicToSeedSync } from '@scure/bip39';
 import { HDKey } from '@scure/bip32';
-import { bech32, bech32m } from '@scure/base';
+import { bech32, bech32m, createBase58check } from '@scure/base';
 import { secp256k1, schnorr } from '@noble/curves/secp256k1';
 import { ripemd160 } from '@noble/hashes/ripemd160';
 import { sha256 as nsha } from '@noble/hashes/sha256';
@@ -30,6 +30,10 @@ const b85At = (mn, pw, words, index) => { const k = HDKey.fromMasterSeed(mnemoni
   const e = nc.createHmac('sha512', 'bip-entropy-from-k').update(k.privateKey).digest(); return entropyToMnemonic(new Uint8Array(e.subarray(0, words * 4 / 3)), wordlist); };
 const segAt = (mn, pw, chain, i) => { const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/84'/0'/0'/${chain}/${i}`);
   return bech32.encode('bc', [0, ...bech32.toWords(ripemd160(nsha(k.publicKey)))]); };
+const b58c = createBase58check(nsha);
+const altAt = (type, mn, pw, acct, chain, i) => { const purpose = { pkh: 44, 'sh-wpkh': 49 }[type]; const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/${purpose}'/0'/${acct}'/${chain}/${i}`);
+  const h = ripemd160(nsha(k.publicKey)); if (type === 'pkh') return b58c.encode(Uint8Array.from([0, ...h]));
+  return b58c.encode(Uint8Array.from([5, ...ripemd160(nsha(Uint8Array.from([0, 0x14, ...h])))])); };
 const trAt = (mn, pw, chain, i) => { const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/86'/0'/0'/${chain}/${i}`); const xo = k.publicKey.slice(1);
   const P = secp256k1.ProjectivePoint.fromHex('02' + Buffer.from(xo).toString('hex')); const t = schnorr.utils.taggedHash('TapTweak', xo);
   const Q = P.add(secp256k1.ProjectivePoint.BASE.multiply(BigInt('0x' + Buffer.from(t).toString('hex'))));
@@ -176,6 +180,12 @@ async function probe(w) {
       [t1] = await CA('', segAt(ABOUT, '', 1, 3)); if (!/change address #3 \(m\/84'\/0'\/0'\/1\/3\)/.test(t1)) fails.push('find: SegWit change address');
       [t1] = await CA('', trAt(ABOUT, '', 0, 1)); if (!/^FOUND: this Taproot address is receive address #1 \(m\/86'\/0'\/0'\/0\/1\)/.test(t1)) fails.push('find: Taproot receive address');
       [t1] = await CA('', trAt(ABOUT, '', 1, 2)); if (!/Taproot address is change address #2 \(m\/86'\/0'\/0'\/1\/2\)/.test(t1)) fails.push('find: Taproot change address');
+      [t1] = await CA('', altAt('pkh', ABOUT, '', 0, 0, 2)); if (!/^FOUND: this Legacy address is receive address #2 \(m\/44'\/0'\/0'\/0\/2\)/.test(t1)) fails.push('find: legacy receive address');
+      [t1] = await CA('', altAt('sh-wpkh', ABOUT, '', 0, 1, 1)); if (!/^FOUND: this Nested SegWit address is change address #1 \(m\/49'\/0'\/0'\/1\/1\)/.test(t1)) fails.push('find: nested SegWit change address');
+      $('checkAcct').value = '3'; ev('checkAcct');
+      [t1] = await CA('', altAt('sh-wpkh', ABOUT, '', 3, 0, 0)); if (!/receive address #0 \(m\/49'\/0'\/3'\/0\/0\)/.test(t1)) fails.push('find: nested SegWit account 3');
+      [t1] = await CA('', altAt('sh-wpkh', ABOUT, '', 0, 0, 0)); if (!/^NOT FOUND/.test(t1)) fails.push('find: account 0 address not found when account 3 is set');
+      $('checkAcct').value = '0'; ev('checkAcct');
       [t1, c1] = await CA('', segAt(ABOUT, '', 0, 6)); if (!/^NOT FOUND in indices 0 to 3 /.test(t1) || !/bad/.test(c1)) fails.push('find: index beyond the first range is NOT FOUND');
       [t1] = await CA('', segAt(ABOUT, '', 0, 6), 2); if (!/^FOUND: .*receive address #6 /.test(t1)) fails.push('find: second press continues with the next indices');
       [t1] = await CA('', segAt(ABOUT, '', 0, 6), 3); if (!/^NOT FOUND in indices 0 to 3 /.test(t1)) fails.push('find: after a FOUND the next search starts at 0 again');
@@ -367,6 +377,14 @@ const M = [
   ['compare: descriptor key ignored', 'ids.fp === d.fp && ids.cands.find(c => c.xpub === d.key)', 'ids.fp === d.fp && ids.cands.find(c => true)'],
   ['compare: descriptor checksum not enforced', 'if(!d.sumOk) return', 'if(false) return'],
   ['compare: taproot address check always passes', 'test = (f, a, ids) => !!ids && ids.list.some(t => t === fold);', 'test = (f, a, ids) => !!ids;'],
+  ['find: legacy version byte wrong', 'Uint8Array.from([0x00, ...h]))', 'Uint8Array.from([0x05, ...h]))'],
+  ['find: nested redeem script prefix wrong', 'Uint8Array.from([0x00, 0x14, ...h])', 'Uint8Array.from([0x00, 0x15, ...h])'],
+  ['find: nested version byte wrong', 'base58check(Uint8Array.from([0x05, ...await', 'base58check(Uint8Array.from([0x06, ...await'],
+  ['find: nested SegWit treated as legacy', '  if(/^3/.test(addr)) return "sh-wpkh";\n', ''],
+  ['find: account ignored', 'for(const [i,h] of [[purpose,true],[0,true],[account,true]])', 'for(const [i,h] of [[purpose,true],[0,true],[0,true]])'],
+  ['find: nested purpose wrong', '"sh-wpkh":{purpose:49,', '"sh-wpkh":{purpose:84,'],
+  ['find: legacy purpose wrong', 'pkh:{purpose:44,', 'pkh:{purpose:49,'],
+  ['find: change chain not searched', 'for(const chain of [0,1]){', 'for(const chain of [0]){'],
   ['find: taproot searched as SegWit', '  if(/^bc1p/.test(addr)) return "tr";\n', ''],
   ['find: wrong purpose for SegWit', 'wpkh:{purpose:84,', 'wpkh:{purpose:44,'],
   ['find: change chain never searched', 'for(const chain of [0,1]){\n    const [ck,cc]', 'for(const chain of [0]){\n    const [ck,cc]'],
