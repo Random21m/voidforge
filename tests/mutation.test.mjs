@@ -238,6 +238,77 @@ async function probe(w) {
       const a = w.qrMatrix(c.text); if (hh(a.rows) !== c.hashes[a.mask]) bq++; });
     if (bq) fails.push('QR codes match the independent library');
     w.showQr('wZpub', 'zpub'); if (!$('qrImg').querySelector('svg path')) fails.push('SHOW QR draws a code'); }
+  // SeedQR / CompactSeedQR: data, QR codes, 7 x 7 blocks for copying by hand, print sheets, clearing
+  try {
+    const fxS = JSON.parse(fs.readFileSync(new URL('./fixtures/seedqr.json', import.meta.url), 'utf8')); let bd = 0, bs = 0, bg = 0;
+    const hs = (rows) => nc.createHash('sha256').update(rows.map(r => r.map(x => x ? '1' : '0').join('')).join('')).digest('hex');
+    fxS.forEach((c, i) => { const ws = c.words.split(' '), d = w.seedQrData(ws);
+      if (!d || d.digits !== c.digits || Buffer.from(d.bytes).toString('hex') !== c.entropy) bd++;
+      for (const kind of ['seedqr', 'compact']) { const f = c.formats[kind], m = (i + (kind === 'compact' ? 3 : 0)) % 8, q = w.seedQrMatrix(ws, kind, m);
+        if (q.version !== f.version || q.rows.length !== f.size || hs(q.rows) !== f.hashes[m]) bs++;
+        const a = w.seedQrMatrix(ws, kind); if (hs(a.rows) !== f.hashes[a.mask]) bs++;
+        const rebuilt = q.rows.map(row => { const o = new Array(row.length).fill(false); for (const part of w.qrRowRuns(row).split(', ').filter(Boolean)) { const [x, y] = part.split('-').map(Number); for (let k = x; k <= (y || x); k++) o[k - 1] = true; } return o; });
+        if (hs(rebuilt) !== hs(q.rows)) bg++;
+        const N = q.rows.length, dark = q.rows.flat().filter(Boolean).length, cnt = (svg, fill) => { const mm = svg.match(new RegExp('<path d="([^"]*)" fill="' + fill + '"')); return mm ? (mm[1].match(/M/g) || []).length : 0; };
+        if (cnt(w.qrGridSvg(q.rows, 0, 0, N, N, 7, false), '#000') !== dark || cnt(w.qrGridSvg(q.rows, 0, 0, N, N, 7, true), '#000') !== 0) bg++;
+        let sd = 0, sg = 0; const per = Math.ceil(N / 7);
+        for (let by = 0; by < per; by++) for (let bx = 0; bx < per; bx++) { const svg = w.qrGridSvg(q.rows, bx * 7, by * 7, bx * 7 + 7, by * 7 + 7, 7, false); sd += cnt(svg, '#000'); sg += cnt(svg, '#c8c8c8'); }
+        if (sd !== dark || sg !== per * per * 49 - N * N) bg++; } });
+    if (bd) fails.push('seedqr: digits and bytes from the words');
+    if (bs) fails.push('seedqr: QR codes match the independent library');
+    if (bg) fails.push('seedqr: hand-copy grid, blocks and row lists');
+    const bad = [['abandon', 'abandon'], 'abandon '.repeat(11).split(' ').concat('zzzz'), entropyToMnemonic(new Uint8Array(20), wordlist).split(' ')];
+    if (bad.some(x => w.seedQrData(x) !== null)) fails.push('seedqr: only 12 and 24 known words give a SeedQR');
+    { let m = ''; try { w.seedQrMatrix(['abandon', 'abandon'], 'seedqr'); } catch (e) { m = e.message; } if (!/only for 12 and 24/.test(m)) fails.push('seedqr: a short phrase gives an error, not a code'); }
+    // the page: show, hide, blocks, mini-map, print
+    const pr = { n: 0, text: '', html: '', cls: '' }, conf = { v: true, n: 0 };
+    w.print = () => { pr.n++; pr.text = $('printQr').textContent; pr.html = $('printQr').innerHTML; pr.cls = w.document.body.className; };
+    w.confirm = () => { conf.n++; return conf.v; };
+    const alerts = []; w.alert = (m) => alerts.push(m);
+    const sz = () => { const v = $('sqImg').querySelector('svg'); return v ? Math.round(v.viewBox.baseVal.width) - 8 : 0; }, gc = () => $('sqGuideCaption').textContent;
+    await run('dice', 12, D50, 'SECRETPASS'); const sw = $('genResult').textContent.split('\n')[0];
+    if ($('seedQrBox').style.display !== '' || $('seedQrBox').open) fails.push('seedqr: box shown (closed) after FORGE');
+    w.showSeedQr('seedqr'); if (sz() !== 25 || $('sqBox').style.display !== '' || !/^SeedQR for these 12 words, 25 x 25 squares/.test($('sqCaption').textContent)) fails.push('seedqr: SEEDQR shows a 25 x 25 code with its caption');
+    w.showSeedQr('compact'); if (sz() !== 21 || !/^CompactSeedQR for these 12 words, 21 x 21 squares/.test($('sqCaption').textContent)) fails.push('seedqr: COMPACTSEEDQR shows a 21 x 21 code with its caption');
+    w.hideSeedQr(); if ($('sqImg').innerHTML !== '' || $('sqBox').style.display !== 'none' || $('sqCaption').textContent !== '') fails.push('seedqr: HIDE removes the code');
+    alerts.length = 0; pr.n = 0; w.printSeedQr(); w.printSqGuide(); w.openSqGuide(); w.printSqBlank();
+    if (pr.n !== 0 || alerts.length !== 4) fails.push('seedqr: nothing is printed or opened while no code is shown (after HIDE too)');
+    w.showSeedQr('seedqr'); conf.v = false; conf.n = 0; w.printSeedQr(); w.printSqGuide();
+    if (pr.n !== 0 || conf.n !== 2) fails.push('seedqr: printing the code or the guide asks first and stops when declined');
+    conf.v = true; w.printSeedQr();
+    if (pr.n !== 1 || !/^VOIDFORGE SEEDQR \(12 words, 25 x 25 squares\)/.test(pr.text) || !/<svg/.test(pr.html) || /print-qr/.test(pr.cls) === false || pr.text.includes('SECRETPASS') || sw.split(' ').some(x => pr.text.includes(x + ' ')) || !pr.text.includes($('fingerprint').textContent) || !/Passphrase used: YES/.test(pr.text)) fails.push('seedqr: PRINT THIS QR sheet (code, fingerprint, no words, no passphrase)');
+    w.dispatchEvent(new w.Event('afterprint')); if ($('printQr').textContent !== '' || w.document.body.classList.contains('print-qr')) fails.push('seedqr: print area cleaned up after printing');
+    w.printSqGuide();
+    if (pr.n !== 2 || !/HAND-COPY GUIDE \(12 words, 25 x 25 squares\)/.test(pr.text) || !/Row 1: /.test(pr.text) || !/Row 25: /.test(pr.text) || /Row 26/.test(pr.text) || pr.text.includes('SECRETPASS') || sw.split(' ').some(x => pr.text.includes(x + ' '))) fails.push('seedqr: PRINT HAND-COPY GUIDE sheet (rows, no words, no passphrase)');
+    w.dispatchEvent(new w.Event('afterprint')); conf.n = 0; w.printSqBlank();
+    if (pr.n !== 3 || conf.n !== 0 || !/BLANK 25 x 25 GRID FOR SEEDQR/.test(pr.text) || /Row 1: /.test(pr.text)) fails.push('seedqr: PRINT BLANK GRID sheet (no question, no rows)');
+    w.dispatchEvent(new w.Event('afterprint'));
+    w.openSqGuide();
+    if ($('sqGuide').style.display !== '' || !/^Block 1 of 16: rows 1 to 7, columns 1 to 7 of the 25 x 25 grid\./.test(gc()) || !$('sqGuideImg').querySelector('svg') || !$('sqMini').querySelector('svg')) fails.push('seedqr: COPY BY HAND opens block 1 of 16 with a mini-map');
+    w.sqGuideBlock(1); if (!/^Block 2 of 16: rows 1 to 7, columns 8 to 14/.test(gc())) fails.push('seedqr: NEXT BLOCK goes right');
+    w.sqGuideBlock(1); w.sqGuideBlock(1);
+    { const txt = [...$('sqGuideImg').querySelectorAll('text')].map(x => x.textContent).join(',');
+      const mini = $('sqMini').innerHTML.match(/<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)" fill="rgba/);
+      if (!/^Block 4 of 16: rows 1 to 7, columns 22 to 25 of the 25 x 25 grid\. Grey squares are outside the code/.test(gc()) || txt !== '22,23,24,25,1,2,3,4,5,6,7') fails.push('seedqr: a cut-off block names only the rows and columns that exist');
+      if (!mini || mini.slice(1).join() !== '23,2,4,7') fails.push('seedqr: the mini-map outlines the block, cut at the edge of the code');
+      const gp = $('sqGuideImg').querySelector('path[fill="#c8c8c8"]'); if (!gp || (gp.getAttribute('d').match(/M/g) || []).length !== 3 * 7) fails.push('seedqr: squares outside the code are grey'); }
+    w.sqGuideBlock(1); if (!/^Block 5 of 16: rows 8 to 14, columns 1 to 7/.test(gc())) fails.push('seedqr: blocks continue on the next row');
+    w.sqGuideBlock(-1); if (!/^Block 4 of 16/.test(gc())) fails.push('seedqr: PREVIOUS BLOCK goes back');
+    w.openSqGuide(); w.sqGuideBlock(-1); if (!/^Block 16 of 16: rows 22 to 25, columns 22 to 25/.test(gc())) fails.push('seedqr: PREVIOUS BLOCK wraps to the last block');
+    w.sqGuideBlock(1); if (!/^Block 1 of 16/.test(gc())) fails.push('seedqr: NEXT BLOCK wraps to the first block');
+    w.sqGuideFull(); if (!/^Whole SeedQR grid, 25 x 25 squares/.test(gc()) || $('sqGuideImg').querySelectorAll('text').length !== 50 || $('sqMini').innerHTML !== '' || $('sqGuide').style.display !== '') fails.push('seedqr: WHOLE GRID shows every row and column number');
+    w.showSeedQr('compact'); if ($('sqGuide').style.display !== 'none' || $('sqGuideImg').innerHTML !== '' || $('sqMini').innerHTML !== '' || gc() !== '') fails.push('seedqr: showing another code closes the guide');
+    w.openSqGuide(); if (!/^Block 1 of 9: rows 1 to 7, columns 1 to 7 of the 21 x 21 grid/.test(gc())) fails.push('seedqr: a 21 x 21 code has 9 blocks');
+    w.hideSeedQr(); if ($('sqGuide').style.display !== 'none' || $('sqMini').innerHTML !== '') fails.push('seedqr: HIDE closes the guide too');
+    w.showSeedQr('seedqr'); w.openSqGuide(); await run('dice', 12, D50, ''); if ($('sqImg').innerHTML !== '' || $('sqBox').style.display !== 'none' || $('sqGuide').style.display !== 'none' || $('sqGuideImg').innerHTML !== '') fails.push('seedqr: a new FORGE removes the old code and guide');
+    w.showSeedQr('seedqr'); w.clearAll(); if ($('sqImg').innerHTML !== '' || $('seedQrBox').style.display !== 'none') fails.push('seedqr: CLEAR removes the code and hides the box');
+    alerts.length = 0; w.showSeedQr('seedqr'); if ($('sqImg').innerHTML !== '' || !/Generate a seed first/.test(alerts.join('|'))) fails.push('seedqr: no code without a seed');
+    await run('dice', 24, D99, ''); w.showSeedQr('seedqr'); if (sz() !== 29 || !/^SeedQR for these 24 words, 29 x 29 squares/.test($('sqCaption').textContent)) fails.push('seedqr: 24 words give a 29 x 29 code');
+    w.openSqGuide(); if (!/^Block 1 of 25: rows 1 to 7, columns 1 to 7 of the 29 x 29/.test(gc())) fails.push('seedqr: a 29 x 29 code has 25 blocks');
+    for (let i = 0; i < 4; i++) w.sqGuideBlock(1); if (!/^Block 5 of 25: rows 1 to 7, columns 29 to 29/.test(gc())) fails.push('seedqr: the last block column of a 29 x 29 code is one square wide');
+    w.showSeedQr('compact'); if (sz() !== 25 || !/^CompactSeedQR for these 24 words, 25 x 25 squares/.test($('sqCaption').textContent)) fails.push('seedqr: 24 words give a 25 x 25 CompactSeedQR');
+    w.print = () => {}; w.confirm = () => true; w.alert = () => {};
+  } catch (e) { fails.push('seedqr: the probe crashed: ' + e.message); }
   if ($('fpIcon').querySelector('svg')) { /* keep icon until an error */ }
   // passphrase confirmation must block a mismatch
   mode('dice'); words(12); $('rolls').value = D50; $('rolls').oninput(); $('passphrase').value = 'abc'; $('passphrase2').value = 'abd'; await w.generate();

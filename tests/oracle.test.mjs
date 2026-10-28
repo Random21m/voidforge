@@ -12,6 +12,8 @@ import { sha256 } from '@noble/hashes/sha256';
 import { LifeHash } from 'lifehash';
 import * as btc from '@scure/btc-signer';
 import { base64, hex as bhex } from '@scure/base';
+import jsQR from 'jsqr';
+import { readFileSync } from 'node:fs';
 import { loadPage, ready, readHtml, rnd, makeReporter } from './harness.mjs';
 
 const R = makeReporter();
@@ -266,6 +268,58 @@ R.ok(bad === 0, `${n} last-word candidate lists (11 to 23 words) equal the indep
     }
   }
   R.ok(bad === 0, `${n} PSBTs (every address type, mainnet and testnet) are read the same as by the independent library: inputs, outputs, addresses, fee (${bad} mismatches)`);
+}
+
+// 2h. SeedQR and CompactSeedQR (for SeedSigner): digits and bytes from independent code, every QR matrix against the
+// independent Python `qrcode` library (what SeedSigner uses), decoded again with jsQR, and the hand-copy guide read back.
+{
+  const fx = JSON.parse(readFileSync(new URL('./fixtures/seedqr.json', import.meta.url), 'utf8'));
+  const hashOf = (rows) => nc.createHash('sha256').update(rows.map((r) => r.map((x) => (x ? '1' : '0')).join('')).join('')).digest('hex');
+  const decode = (rows) => { const n = rows.length, S = 6, Q = 4, W = (n + 2 * Q) * S, img = new Uint8ClampedArray(W * W * 4).fill(255);
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (rows[y][x]) for (let dy = 0; dy < S; dy++) for (let dx = 0; dx < S; dx++) { const i = ((((y + Q) * S + dy) * W) + ((x + Q) * S + dx)) * 4; img[i] = img[i + 1] = img[i + 2] = 0; }
+    return jsQR(img, W, W); };
+  const rand = [];
+  for (const bytes of [16, 32]) for (let i = 0; i < 12; i++) { const e = new Uint8Array(nc.randomBytes(bytes)); rand.push({ words: entropyToMnemonic(e, wordlist), entropy: Buffer.from(e).toString('hex') }); }
+  let bad = 0, n = 0;
+  for (const r of fx) {
+    const ws = r.words.split(' '), d = w.seedQrData(ws);
+    const wantDigits = ws.map((x) => String(wordlist.indexOf(x)).padStart(4, '0')).join(''), wantEnt = Buffer.from(mnemonicToEntropy(r.words, wordlist)).toString('hex');
+    n++; if (!d || d.digits !== wantDigits || d.digits !== r.digits || Buffer.from(d.bytes).toString('hex') !== wantEnt || wantEnt !== r.entropy) { bad++; console.log('SEEDQR DATA MISMATCH', r.words); continue; }
+    for (const kind of ['seedqr', 'compact']) {
+      const f = r.formats[kind];
+      for (let m = 0; m < 8; m++) { n++; const q = w.seedQrMatrix(ws, kind, m); if (hashOf(q.rows) !== f.hashes[m] || q.version !== f.version || q.rows.length !== f.size) { bad++; console.log('SEEDQR MATRIX MISMATCH', kind, ws.length, m); } }
+      n++; const a = w.seedQrMatrix(ws, kind); if (hashOf(a.rows) !== f.hashes[a.mask]) { bad++; console.log('SEEDQR AUTO MASK MISMATCH', kind, ws.length); }
+    }
+  }
+  R.ok(bad === 0, `${fx.length} phrases (12 and 24 words): SeedQR digits and CompactSeedQR bytes, and all 8 masks of both QR codes, equal the independent qrcode library, versions and sizes included (${bad} mismatches of ${n})`);
+  bad = 0; n = 0;
+  for (const r of [...fx, ...rand]) {
+    const ws = r.words.split(' '), d = w.seedQrData(ws);
+    for (const kind of ['seedqr', 'compact']) {
+      n++; const dec = decode(w.seedQrMatrix(ws, kind).rows);
+      const got = !dec ? null : kind === 'seedqr' ? dec.data : Buffer.from(dec.binaryData).toString('hex');
+      const want = kind === 'seedqr' ? d.digits : Buffer.from(d.bytes).toString('hex');
+      if (got !== want) { bad++; console.log('SEEDQR DECODE MISMATCH', kind, r.words); continue; }
+      const back = kind === 'seedqr' ? (await w.checkPhrase(got)).mnemonic : entropyToMnemonic(Uint8Array.from(Buffer.from(got, 'hex')), wordlist);
+      if (back !== r.words) { bad++; console.log('SEEDQR ROUND TRIP MISMATCH', kind, r.words); }
+    }
+  }
+  R.ok(bad === 0, `${n} SeedQR and CompactSeedQR codes (incl. ${rand.length} random phrases) are decoded by the independent jsQR reader to exactly the digits or bytes, which give back the same words (${bad} mismatches)`);
+  bad = 0; n = 0;
+  for (const r of [...fx, ...rand]) for (const kind of ['seedqr', 'compact']) {
+    const ws = r.words.split(' '), q = w.seedQrMatrix(ws, kind), N = q.rows.length, dark = q.rows.flat().filter(Boolean).length;
+    // the row-by-row list rebuilds the code exactly
+    const rebuilt = q.rows.map((row) => { const out = new Array(N).fill(false); for (const part of w.qrRowRuns(row).split(', ').filter(Boolean)) { const [a, b] = part.split('-').map(Number); for (let x = a; x <= (b || a); x++) out[x - 1] = true; } return out; });
+    n++; if (hashOf(rebuilt) !== hashOf(q.rows)) { bad++; console.log('GUIDE ROWS MISMATCH', kind, ws.length); }
+    // whole grid: dark squares drawn = dark modules; blocks of 7 x 7 together draw every dark square once and the grey squares are outside the code
+    const count = (svg, fill) => { const m = svg.match(new RegExp('<path d="([^"]*)" fill="' + fill + '"')); return m ? (m[1].match(/M/g) || []).length : 0; };
+    n++; if (count(w.qrGridSvg(q.rows, 0, 0, N, N, 7, false), '#000') !== dark) { bad++; console.log('GUIDE WHOLE GRID MISMATCH', kind, ws.length); }
+    let sumDark = 0, sumGrey = 0; const per = Math.ceil(N / 7);
+    for (let by = 0; by < per; by++) for (let bx = 0; bx < per; bx++) { const svg = w.qrGridSvg(q.rows, bx * 7, by * 7, bx * 7 + 7, by * 7 + 7, 7, false); sumDark += count(svg, '#000'); sumGrey += count(svg, '#c8c8c8'); }
+    n++; if (sumDark !== dark || sumGrey !== per * per * 49 - N * N) { bad++; console.log('GUIDE BLOCKS MISMATCH', kind, ws.length, sumDark, dark, sumGrey); }
+    n++; if (count(w.qrGridSvg(q.rows, 0, 0, N, N, 7, true), '#000') !== 0) { bad++; console.log('BLANK GRID NOT BLANK', kind, ws.length); }
+  }
+  R.ok(bad === 0, `${n} hand-copy checks over all codes: the row lists rebuild each code exactly, the whole grid and the 7 x 7 blocks draw every dark square once, grey squares are exactly those outside the code, the blank grid has none (${bad} mismatches)`);
 }
 
 R.done('oracle');
