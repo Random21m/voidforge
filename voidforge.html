@@ -385,9 +385,17 @@
     <details id="watchBox" style="display:none; margin-top:10px;">
       <summary>Watch-only wallet (public keys only, cannot spend)</summary>
       <p class="hint" style="margin:8px 0;">Use this to see this wallet&rsquo;s addresses and balance on a phone or online computer <b>without the seed words</b>. It cannot spend. Anyone who gets it can see every address and balance of this wallet, so share it only with your own wallet app. If you used a passphrase, it belongs to this passphrase only.</p>
-      <div class="wlabel">Extended public key (zpub): Electrum, Blue Wallet, Sparrow</div>
+      <div style="display:flex; gap:6px; align-items:center; margin:6px 0;">
+        <select id="wType" aria-label="Address type" style="flex:1; min-width:0;"><option value="wpkh">Native SegWit (bc1q...), most wallets</option><option value="tr">Taproot (bc1p...)</option><option value="sh-wpkh">Nested SegWit (3...)</option><option value="pkh">Legacy (1...)</option></select>
+        <input type="text" id="wAcct" value="0" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="Account number" title="Account number" style="width:64px; flex:none;">
+      </div>
+      <div class="hint" id="wErr" style="margin:0; color:var(--danger);"></div>
+      <div class="hint" style="margin:0 0 6px;">Pick the address type your wallet app uses and the account number (almost always 0). The default is native SegWit, account 0.</div>
+      <div class="wlabel" id="wKeyLabel">Extended public key (zpub): Electrum, Blue Wallet, Sparrow</div>
       <div class="wval" id="wZpub"></div>
-      <button class="secondary small" onclick="copyWatch(this,'wZpub')">COPY ZPUB</button>
+      <button class="secondary small" onclick="copyWatch(this,'wZpub')">COPY KEY</button>
+      <div class="wlabel">First receiving address of this type and account (compare it in your app)</div>
+      <div class="wval" id="wFirst"></div>
       <div class="wlabel">Descriptor, receiving addresses: Sparrow, Nunchuk, Bitcoin Core</div>
       <div class="wval" id="wDescR"></div>
       <button class="secondary small" onclick="copyWatch(this,'wDescR')">COPY DESCRIPTOR</button>
@@ -395,7 +403,7 @@
       <div class="wval" id="wDescC"></div>
       <button class="secondary small" onclick="copyWatch(this,'wDescC')">COPY CHANGE DESCRIPTOR</button>
       <div class="btn-row" style="margin-top:10px;">
-        <button class="secondary small" onclick="showQr('wZpub','zpub')">SHOW QR: ZPUB</button>
+        <button class="secondary small" onclick="showQr('wZpub','public key')">SHOW QR: KEY</button>
         <button class="secondary small" onclick="showQr('wDescR','receive descriptor')">SHOW QR: DESCRIPTOR</button>
         <button class="secondary small" onclick="showQr('wDescC','change descriptor')">SHOW QR: CHANGE</button>
       </div>
@@ -430,8 +438,8 @@
     <div class="status" id="verifyStatus" aria-live="polite" style="white-space:pre-wrap; word-break:break-all;"></div>
     <div class="status" id="verifyMatch" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
     <div style="margin-top:14px;">
-      <div class="hint" style="margin:0 0 6px;"><b>Is this address yours?</b> Paste a receive or change address from a wallet app (bc1q... SegWit or bc1p... Taproot). It is searched in the wallet made by the words and passphrase above.</div>
-      <input type="text" id="checkAddr" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Address to look for (bc1q... or bc1p...)">
+      <div class="hint" style="margin:0 0 6px;"><b>Is this address yours?</b> Paste a receive or change address from a wallet app (bc1q SegWit, bc1p Taproot, 3 nested SegWit or 1 legacy; the box on the right is the account, almost always 0). It is searched in the wallet made by the words and passphrase above.</div>
+      <div style="display:flex; gap:6px;"><input type="text" id="checkAddr" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Address to look for (bc1q, bc1p, 3 or 1)" style="flex:1; min-width:0;"><input type="text" id="checkAcct" value="0" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="Account number" title="Account number (almost always 0)" style="width:56px; flex:none;"></div>
       <div class="btn-row" style="margin-top:8px;"><button type="button" class="secondary" id="checkAddrBtn" onclick="checkAddress()">CHECK ADDRESS</button></div>
       <div class="status" id="addrCheckStatus" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
     </div>
@@ -868,23 +876,51 @@ async function mnemonicBip85(mnemonic, passphrase, words, index){
   return bip85Mnemonic(k, c, words, index);
 }
 async function mnemonicTaproot(mnemonic, passphrase, n){ return taprootAddressesFromSeed(await mnemonicToSeed(mnemonic, passphrase), n); }
-// Is this address one of the wallet's? Looks at `count` indices from `from` on both the receive (0) and change (1) chains.
-// A bc1q address is searched as SegWit (BIP84), a bc1p address as Taproot (BIP86). Returns {chain, index, path} or null.
-async function findAddress(seed, addr, from, count){
-  const taproot = addr.slice(0, 4) === "bc1p", purpose = taproot ? 86 : 84;
+// Address types a wallet can use. purpose = the BIP number in the derivation path m/purpose'/0'/account'; ver = extended public key version bytes.
+const XPUB_VER=[0x04,0x88,0xb2,0x1e];
+const SCRIPT_TYPES={
+  wpkh:{purpose:84, ver:[0x04,0xb2,0x47,0x46], kname:"zpub", label:"Native SegWit (bc1q...)"},
+  tr:{purpose:86, ver:XPUB_VER, kname:"xpub", label:"Taproot (bc1p...)"},
+  "sh-wpkh":{purpose:49, ver:[0x04,0x9d,0x7c,0xb2], kname:"ypub", label:"Nested SegWit (3...)"},
+  pkh:{purpose:44, ver:XPUB_VER, kname:"xpub", label:"Legacy (1...)"}
+};
+function validAccount(a){ return Number.isInteger(a) && a >= 0 && a <= 2147483647; }
+async function hash160(b){ return ripemd160(await sha256bytes(b)); }
+// The mainnet address of a private key for one address type.
+async function addressFromKey(type, k){
+  if(type === "tr") return taprootAddress(k);
+  const h = await hash160(pubkeyBytes(k));
+  if(type === "wpkh") return bech32Encode("bc",0,h);
+  if(type === "pkh") return base58check(Uint8Array.from([0x00, ...h]));
+  if(type === "sh-wpkh") return base58check(Uint8Array.from([0x05, ...await hash160(Uint8Array.from([0x00, 0x14, ...h]))]));
+  throw new Error("unknown address type");
+}
+function addressTypeOf(addr){
+  if(/^bc1q/.test(addr)) return "wpkh";
+  if(/^bc1p/.test(addr)) return "tr";
+  if(/^3/.test(addr)) return "sh-wpkh";
+  if(/^1/.test(addr)) return "pkh";
+  return null;
+}
+// Is this address one of the wallet's? Looks at `count` indices from `from` on both the receive (0) and change (1) chains of one account.
+// The address type is read from the address itself (bc1q, bc1p, 3..., 1...). Returns {chain, index, path} or null.
+async function findAddress(seed, addr, from, count, account){
+  const type = addressTypeOf(addr); if(!type) throw new Error("unknown address type");
+  account = account || 0; if(!validAccount(account)) throw new Error("bad account");
+  const purpose = SCRIPT_TYPES[type].purpose;
   let [k,c]=await masterFromSeed(seed);
-  for(const [i,h] of [[purpose,true],[0,true],[0,true]]) [k,c]=await ckdPriv(k,c,i,h);
+  for(const [i,h] of [[purpose,true],[0,true],[account,true]]) [k,c]=await ckdPriv(k,c,i,h);
   for(const chain of [0,1]){
     const [ck,cc]=await ckdPriv(k,c,chain,false);
     for(let i=from;i<from+count;i++){
       const [kk]=await ckdPriv(ck,cc,i,false);
-      const a = taproot ? await taprootAddress(kk) : bech32Encode("bc",0,ripemd160(await sha256bytes(pubkeyBytes(kk))));
-      if(a === addr) return {chain, index:i, path:"m/" + purpose + "'/0'/0'/" + chain + "/" + i};
+      if(await addressFromKey(type, kk) === addr) return {chain, index:i, path:"m/" + purpose + "'/0'/" + account + "'/" + chain + "/" + i};
     }
   }
   return null;
 }
-// Watch-only export: account-level public key for m/84'/0'/0' (BIP32 serialization, Base58Check), plus output descriptors.
+// Watch-only export: account-level public key for m/purpose'/0'/account' (BIP32 serialization, Base58Check), plus output descriptors and the first address.
+// type: wpkh (BIP84, default), tr (BIP86), sh-wpkh (BIP49) or pkh (BIP44).
 const B58="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 async function base58check(payload){
   const sum=(await sha256bytes(await sha256bytes(payload))).slice(0,4);
@@ -911,17 +947,26 @@ function descriptorChecksum(str){
   for(let i=0;i<8;i++) out+=B32[Number((chk>>BigInt(5*(7-i)))&31n)];
   return str+"#"+out;
 }
-async function watchOnlyFromSeed(seed){
+function descriptorWrap(type, origin, key, branch){
+  const inner = "[" + origin + "]" + key + "/" + branch + "/*";
+  return type === "sh-wpkh" ? "sh(wpkh(" + inner + "))" : type + "(" + inner + ")";
+}
+async function watchOnlyFromSeed(seed, type, account){
+  type = type || "wpkh"; account = account || 0;
+  const T = SCRIPT_TYPES[type]; if(!T) throw new Error("unknown address type");
+  if(!validAccount(account)) throw new Error("account must be 0 to 2147483647");
   let [k,c]=await masterFromSeed(seed);
   const fp=await fingerprintFromSeed(seed);
   let parentPub=null;
-  for(const i of [84,0,0]){ parentPub=pubkeyBytes(k); [k,c]=await ckdPriv(k,c,i,true); }
+  for(const i of [T.purpose,0,account]){ parentPub=pubkeyBytes(k); [k,c]=await ckdPriv(k,c,i,true); }
   const parentFp=ripemd160(await sha256bytes(parentPub)).slice(0,4);
-  const pub=pubkeyBytes(k);
-  const ser=(ver)=>{ const b=new Uint8Array(78); b.set(ver,0); b[4]=3; b.set(parentFp,5); b.set([0x80,0,0,0],9); b.set(c,13); b.set(pub,45); return b; };
-  const xpub=await base58check(ser([0x04,0x88,0xb2,0x1e])), zpub=await base58check(ser([0x04,0xb2,0x47,0x46]));
-  const d=(br)=>descriptorChecksum("wpkh(["+fp+"/84h/0h/0h]"+xpub+"/"+br+"/*)");
-  return {fp, xpub, zpub, receive:d(0), change:d(1)};
+  const pub=pubkeyBytes(k), cn=(account+0x80000000)>>>0;
+  const ser=(ver)=>{ const b=new Uint8Array(78); b.set(ver,0); b[4]=3; b.set(parentFp,5); b.set([(cn>>>24)&255,(cn>>>16)&255,(cn>>>8)&255,cn&255],9); b.set(c,13); b.set(pub,45); return b; };
+  const xpub=await base58check(ser(XPUB_VER)), zpub=await base58check(ser([0x04,0xb2,0x47,0x46])), key=await base58check(ser(T.ver));
+  const origin = fp + "/" + T.purpose + "h/0h/" + account + "h";
+  const d=(br)=>descriptorChecksum(descriptorWrap(type, origin, xpub, br));
+  const [rk,rc]=await ckdPriv(k,c,0,false), [fk]=await ckdPriv(rk,rc,0,false);
+  return {fp, xpub, zpub, key, receive:d(0), change:d(1), first:await addressFromKey(type, fk)};
 }
 async function mnemonicWatchOnly(mnemonic, passphrase){ return watchOnlyFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
 // QR code encoder (byte mode, error correction level M, versions 1-12), used only to display watch-only keys on screen.
@@ -1160,6 +1205,14 @@ async function runSelfTests(auto){
   // first receive address: BIP84 published vector, a passphrase vector from two independent libraries, and the BIP173 bech32 example
   eq("BIP84 first address 'abandon..about' (published BIP84 vector)", ()=>mnemonicFirstAddress("abandon ".repeat(11)+"about",""),"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu");
   eq("first five receive addresses 'abandon..about' (embit)", async()=>(await mnemonicAddresses("abandon ".repeat(11)+"about","",5)).join(" "),"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu bc1qnjg0jd8228aq7egyzacy8cys3knf9xvrerkf9g bc1qp59yckz4ae5c4efgw2s5wfyvrz0ala7rgvuz8z bc1qgl5vlg0zdl7yvprgxj9fevsc6q6x5dmcyk3cn3 bc1qm97vqzgj934vnaq9s53ynkyf9dgr05rargr04n");
+  { const AB="abandon ".repeat(11)+"about", WA=async(t,a)=>watchOnlyFromSeed(await mnemonicToSeed(AB,""),t,a);
+    const FA=async(t,a)=>{ const seed=await mnemonicToSeed(AB,""); return (await watchOnlyFromSeed(seed,t,a)).first; };
+    eq("Legacy BIP44 first address 'abandon..about'", ()=>FA("pkh",0), "1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA");
+    eq("Nested SegWit BIP49 first address 'abandon..about' (published BIP49 vector)", ()=>FA("sh-wpkh",0), "37VucYSaXLCAsxYyAPfbSi9eh4iEcbShgf");
+    eq("Nested SegWit ypub 'abandon..about'", async()=>(await WA("sh-wpkh",0)).key, "ypub6Ww3ibxVfGzLrAH1PNcjyAWenMTbbAosGNB6VvmSEgytSER9azLDWCxoJwW7Ke7icmizBMXrzBx9979FfaHxHcrArf3zbeJJJUZPf663zsP");
+    eq("Legacy xpub 'abandon..about' (m/44'/0'/0')", async()=>(await WA("pkh",0)).key, "xpub6BosfCnifzxcFwrSzQiqu2DBVTshkCXacvNsWGYJVVhhawA7d4R5WSWGFNbi8Aw6ZRc1brxMyWMzG3DSSSSoekkudhUd9yLb6qx39T9nMdj");
+    eq("Taproot xpub 'abandon..about' (m/86'/0'/0')", async()=>(await WA("tr",0)).key, "xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ");
+    eq("Nested SegWit ypub for account 3", async()=>(await WA("sh-wpkh",3)).key, "ypub6Ww3ibxVfGzLzWdrR8HeAkPTswB5asMxj239HDCtmghaLXq1omPuHPEH2ocbVY8gF2HStshDmZ4ShGUCSiCsMtL8LFg4PNFd1X2fNsUpPji"); }
   eq("Taproot BIP86 first two receive addresses 'abandon..about' (published BIP86 vectors)", async()=>(await mnemonicTaproot("abandon ".repeat(11)+"about","",2)).join(" "),"bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr bc1p4qhjn9zdvkux4e44uhx8tc55attvtyu358kutcqkudyccelu0was9fqzwh");
   eq("Taproot BIP86 first change address 'abandon..about' (published BIP86 vector)", async()=>taprootChangeFirstFromSeed(await mnemonicToSeed("abandon ".repeat(11)+"about","")),"bc1p3qkhfews2uk44qtvauqyr2ttdsw7svhkl9nkm9s9c3x4ax5h60wqwruhk7");
   eq("bech32m BIP350 example address", ()=>bech32Encode("bc",1,fromHex("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")),"bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0");
@@ -1247,10 +1300,9 @@ async function generate(){
     showAddrs(segwit, taproot);
   } catch(e) { clearAddrs(); }
   try {
-    const w = await mnemonicWatchOnly(mnemonic, pass);
-    document.getElementById("wZpub").textContent = w.zpub;
-    document.getElementById("wDescR").textContent = w.receive;
-    document.getElementById("wDescC").textContent = w.change;
+    watchCtx = {mnemonic, pass};
+    document.getElementById("wType").value = "wpkh"; document.getElementById("wAcct").value = "0";
+    await refreshWatch();
     document.getElementById("watchBox").style.display = "";
   } catch(e) { clearWatch(); }
 }
@@ -1290,10 +1342,33 @@ function copyAddrList(btn, listId){
   const t = Array.from(document.querySelectorAll("#" + listId + " li")).map(li => li.textContent).join("\n");
   safeCopy(t).then(()=>showCopied(btn)).catch(()=>alert("Copy failed. Select the addresses and copy them manually."));
 }
+// The watch-only box recomputes when the address type or account changes, from the words and passphrase of the last FORGE (cleared with the box).
+let watchCtx = null, watchSeq = 0;
+async function refreshWatch(){
+  if(!watchCtx) return;
+  const mine = ++watchSeq, type = document.getElementById("wType").value, raw = document.getElementById("wAcct").value.trim(), err = document.getElementById("wErr");
+  const ids = ["wZpub","wDescR","wDescC","wFirst"];
+  if(!/^[0-9]{1,10}$/.test(raw) || parseInt(raw, 10) > 2147483647){
+    err.textContent = "The account must be a whole number from 0 to 2147483647.";
+    for(const id of ids) document.getElementById(id).textContent = "";
+    hideQr(); return;
+  }
+  err.textContent = "";
+  const T = SCRIPT_TYPES[type], w = await watchOnlyFromSeed(await mnemonicToSeed(watchCtx.mnemonic, watchCtx.pass), type, parseInt(raw, 10));
+  if(mine !== watchSeq || !watchCtx) return;
+  document.getElementById("wKeyLabel").textContent = "Extended public key (" + T.kname + ", m/" + T.purpose + "'/0'/" + parseInt(raw, 10) + "'): Electrum, Blue Wallet, Sparrow";
+  document.getElementById("wZpub").textContent = w.key;
+  document.getElementById("wDescR").textContent = w.receive;
+  document.getElementById("wDescC").textContent = w.change;
+  document.getElementById("wFirst").textContent = w.first;
+  hideQr();
+}
 function clearWatch(){
   clearAddrs();
   hideQr();
-  for(const id of ["wZpub","wDescR","wDescC"]) document.getElementById(id).textContent = "";
+  watchCtx = null; watchSeq++;
+  document.getElementById("wErr").textContent = "";
+  for(const id of ["wZpub","wDescR","wDescC","wFirst"]) document.getElementById(id).textContent = "";
   const b = document.getElementById("watchBox"); b.style.display = "none"; b.open = false;
 }
 function copyWatch(btn, id){
@@ -1334,62 +1409,87 @@ function copyAddress(btn){
   if(!m) return alert("Generate a seed first");
   safeCopy(m[1]).then(()=>showCopied(btn)).catch(()=>alert("Copy failed. Select the address and copy it manually."));
 }
-// What kind of backup item did the user type? fingerprint, first SegWit address, Taproot address, account key (zpub/xpub) or descriptor.
+// What kind of backup item did the user type? fingerprint, an address (SegWit, Taproot, nested SegWit, legacy), account key (xpub/ypub/zpub) or descriptor.
 function classifyRecorded(raw){
   const q = (raw || "").replace(/\s+/g, "");
   if(!q) return null;
   if(/^[0-9a-fA-F]{8}$/.test(q)) return "fp";
   if(/^bc1q[0-9a-z]{38}$/i.test(q)) return "addr";
-  if(/^bc1p[0-9a-z]{58}$/i.test(q)) return "tr";
-  if(/^[xz]pub[1-9A-HJ-NP-Za-km-z]{100,115}$/.test(q)) return "key";
-  if(/^wpkh\(/.test(q)) return "desc";
+  if(/^bc1p[0-9a-z]{58}$/i.test(q) || /^[13][1-9A-HJ-NP-Za-km-z]{25,34}$/.test(q)) return "tr";
+  if(/^[xyz]pub[1-9A-HJ-NP-Za-km-z]{100,115}$/.test(q)) return "key";
+  if(/^(wpkh|sh\(wpkh|pkh|tr)\(/.test(q)) return "desc";
   return "other";
 }
-// Reads a wpkh descriptor at m/84'/0'/0' : returns {fp, key, chain, sumOk, sumGiven} or null.
+// Reads a descriptor (wpkh, sh(wpkh), pkh or tr) with a key origin m/purpose'/0'/account'. Returns {type, account, fp, key, chain, sumOk, sumGiven} or null.
 function parseDescriptor(raw){
   const q = (raw || "").replace(/\s+/g, "");
-  const m = /^wpkh\(\[([0-9a-fA-F]{8})\/84(?:h|')\/0(?:h|')\/0(?:h|')\]([xz]pub[1-9A-HJ-NP-Za-km-z]{100,115})\/(0|1|<0;1>)\/\*\)(?:#([0-9a-z]{8}))?$/.exec(q);
+  const m = /^(wpkh|sh\(wpkh|pkh|tr)\(\[([0-9a-fA-F]{8})\/(84|49|44|86)(?:h|')\/0(?:h|')\/([0-9]{1,10})(?:h|')\]([xyz]pub[1-9A-HJ-NP-Za-km-z]{100,115})\/(0|1|<0;1>)\/\*(\)\)?)(?:#([0-9a-z]{8}))?$/.exec(q);
   if(!m) return null;
+  const type = m[1] === "sh(wpkh" ? "sh-wpkh" : m[1];
+  if(SCRIPT_TYPES[type].purpose !== parseInt(m[3], 10)) return null;
+  if((type === "sh-wpkh") !== (m[7] === "))")) return null;
+  const account = parseInt(m[4], 10); if(!validAccount(account)) return null;
   let sumOk = true;
-  if(m[4]){ try { sumOk = descriptorChecksum(q.slice(0, q.indexOf("#"))) === q; } catch(e) { sumOk = false; } }
-  return {fp: m[1].toLowerCase(), key: m[2], chain: m[3], sumOk, sumGiven: !!m[4]};
+  if(m[8]){ try { sumOk = descriptorChecksum(q.slice(0, q.indexOf("#"))) === q; } catch(e) { sumOk = false; } }
+  return {type, account, fp: m[2].toLowerCase(), key: m[5], chain: m[6], sumOk, sumGiven: !!m[8]};
 }
-// Keys and addresses of a phrase (with one passphrase) that a wallet app could show, for matching.
-async function walletIds(mnemonic, passphrase){
-  const seed = await mnemonicToSeed(mnemonic, passphrase), w = await watchOnlyFromSeed(seed);
-  return {fp: w.fp, xpub: w.xpub, zpub: w.zpub, tr: await taprootAddressesFromSeed(seed, 5)};
+// What a wallet app could show for one phrase and passphrase: the master fingerprint, account keys for the (type, account) pairs asked for
+// and the first five receiving addresses of one type (account 0).
+async function walletIds(mnemonic, passphrase, want){
+  const seed = await mnemonicToSeed(mnemonic, passphrase), out = {fp: await fingerprintFromSeed(seed), cands: [], list: []};
+  for(const [type, account] of (want.pairs || [])){ const w = await watchOnlyFromSeed(seed, type, account); out.cands.push({type, account, xpub: w.xpub, key: w.key}); }
+  if(want.listType){
+    let [k,c] = await masterFromSeed(seed);
+    for(const [i,h] of [[SCRIPT_TYPES[want.listType].purpose,true],[0,true],[0,true],[0,false]]) [k,c] = await ckdPriv(k,c,i,h);
+    for(let i = 0; i < 5; i++){ const [ck] = await ckdPriv(k,c,i,false); out.list.push(await addressFromKey(want.listType, ck)); }
+  }
+  return out;
 }
-// Compares a fingerprint (8 hex), first address (bc1q...), Taproot address (bc1p...), account key (zpub/xpub) or descriptor the user
-// copied from a wallet app or wrote down with what this phrase gives without a passphrase and with the passphrase typed in VERIFY.
+// Which (type, account) pairs and address list to compute for what the user typed. Account keys are tried for accounts 0 to 4.
+function wantFor(raw){
+  const q = (raw || "").replace(/\s+/g, ""), kind = classifyRecorded(q), all = Object.keys(SCRIPT_TYPES), pairs = [];
+  if(kind === "tr"){ const t = addressTypeOf(/^bc1/i.test(q) ? q.toLowerCase() : q); return t ? {listType: t} : {}; }
+  if(kind === "key"){
+    const types = q.charAt(0) === "z" ? ["wpkh"] : q.charAt(0) === "y" ? ["sh-wpkh"] : all;
+    for(const t of types) for(let a = 0; a < 5; a++) pairs.push([t, a]);
+    return {pairs};
+  }
+  if(kind === "desc"){ const d = parseDescriptor(q); return d && d.sumOk ? {pairs: [[d.type, d.account]]} : {}; }
+  return {};
+}
+// Compares a fingerprint (8 hex), an address, an account key (xpub/ypub/zpub) or a descriptor the user copied from a wallet app or wrote down
+// with what this phrase gives without a passphrase and with the passphrase typed in VERIFY.
 function matchRecorded(raw, fp0, a0, fp1, a1, hasPass, ids0, ids1){
   const kind = classifyRecorded(raw);
   if(!kind) return null;
   const q = (raw || "").replace(/\s+/g, ""), ql = q.toLowerCase();
-  if(kind === "other") return {ok:false, text:"Not recognized. Enter the 8-character fingerprint, the bc1q... or bc1p... address, the zpub/xpub, or the wpkh(...) descriptor from your backup or wallet app."};
-  let label = "", test = null, hint = "";
+  if(kind === "other") return {ok:false, text:"Not recognized. Enter the 8-character fingerprint, an address (bc1q, bc1p, 3 or 1), the xpub/ypub/zpub, or the descriptor from your backup or wallet app."};
+  let label = "", test = null, hint = "", hit = "";
+  const pathOf = c => " It is the " + SCRIPT_TYPES[c.type].label + " account key at m/" + SCRIPT_TYPES[c.type].purpose + "'/0'/" + c.account + "'.";
   if(kind === "fp" || kind === "addr"){
     label = kind === "fp" ? "fingerprint" : "first address";
     test = (f, a) => ql === (kind === "fp" ? f : a);
     hint = kind === "fp" ? " A fingerprint is a short check; matching the first address is stronger." : "";
   } else if(kind === "tr"){
-    label = "Taproot address";
-    test = (f, a, ids) => !!ids && ids.tr.some(t => t === ql);
-    hint = " It is one of the first five Taproot (BIP86) receiving addresses.";
+    const fold = /^bc1/i.test(q) ? ql : q;
+    label = "address";
+    test = (f, a, ids) => !!ids && ids.list.some(t => t === fold);
+    hint = " It is one of the first five receiving addresses of that type (account 0).";
   } else if(kind === "key"){
     label = q.slice(0, 4) + " account key";
-    test = (f, a, ids) => !!ids && (q.charAt(0) === "z" ? ids.zpub : ids.xpub) === q;
-    hint = " This is the public account key for m/84'/0'/0'.";
+    test = (f, a, ids) => { const c = !!ids && ids.cands.find(c => (q.charAt(0) === "x" ? c.xpub : c.key) === q); if(c) hit = pathOf(c); return !!c; };
   } else {
     const d = parseDescriptor(q);
-    if(!d) return {ok:false, text:"Not recognized. This tool checks wpkh descriptors at m/84'/0'/0' (as made by VOIDFORGE or Sparrow for a native SegWit wallet)."};
+    if(!d) return {ok:false, text:"Not recognized. This tool checks wpkh, sh(wpkh), pkh and tr descriptors with a key origin like [fingerprint/84h/0h/0h] and an xpub, as VOIDFORGE and Sparrow show them."};
     if(!d.sumOk) return {ok:false, text:"NO MATCH: the descriptor checksum after # is wrong, so it was copied or typed incorrectly. Copy it again."};
-    if(d.key.charAt(0) !== "x") return {ok:false, text:"Not recognized. Use the xpub form of the descriptor (wpkh([fingerprint/84h/0h/0h]xpub.../0/*)), as VOIDFORGE and Sparrow show it."};
+    if(d.key.charAt(0) !== "x") return {ok:false, text:"Not recognized. Use the xpub form of the descriptor (for example wpkh([fingerprint/84h/0h/0h]xpub.../0/*)), as VOIDFORGE and Sparrow show it."};
     label = "descriptor";
-    test = (f, a, ids) => !!ids && ids.fp === d.fp && ids.xpub === d.key;
+    test = (f, a, ids) => { const c = !!ids && ids.fp === d.fp && ids.cands.find(c => c.xpub === d.key); if(c) hit = pathOf(c); return !!c; };
     hint = d.sumGiven ? " Its checksum is correct." : " It had no checksum.";
   }
-  if(hasPass && test(fp1, a1, ids1)) return {ok:true, text:"MATCH (with passphrase): your " + label + " matches this phrase WITH the passphrase you typed." + hint};
-  if(test(fp0, a0, ids0)) return {ok:true, text:"MATCH (without passphrase): your " + label + " matches this phrase with NO passphrase." + hint};
+  const done = h => h + (hit || "");
+  if(hasPass && test(fp1, a1, ids1)) return {ok:true, text:"MATCH (with passphrase): your " + label + " matches this phrase WITH the passphrase you typed." + done(hint)};
+  if(test(fp0, a0, ids0)) return {ok:true, text:"MATCH (without passphrase): your " + label + " matches this phrase with NO passphrase." + done(hint)};
   if(hasPass) return {ok:false, text:"NO MATCH: your " + label + " matches neither this phrase without a passphrase nor with the passphrase you typed. Recheck every word and the passphrase (capitals, spaces, accents)."};
   return {ok:false, text:"NO MATCH without a passphrase. If you used one, type it in the passphrase box above and press VERIFY again. Otherwise recheck the words."};
 }
@@ -1403,9 +1503,13 @@ async function checkAddress(range){
   const say = (cls, t) => { st.className = "status " + cls; st.textContent = t; };
   const r = await checkPhrase(document.getElementById("phrase").value);
   if(!r.ok) return say("bad", "Type a valid seed phrase in the box above first. " + r.msg);
-  const addr = document.getElementById("checkAddr").value.replace(/\s+/g, "").toLowerCase();
-  const kind = /^bc1q[0-9a-z]{38}$/.test(addr) ? "SegWit" : /^bc1p[0-9a-z]{58}$/.test(addr) ? "Taproot" : null;
-  if(!kind) return say("bad", "Enter a bc1q... (SegWit) or bc1p... (Taproot) address.");
+  let addr = document.getElementById("checkAddr").value.replace(/\s+/g, "");
+  if(/^bc1/i.test(addr)) addr = addr.toLowerCase();
+  const kind = /^bc1q[0-9a-z]{38}$/.test(addr) ? "SegWit" : /^bc1p[0-9a-z]{58}$/.test(addr) ? "Taproot" : /^3[1-9A-HJ-NP-Za-km-z]{25,34}$/.test(addr) ? "Nested SegWit" : /^1[1-9A-HJ-NP-Za-km-z]{25,34}$/.test(addr) ? "Legacy" : null;
+  if(!kind) return say("bad", "Enter a bc1q... (SegWit), bc1p... (Taproot), 3... (nested SegWit) or 1... (legacy) address.");
+  const acctRaw = document.getElementById("checkAcct").value.trim();
+  if(!/^[0-9]{1,10}$/.test(acctRaw) || parseInt(acctRaw, 10) > 2147483647) return say("bad", "The account must be a whole number from 0 to 2147483647 (almost always 0).");
+  const account = parseInt(acctRaw, 10);
   const vp = document.getElementById("verifyPass").value;
   const variants = [["without passphrase", ""]]; if(vp) variants.push(["with passphrase", vp]);
   const from = addrScanFrom, to = from + size, btn = document.getElementById("checkAddrBtn");
@@ -1416,7 +1520,7 @@ async function checkAddress(range){
       for(let s0 = from; s0 < to; s0 += 10){
         say("", "Searching " + label + ": indices " + s0 + " to " + (Math.min(s0 + 10, to) - 1) + "...");
         await new Promise(res => setTimeout(res, 0));
-        const f = await findAddress(seed, addr, s0, Math.min(10, to - s0));
+        const f = await findAddress(seed, addr, s0, Math.min(10, to - s0), account);
         if(f){ addrScanFrom = 0; return say("ok", "FOUND: this " + kind + " address is " + (f.chain ? "change" : "receive") + " address #" + f.index + " (" + f.path + ") of these words, " + label + "."); }
       }
     }
@@ -1588,7 +1692,7 @@ async function verify(){
     const rawRec = document.getElementById("verifyRecorded").value, kindRec = classifyRecorded(rawRec);
     let ids0 = null, ids1 = null;
     if(kindRec === "tr" || kindRec === "key" || kindRec === "desc"){
-      try { ids0 = await walletIds(r.mnemonic, ""); if(vp) ids1 = await walletIds(r.mnemonic, vp); } catch(e) { ids0 = null; ids1 = null; }
+      try { const want = wantFor(rawRec); ids0 = await walletIds(r.mnemonic, "", want); if(vp) ids1 = await walletIds(r.mnemonic, vp, want); } catch(e) { ids0 = null; ids1 = null; }
     }
     const mt = document.getElementById("verifyMatch"), m = matchRecorded(rawRec, fp0, a0, fp1, a1, !!vp, ids0, ids1);
     mt.className = "status " + (m ? (m.ok ? "ok" : "bad") : ""); mt.textContent = m ? m.text : "";
@@ -1602,8 +1706,10 @@ function toggleTheme() {
   btn.textContent = isLight ? "LIGHT" : "DARK";
   try { localStorage.setItem("voidforge-theme", isLight ? "light" : "dark"); } catch(e) {}
 }
-for(const id of ["checkAddr","phrase","verifyPass"]) document.getElementById(id).addEventListener("input", resetAddrScan);
+for(const id of ["checkAddr","checkAcct","phrase","verifyPass"]) document.getElementById(id).addEventListener("input", resetAddrScan);
 for(const id of ["phrase","verifyPass","childWords","childIndex"]) document.getElementById(id).addEventListener("input", clearChild);
+document.getElementById("wType").addEventListener("change", refreshWatch);
+document.getElementById("wAcct").addEventListener("input", refreshWatch);
 document.getElementById("childWords").addEventListener("change", clearChild);
 let savedTheme = null;
 try { savedTheme = localStorage.getItem("voidforge-theme"); } catch(e) {}
