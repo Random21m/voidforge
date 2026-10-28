@@ -104,20 +104,42 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
   t.w.printSeed();
   ok(t.st.printed===1&&words.split(' ').every((w,i)=>t.st.printHTML.includes(String(i+1).padStart(2,' ')+'. '+w))&&!t.st.printHTML.includes('SECRETPASS')&&/print-seed/.test(t.st.printClass),'PRINT SEED prints numbered words + fingerprint only, no passphrase');
   t.w.dispatchEvent(new t.w.Event('afterprint')); ok(t.$('printOnly').textContent===''&&!t.d.body.classList.contains('print-seed'),'print area cleaned up after printing');
-  // --- SeedQR / CompactSeedQR on screen and on paper ---
-  { const sz=()=>{ const v=t.$('sqImg').querySelector('svg'); return v?Math.round(v.viewBox.baseVal.width)-8:0; };
+  // --- SeedQR / CompactSeedQR on screen, by hand and on paper ---
+  { const keepT=t; t=load(); await t.ready(); t.set(rnd(50)); t.$('passphrase').value='SECRETPASS'; t.$('passphrase2').value='SECRETPASS'; await t.w.generate(); const sw=t.$('genResult').textContent.split('\n')[0];
+    const sz=()=>{ const v=t.$('sqImg').querySelector('svg'); return v?Math.round(v.viewBox.baseVal.width)-8:0; }, gc=()=>t.$('sqGuideCaption').textContent;
     ok(t.$('seedQrBox').style.display==='','SeedQR box appears after FORGE');
     t.w.showSeedQr('seedqr'); ok(sz()===25&&t.$('sqBox').style.display===''&&/^SeedQR for these 12 words, 25 x 25 squares/.test(t.$('sqCaption').textContent),'SEEDQR draws a 25 x 25 code for 12 words');
     t.w.showSeedQr('compact'); ok(sz()===21&&/^CompactSeedQR for these 12 words, 21 x 21 squares/.test(t.$('sqCaption').textContent),'COMPACTSEEDQR draws a 21 x 21 code for 12 words');
     t.w.hideSeedQr(); ok(t.$('sqImg').innerHTML===''&&t.$('sqBox').style.display==='none'&&t.$('sqCaption').textContent==='','HIDE removes the SeedQR');
     t.st.alerts.length=0; const p0=t.st.printed; t.w.printSeedQr(); ok(t.st.printed===p0&&/Press SHOW SEEDQR/.test(t.st.alerts.join('|')),'PRINT THIS QR needs a shown code first');
     t.w.showSeedQr('seedqr'); t.w.printSeedQr();
-    ok(t.st.printed===p0+1&&/print-qr/.test(t.st.printClass)&&/VOIDFORGE SEEDQR \(12 words, 25 x 25 squares\)/.test(t.st.printQrText)&&/<svg/.test(t.st.printQrHTML)&&!t.st.printQrText.includes('SECRETPASS')&&words.split(' ').every(w=>!t.st.printQrText.includes(w+' ')),'PRINT THIS QR prints the code, no words and no passphrase');
+    ok(t.st.printed===p0+1&&/print-qr/.test(t.st.printClass)&&/VOIDFORGE SEEDQR \(12 words, 25 x 25 squares\)/.test(t.st.printQrText)&&/<svg/.test(t.st.printQrHTML)&&!t.st.printQrText.includes('SECRETPASS')&&sw.split(' ').every(w=>!t.st.printQrText.includes(w+' ')),'PRINT THIS QR prints the code, no words and no passphrase');
     t.w.dispatchEvent(new t.w.Event('afterprint')); ok(t.$('printQr').textContent===''&&!t.d.body.classList.contains('print-qr'),'SeedQR print area cleaned up after printing');
+    // by hand: 7 x 7 blocks, mini-map, grey squares outside the code
+    t.w.showSeedQr('seedqr'); t.w.openSqGuide();
+    ok(t.$('sqGuide').style.display===''&&/^Block 1 of 16: rows 1 to 7, columns 1 to 7 of the 25 x 25 grid/.test(gc())&&!!t.$('sqGuideImg').querySelector('svg')&&!!t.$('sqMini').querySelector('svg'),'COPY BY HAND opens block 1 of 16 with a mini-map');
+    t.w.sqGuideBlock(1); ok(/^Block 2 of 16: rows 1 to 7, columns 8 to 14/.test(gc()),'NEXT BLOCK moves right');
+    for(let i=0;i<2;i++) t.w.sqGuideBlock(1); ok(/^Block 4 of 16: rows 1 to 7, columns 22 to 25/.test(gc())&&/Grey squares are outside the code/.test(gc()),'the last block of a row is cut at the edge of the code');
+    ok(!!t.$('sqGuideImg').querySelector('path[fill="#c8c8c8"]')&&/^M/.test(t.$('sqGuideImg').querySelector('path[fill="#c8c8c8"]').getAttribute('d')),'squares outside the code are drawn grey');
+    t.w.sqGuideBlock(1); ok(/^Block 5 of 16: rows 8 to 14, columns 1 to 7/.test(gc()),'blocks continue on the next row of blocks');
+    t.w.sqGuideBlock(-1); ok(/^Block 4 of 16/.test(gc()),'PREVIOUS BLOCK moves back');
+    t.w.openSqGuide(); t.w.sqGuideBlock(-1); ok(/^Block 16 of 16: rows 22 to 25, columns 22 to 25/.test(gc()),'PREVIOUS BLOCK wraps from the first block to the last');
+    t.w.sqGuideBlock(1); ok(/^Block 1 of 16/.test(gc()),'NEXT BLOCK wraps from the last block to the first');
+    t.w.sqGuideFull(); ok(/^Whole SeedQR grid, 25 x 25 squares/.test(gc())&&t.$('sqGuideImg').querySelectorAll('text').length===50&&t.$('sqMini').innerHTML==='','WHOLE GRID shows all 25 column and 25 row numbers');
+    t.w.showSeedQr('compact'); ok(t.$('sqGuide').style.display==='none'&&t.$('sqGuideImg').innerHTML===''&&t.$('sqMini').innerHTML==='','showing another code closes the guide');
+    t.w.openSqGuide(); ok(/^Block 1 of 9: rows 1 to 7, columns 1 to 7 of the 21 x 21 grid/.test(gc()),'CompactSeedQR (21 x 21) has 9 blocks of 7 x 7');
+    t.w.hideSeedQr(); ok(t.$('sqGuide').style.display==='none','HIDE also closes the guide');
+    t.st.alerts.length=0; t.w.openSqGuide(); ok(/Press SHOW SEEDQR/.test(t.st.alerts.join('|')),'COPY BY HAND needs a shown code first');
+    t.w.showSeedQr('seedqr'); const p1=t.st.printed; t.w.printSqGuide();
+    ok(t.st.printed===p1+1&&/print-qr/.test(t.st.printClass)&&/HAND-COPY GUIDE \(12 words, 25 x 25 squares\)/.test(t.st.printQrText)&&/Row 1: /.test(t.st.printQrText)&&/Row 25: /.test(t.st.printQrText)&&!/Row 26/.test(t.st.printQrText)&&!t.st.printQrText.includes('SECRETPASS')&&sw.split(' ').every(w=>!t.st.printQrText.includes(w+' ')),'PRINT HAND-COPY GUIDE prints the grid and 25 row lists, no words and no passphrase');
+    t.w.dispatchEvent(new t.w.Event('afterprint'));
+    const c0=t.st.confirms; t.w.printSqBlank(); ok(t.st.printed===p1+2&&t.st.confirms===c0&&/BLANK 25 x 25 GRID/.test(t.st.printQrText)&&!/Row 1: /.test(t.st.printQrText),'PRINT BLANK GRID prints without asking (nothing secret) and has no row lists');
+    { const d=t.st.printQrHTML.match(/<path d="([^"]*)" fill="#000"/); ok(!!d&&d[1]==='','the blank grid has no filled squares'); }
+    t.w.dispatchEvent(new t.w.Event('afterprint'));
     t.w.showSeedQr('compact'); t.set(rnd(50)); await t.w.generate(); ok(t.$('sqImg').innerHTML===''&&t.$('sqBox').style.display==='none','a new FORGE removes the old SeedQR');
-    t.w.showSeedQr('seedqr'); t.w.clearAll(); ok(t.$('sqImg').innerHTML===''&&t.$('seedQrBox').style.display==='none','CLEAR removes the SeedQR and hides its box');
+    t.w.showSeedQr('seedqr'); t.w.openSqGuide(); t.w.clearAll(); ok(t.$('sqImg').innerHTML===''&&t.$('sqGuideImg').innerHTML===''&&t.$('sqMini').innerHTML===''&&t.$('seedQrBox').style.display==='none','CLEAR removes the SeedQR and the guide and hides the box');
     t.st.alerts.length=0; t.w.showSeedQr('seedqr'); ok(t.$('sqImg').innerHTML===''&&/Generate a seed first/.test(t.st.alerts.join('|')),'SHOW SEEDQR needs a seed first');
-    t.words(24); t.set(rnd(99)); await t.w.generate(); t.w.showSeedQr('seedqr'); ok(sz()===29&&/24 words, 29 x 29/.test(t.$('sqCaption').textContent),'SEEDQR is 29 x 29 for 24 words'); t.w.showSeedQr('compact'); ok(sz()===25,'COMPACTSEEDQR is 25 x 25 for 24 words'); t.words(12); }
+    t.words(24); t.set(rnd(99)); await t.w.generate(); t.w.showSeedQr('seedqr'); ok(sz()===29&&/24 words, 29 x 29/.test(t.$('sqCaption').textContent),'SEEDQR is 29 x 29 for 24 words'); t.w.openSqGuide(); ok(/^Block 1 of 25: rows 1 to 7, columns 1 to 7 of the 29 x 29/.test(gc()),'29 x 29 has 25 blocks'); for(let i=0;i<4;i++) t.w.sqGuideBlock(1); ok(/^Block 5 of 25: rows 1 to 7, columns 29 to 29/.test(gc()),'the last block column of a 29 x 29 code is one square wide'); t.w.showSeedQr('compact'); ok(sz()===25,'COMPACTSEEDQR is 25 x 25 for 24 words'); t.words(12);  t=keepT; }
   // --- download seed: confirm, no passphrase ---
   t.w.downloadSeed(); const txt=await blobText(t.w,t.st.blob);
   ok(t.st.confirms>=2&&txt.includes(words)&&!txt.includes('SECRETPASS'),'DOWNLOAD seed asks first and omits passphrase');
