@@ -117,7 +117,7 @@ async function probe(w) {
     [a, o] = await LW('abandon '.repeat(10)); if (!/^Type 11, 14, 17, 20 or 23/.test(a)) fails.push('last word: wrong word count rejected');
     await LW('abandon '.repeat(11)); $('lwInput').dispatchEvent(new w.Event('input')); if ($('lwOut').textContent !== '') fails.push('last word: list cleared when the words change');
     await LW('abandon '.repeat(11)); w.clearLastWords(true); if ($('lwInput').value !== '' || $('lwOut').textContent !== '') fails.push('last word: CLEAR empties the box'); }
-  { const K = (n) => new Uint8Array(32).fill(n), pubE = (n) => secp256k1.getPublicKey(K(n), true), pubS = (n) => schnorr.getPublicKey(K(n));
+  try { const K = (n) => new Uint8Array(32).fill(n), pubE = (n) => secp256k1.getPublicKey(K(n), true), pubS = (n) => schnorr.getPublicKey(K(n));
     const kinds = { p2wpkh: (n) => btc.p2wpkh(pubE(n)), p2pkh: (n) => btc.p2pkh(pubE(n)), p2tr: (n) => btc.p2tr(pubS(n)), p2sh: (n) => btc.p2sh(btc.p2wpkh(pubE(n))), p2wsh: (n) => btc.p2wsh(btc.p2ms(1, [pubE(n), pubE(n + 1)])) };
     const insp = async (bytes, net = 'main') => w.inspectPsbt(new Uint8Array(bytes), net);
     // every script type, mainnet and testnet, against the independent decoder
@@ -131,27 +131,36 @@ async function probe(w) {
         if (r.fee !== 123456n - 50001n) fails.push(tag + ': fee'); } }
     // big numbers, locktime, version, 3-byte and 5-byte length prefixes, signatures, finalized inputs, taproot key information
     { const tx = new btc.Transaction({ lockTime: 2500000000, version: 2, allowUnknownOutputs: true });
-      for (const [i, id] of [[70000, 'ab'], [0, 'cd'], [3, 'ef']]) tx.addInput({ txid: id.repeat(32), index: i, witnessUtxo: { script: kinds.p2wpkh(5).script, amount: i === 70000 ? 2100000000000000n : 5n } });
+      const TXID = Array.from({ length: 32 }, (_, k) => (k * 7 + 3).toString(16).padStart(2, '0')).join(''); for (const [i, id] of [[70000, TXID], [0, 'cd'.repeat(32)], [3, 'ef'.repeat(32)]]) tx.addInput({ txid: id, index: i, witnessUtxo: { script: kinds.p2wpkh(5).script, amount: i === 70000 ? 2100000000000000n : 5n } });
       tx.addOutput({ script: Uint8Array.from([0x6a, 0x4d, 0x2c, 0x01, ...new Uint8Array(300).fill(7)]), amount: 0n });
       tx.addOutput({ script: Uint8Array.from([0x6a, 0x4e, 0x70, 0x11, 0x01, 0x00, ...new Uint8Array(70000).fill(7)]), amount: 1n });
       tx.addOutput({ script: kinds.p2tr(3).script, amount: 7n, tapBip32Derivation: [[pubS(3), { hashes: [], der: { fingerprint: 0x01020304, path: [0x80000056] } }]] });
+      tx.addOutput({ script: kinds.p2tr(11).script, amount: 3n, tapBip32Derivation: [[pubS(11), { hashes: [new Uint8Array(32).fill(9), new Uint8Array(32).fill(8)], der: { fingerprint: 0x0a0b0c0d, path: [0x80000056] } }]] });
       tx.addOutput({ script: kinds.p2wpkh(4).script, amount: 9n, bip32Derivation: [[pubE(4), { fingerprint: 0xdeadbeef, path: [0x80000054] }]] });
       tx.updateInput(0, { partialSig: [[pubE(5), new Uint8Array(71).fill(1)], [pubE(6), new Uint8Array(71).fill(2)]] }, true); tx.updateInput(1, { finalScriptWitness: [new Uint8Array([2, 2, 2])] }, true);
       const r = await insp(tx.toPSBT(0));
       if (r.version !== 2 || r.locktime !== 2500000000) fails.push('psbt: version and locktime (locktime above 2^31)');
       if (r.ins[0].vout !== 70000 || r.ins[0].amount !== 2100000000000000n) fails.push('psbt: large vout and 21,000,000 BTC amount');
       if (r.ins[0].sigs !== 2 || r.ins[0].final || r.ins[1].sigs !== 0 || !r.ins[1].final) fails.push('psbt: signature count and finalized flag');
-      if (r.outs.length !== 4 || !/^OP_RETURN/.test(r.outs[0].address) || !/^OP_RETURN/.test(r.outs[1].address) || r.outs[1].amount !== 1n) fails.push('psbt: script longer than 252 and than 65535 bytes');
-      if (r.outs[2].fps.join() !== '01020304' || r.outs[3].fps.join() !== 'deadbeef' || r.outs[0].fps.length !== 0) fails.push('psbt: wallet key information (taproot and ordinary)');
-      if (r.fee !== 2100000000000010n - 17n) fails.push('psbt: fee with a huge input');
-      if (r.ins[0].txid !== 'ab'.repeat(32) || r.ins[2].vout !== 3) fails.push('psbt: txid and index of each input'); }
+      if (r.outs.length !== 5 || !/^OP_RETURN/.test(r.outs[0].address) || !/^OP_RETURN/.test(r.outs[1].address) || r.outs[1].amount !== 1n) fails.push('psbt: script longer than 252 and than 65535 bytes');
+      if (r.outs[2].fps.join() !== '01020304' || r.outs[4].fps.join() !== 'deadbeef' || r.outs[3].fps.join() !== '0a0b0c0d' || r.outs[0].fps.length !== 0) fails.push('psbt: wallet key information (taproot and ordinary)');
+      if (r.fee !== 2100000000000010n - 20n) fails.push('psbt: fee with a huge input');
+      if (r.ins[0].txid !== TXID || r.ins[2].vout !== 3) fails.push('psbt: txid and index of each input'); }
     // inputs without an amount, a legacy input given as a full previous transaction (also a segwit-serialized previous transaction)
     { const prev = new btc.Transaction({ allowLegacyWitnessUtxo: true }); prev.addInput({ txid: 'cd'.repeat(32), index: 0, witnessUtxo: { script: kinds.p2wpkh(1).script, amount: 500000n } });
       prev.addOutputAddress(kinds.p2pkh(8).address, 300000n); prev.addOutputAddress(kinds.p2pkh(9).address, 190000n);
       for (const withWitness of [true, false]) { const t2 = new btc.Transaction({ allowLegacyWitnessUtxo: true }); t2.addInput({ txid: prev.id, index: 1, nonWitnessUtxo: prev.toBytes(withWitness, withWitness) }); t2.addOutputAddress(kinds.p2pkh(10).address, 180000n);
         const r = await insp(t2.toPSBT(0)); if (r.ins[0].amount !== 190000n || r.ins[0].address !== kinds.p2pkh(9).address || r.fee !== 10000n) fails.push('psbt: amount read from a full previous transaction' + (withWitness ? ' with witness data' : '')); }
+      { const vi = (n) => n < 253 ? [n] : [253, n & 255, n >> 8], kv = (k, v) => [...vi(k.length), ...k, ...vi(v.length), ...v], le8 = (n) => { const o = []; for (let q = 0; q < 8; q++) o.push(Number((BigInt(n) >> BigInt(8 * q)) & 255n)); return o; };
+        const out = (amt, sc) => [...le8(amt), ...vi(sc.length), ...sc], sc9 = [...kinds.p2pkh(9).script], sc8 = [...kinds.p2pkh(8).script];
+        const prevSeg = [2, 0, 0, 0, 0, 1, 1, ...new Array(32).fill(5), 0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 2, ...out(300000, sc8), ...out(190000, sc9), 1, 1, 0xff, 0, 0, 0, 0];
+        const unsigned = [2, 0, 0, 0, 1, ...new Array(32).fill(6), 1, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 1, ...out(180000, [...kinds.p2wpkh(2).script]), 0, 0, 0, 0];
+        const psbt = Uint8Array.from([0x70, 0x73, 0x62, 0x74, 0xff, ...kv([0], unsigned), 0, ...kv([0], prevSeg), 0, 0]);
+        const rs = await insp(psbt); if (rs.ins[0].amount !== 190000n || rs.fee !== 10000n || rs.outs.length !== 1) fails.push('psbt: previous transaction in segwit serialization (marker and flag)'); }
       const t3 = new btc.Transaction({ allowUnknownOutputs: true }); t3.addInput({ txid: '22'.repeat(32), index: 0 }); t3.addOutput({ script: kinds.p2wpkh(2).script, amount: 1n });
-      const r3 = await insp(t3.toPSBT(0)); if (r3.ins[0].amount !== null || r3.fee !== null) fails.push('psbt: unknown input amount gives an unknown fee'); }
+      const r3 = await insp(t3.toPSBT(0)); if (r3.ins[0].amount !== null || r3.fee !== null) fails.push('psbt: unknown input amount gives an unknown fee');
+      const t4 = new btc.Transaction({ allowUnknownOutputs: true }); t4.addInput({ txid: '33'.repeat(32), index: 0, witnessUtxo: { script: kinds.p2wpkh(1).script, amount: 1000n } }); t4.addInput({ txid: '44'.repeat(32), index: 0 }); t4.addOutput({ script: kinds.p2wpkh(2).script, amount: 1n });
+      const r4 = await insp(t4.toPSBT(0)); if (r4.fee !== null || r4.ins[0].amount !== 1000n || r4.ins[1].amount !== null) fails.push('psbt: one unknown input amount among known ones gives an unknown fee'); }
     // errors
     for (const [name, bytes, re] of [['wrong marker', Uint8Array.from([1, 2, 3, 4, 5, 6]), /not a PSBT/], ['too short', Uint8Array.from([0x70, 0x73]), /not a PSBT/]]) { let m = ''; try { await insp(bytes); } catch (e) { m = e.message; } if (!re.test(m)) fails.push('psbt: ' + name + ' rejected'); }
     { const tx = new btc.Transaction(); tx.addInput({ txid: '11'.repeat(32), index: 0, witnessUtxo: { script: kinds.p2wpkh(1).script, amount: 10n } }); tx.addOutput({ script: kinds.p2wpkh(2).script, amount: 5n });
@@ -170,12 +179,27 @@ async function probe(w) {
       $('psbtNet').value = 'test'; [a, o] = await run(b64); if (!/to tb1q/.test(o)) fails.push('psbt: testnet addresses when Testnet is chosen'); $('psbtNet').value = 'main';
       $('psbtInput').dispatchEvent(new w.Event('input')); if ($('psbtOut').textContent !== '') fails.push('psbt: report cleared when the text changes');
       await run(b64); w.clearPsbt(true); if ($('psbtInput').value !== '' || $('psbtOut').textContent !== '') fails.push('psbt: CLEAR empties the box');
+      { const wf = fp(expect.d50, ''), tk = new btc.Transaction({ allowUnknownOutputs: true });
+        tk.addInput({ txid: '11'.repeat(32), index: 0, witnessUtxo: { script: kinds.p2wpkh(1).script, amount: 100000n } });
+        tk.addOutput({ script: kinds.p2wpkh(2).script, amount: 40000n, bip32Derivation: [[pubE(2), { fingerprint: parseInt(wf, 16), path: [0x80000054] }]] });
+        tk.addOutput({ script: kinds.p2wpkh(3).script, amount: 30000n, bip32Derivation: [[pubE(3), { fingerprint: 0xdeadbeef, path: [0x80000054] }]] });
+        tk.addOutput({ script: kinds.p2wpkh(4).script, amount: 20000n });
+        const kb = Buffer.from(tk.toPSBT(0)).toString('base64'); $('phrase').value = ''; [a, o] = await run(kb);
+        const blocks = o.split('OUTPUT ').slice(1);
+        if (!/has wallet key information \(fingerprint deadbeef\): usually this wallet's own change/.test(blocks[1] || '') || /no wallet key information/.test(blocks[1] || '')) fails.push('psbt: report marks an output that carries key information');
+        if (!/no wallet key information: treat as a payment to someone else/.test(blocks[2] || '') || /has wallet key information/.test(blocks[2] || '')) fails.push('psbt: report marks an output without key information as a payment to someone else');
+        if (/matches the wallet typed above/.test(o)) fails.push('psbt: no wallet match claimed when no words are typed');
+        $('phrase').value = expect.d50; $('verifyPass').value = ''; [a, o] = await run(kb); const bl2 = o.split('OUTPUT ').slice(1);
+        if (!/matches the wallet typed above/.test(bl2[0] || '')) fails.push('psbt: output made by the typed words is marked as matching');
+        if (/matches the wallet typed above/.test((bl2[1] || '') + (bl2[2] || ''))) fails.push('psbt: other outputs not marked as matching');
+        $('phrase').value = ''; }
       await w.onPsbtFile(new w.File([b], 'a.psbt')); if (!/^Read OK/.test($('psbtStatus').textContent)) fails.push('psbt: binary file read');
       await w.onPsbtFile(new w.File([b64], 'a.txt')); if (!/^Read OK/.test($('psbtStatus').textContent)) fails.push('psbt: text file read');
       await w.onPsbtFile(new w.File([new Uint8Array(2000001)], 'big.psbt')); if (!/too large/.test($('psbtStatus').textContent)) fails.push('psbt: oversized file refused');
       const neg = new btc.Transaction({ allowUnknownOutputs: true }); neg.addInput({ txid: '11'.repeat(32), index: 0, witnessUtxo: { script: kinds.p2wpkh(1).script, amount: 1000n } }); neg.addOutput({ script: kinds.p2wpkh(2).script, amount: 5000n });
       let bn = null; try { bn = Buffer.from(neg.toPSBT(0)).toString('base64'); } catch (e) { bn = null; }
       if (bn) { [a, o] = await run(bn); if (!/FEE: -0\.00004000 BTC \(-?4000 sats\)/.test(o)) fails.push('psbt: outputs larger than inputs shown as a negative fee'); } } }
+  catch (e) { fails.push('psbt: the inspector crashed: ' + e.message); }
   { const cells = [...w.document.querySelectorAll('#wordGrid .wcell')]; await run('dice', 12, D50);
     const cs = [...w.document.querySelectorAll('#wordGrid .wcell')];
     if (cs.length !== 12 || cs[0].textContent !== '1.' + expect.d50.split(' ')[0] || cs[11].textContent !== '12.' + expect.d50.split(' ')[11]) fails.push('numbered word grid');
@@ -404,7 +428,7 @@ const M = [
   ['tap button appends wrong value',        'el.value += v; updateCount();', 'el.value += "1"; updateCount();'],
   ['address: child key not reduced mod n (needed about half the time)', 'child=(il+k)%SN;', 'child=(il+k);'],
   ['VERIFY ignores the typed passphrase (fingerprint)', 'fp1 = await mnemonicFingerprint(r.mnemonic, vp)', 'fp1 = await mnemonicFingerprint(r.mnemonic, "")'],
-  ['watch: ypub version bytes wrong', 'ver:[0x04,0x9d,0x7c,0xb2]', 'ver:[0x04,0x9d,0x7c,0xb3]'],
+  ['watch: ypub version bytes wrong', '"sh-wpkh":[0x04,0x9d,0x7c,0xb2], other:XPUB_VER', '"sh-wpkh":[0x04,0x9d,0x7c,0xb3], other:XPUB_VER'],
   ['watch: taproot purpose wrong', 'tr:{purpose:86,', 'tr:{purpose:84,'],
   ['watch: nested descriptor not wrapped in sh()', 'type === "sh-wpkh" ? "sh(wpkh(" + inner + "))"', 'type === "sh-wpkh" ? "wpkh(" + inner + ")"'],
   ['watch: first address uses the wrong type', 'first:await addressFromKey(type, fk, net)', 'first:await addressFromKey("wpkh", fk, net)'],
