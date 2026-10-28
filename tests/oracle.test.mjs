@@ -162,7 +162,7 @@ const b85 = (mn, pw, words, index) => { const k = HDKey.fromMasterSeed(mnemonicT
 bad = 0; n = 0;
 for (const bytes of [16, 24, 32]) for (let i = 0; i < 5; i++) {
   const mn = entropyToMnemonic(new Uint8Array(nc.randomBytes(bytes)), wordlist), pw = PASS[nc.randomInt(PASS.length)];
-  for (const words of [12, 15, 18, 21, 24]) for (const index of [0, 1, nc.randomInt(100000), 2147483647]) {
+  for (const words of [12, 15, 18, 21, 24]) for (const index of [0, 1, 2267, nc.randomInt(100000), 2147483647]) {
     n++; if ((await w.mnemonicBip85(mn, pw, words, index)) !== b85(mn, pw, words, index)) { bad++; console.log('BIP85 MISMATCH', words, index); }
   }
 }
