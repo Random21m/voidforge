@@ -229,6 +229,32 @@
   button:disabled { opacity: .4; cursor: not-allowed; }
   #statusLine { display: flex; justify-content: center; gap: 4px 14px; flex-wrap: wrap; margin-bottom: 12px; }
   #statusLine #netTag, #statusLine #selfTestBadge { margin: 0; }
+  #secretNote { display: none; }
+  #wordGrid[style*="display: grid"] + #secretNote { display: block; }
+  /* v1.18 visual polish: all motion is off for people who ask for reduced motion */
+  body { background: radial-gradient(900px 480px at 50% -8%, rgba(0,240,255,.08), transparent 70%), radial-gradient(700px 420px at 105% 18%, rgba(255,0,170,.06), transparent 70%), linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px) 0 0 / 100% 44px, linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px) 0 0 / 44px 100%, var(--bg); background-attachment: fixed; }
+  body.light { background: radial-gradient(900px 480px at 50% -8%, rgba(0,102,204,.07), transparent 70%), radial-gradient(700px 420px at 105% 18%, rgba(204,0,102,.05), transparent 70%), var(--bg); background-attachment: fixed; }
+  .card h2::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 9px; vertical-align: 1px; background: linear-gradient(135deg, var(--accent), var(--accent2)); transform: rotate(45deg); border-radius: 1px; }
+  .card { box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px rgba(0,0,0,.25); }
+  body.light .card { box-shadow: 0 1px 2px rgba(20,30,60,.06), 0 8px 20px rgba(20,30,60,.06); }
+  button { transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease; }
+  button:not(:disabled):active { transform: scale(.97); }
+  button.tap:active { box-shadow: 0 0 0 2px var(--accent), 0 0 18px rgba(0,240,255,.45); }
+  button.tap.pop { animation: tapPop .32s ease-out; }
+  @keyframes tapPop { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,240,255,.7); } 40% { transform: scale(.92) rotate(-3deg); box-shadow: 0 0 0 6px rgba(0,240,255,.25), 0 0 22px rgba(0,240,255,.5); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,240,255,0); } }
+  #forgeBtn:not(:disabled) { animation: forgePulse 1.8s ease-out 2; }
+  @keyframes forgePulse { 0% { box-shadow: 0 0 0 0 rgba(0,240,255,.6); } 100% { box-shadow: 0 0 0 16px rgba(0,240,255,0); } }
+  .entropy-fill { background-image: linear-gradient(90deg, rgba(255,255,255,.18), rgba(255,255,255,0)); }
+  .wcell { animation: wordIn .38s ease-out both; }
+  .wcell:nth-child(2) { animation-delay: .04s; } .wcell:nth-child(3) { animation-delay: .08s; } .wcell:nth-child(4) { animation-delay: .12s; } .wcell:nth-child(5) { animation-delay: .16s; } .wcell:nth-child(6) { animation-delay: .2s; }
+  .wcell:nth-child(7) { animation-delay: .24s; } .wcell:nth-child(8) { animation-delay: .28s; } .wcell:nth-child(9) { animation-delay: .32s; } .wcell:nth-child(10) { animation-delay: .36s; } .wcell:nth-child(11) { animation-delay: .4s; } .wcell:nth-child(12) { animation-delay: .44s; }
+  .wcell:nth-child(n+13) { animation-delay: .5s; }
+  @keyframes wordIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .wcell { box-shadow: 0 0 0 1px rgba(0,240,255,.05) inset; }
+  .fp:not(:empty)::before { content: "WALLET IDENTITY"; display: block; font-size: 10px; letter-spacing: 2px; color: var(--muted); font-weight: 700; margin-bottom: 2px; }
+  #fpIcon { margin-top: 6px; width: 92px; height: 92px; border-radius: 10px; box-shadow: 0 0 0 1px var(--border), 0 0 22px rgba(255,0,170,.18); }
+  button.copied { border-color: var(--success) !important; color: var(--ok-text) !important; box-shadow: 0 0 0 2px rgba(0,255,157,.25); }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
   .start { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 4px; }
   .start button { display: flex; flex-direction: column; gap: 3px; align-items: center; padding: 10px 6px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; font-size: 13px; font-weight: 700; letter-spacing: .3px; }
   .start button small { font-weight: 400; font-size: 11px; color: var(--muted); letter-spacing: 0; }
@@ -240,7 +266,8 @@
   .tag-ro { color: var(--accent); border-color: var(--accent); }
   .tools details { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-top: 10px !important; }
   .tools summary { cursor: pointer; font-weight: 600; font-size: 14px; }
-  .tools summary small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  summary small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  summary small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 2px; }
   @media (max-width: 480px) { .start button { font-size: 12px; } .start button small { display: none; } .card { padding: 14px 12px; } }
   .steps { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); text-align: center; margin-top: 14px; }
   .result.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; padding: 0; border: 0; margin: -1px; min-height: 0; }
@@ -366,10 +393,10 @@
       <button class="secondary small" onclick="toggleSelfTests()">SELF-TEST</button>
     </div>
     <div id="wordGrid" aria-hidden="true"></div>
+    <div id="secretNote" class="hint" style="margin:8px 0 0;"><span class="tag tag-secret" style="margin-left:0;">SECRET</span> These words are your money. Write them on paper and never share them.</div>
     <div id="abbrNote" class="hint" aria-live="polite"></div>
     <div id="passNote"></div>
     <div id="nextStep" aria-live="polite"></div>
-    <div class="hint" style="margin:0 0 4px;"><span class="tag tag-secret" style="margin-left:0;">SECRET</span> The words below are your money. Write them on paper and never share them.</div>
     <div class="result" id="genResult" role="status">—</div>
     <div class="btn-row" style="margin-top:6px;">
       <button class="secondary small" id="abbrBtn" onclick="toggleAbbr()">SHOW FIRST 4 LETTERS</button>
@@ -1638,8 +1665,8 @@ function copyWatch(btn, id){
 
 function showCopied(btn){
   const original = btn.textContent;
-  btn.textContent = "COPIED!";
-  setTimeout(() => btn.textContent = original, 1200);
+  btn.textContent = "COPIED!"; btn.classList.add("copied");
+  setTimeout(() => { btn.textContent = original; btn.classList.remove("copied"); }, 1200);
 }
 function safeCopy(text){
   if(!navigator.clipboard) return Promise.reject(new Error("no clipboard"));
@@ -1975,6 +2002,7 @@ document.getElementById("childWords").addEventListener("change", clearChild);
 document.getElementById("lwInput").addEventListener("input", () => clearLastWords(false));
 document.getElementById("psbtInput").addEventListener("input", () => clearPsbt(false));
 document.getElementById("psbtNet").addEventListener("change", () => clearPsbt(false));
+document.getElementById("tapRow").addEventListener("click", (e) => { const b = e.target.closest ? e.target.closest("button.tap") : null; if(!b) return; b.classList.remove("pop"); void b.offsetWidth; b.classList.add("pop"); });
 document.getElementById("psbtFile").addEventListener("change", (e) => { onPsbtFile(e.target.files[0]); });
 let savedTheme = null;
 try { savedTheme = localStorage.getItem("voidforge-theme"); } catch(e) {}
