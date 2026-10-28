@@ -386,7 +386,8 @@
       <summary>Watch-only wallet (public keys only, cannot spend)</summary>
       <p class="hint" style="margin:8px 0;">Use this to see this wallet&rsquo;s addresses and balance on a phone or online computer <b>without the seed words</b>. It cannot spend. Anyone who gets it can see every address and balance of this wallet, so share it only with your own wallet app. If you used a passphrase, it belongs to this passphrase only.</p>
       <div style="display:flex; gap:6px; align-items:center; margin:6px 0;">
-        <select id="wType" aria-label="Address type" style="flex:1; min-width:0;"><option value="wpkh">Native SegWit (bc1q...), most wallets</option><option value="tr">Taproot (bc1p...)</option><option value="sh-wpkh">Nested SegWit (3...)</option><option value="pkh">Legacy (1...)</option></select>
+        <select id="wType" aria-label="Address type" style="flex:1; min-width:0;"><option value="wpkh">Native SegWit (bc1q...), most wallets</option><option value="tr">Taproot (bc1p...)</option><option value="sh-wpkh">Nested SegWit (3...)</option><option value="pkh">Legacy (1...)</option><option value="ms-wsh">Multisig cosigner key, native SegWit (BIP48)</option><option value="ms-sh-wsh">Multisig cosigner key, nested SegWit (BIP48)</option></select>
+        <select id="wNet" aria-label="Network" style="width:104px; flex:none;"><option value="main">Mainnet</option><option value="test">Testnet</option></select>
         <input type="text" id="wAcct" value="0" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="Account number" title="Account number" style="width:64px; flex:none;">
       </div>
       <div class="hint" id="wErr" style="margin:0; color:var(--danger);"></div>
@@ -394,18 +395,22 @@
       <div class="wlabel" id="wKeyLabel">Extended public key (zpub): Electrum, Blue Wallet, Sparrow</div>
       <div class="wval" id="wZpub"></div>
       <button class="secondary small" onclick="copyWatch(this,'wZpub')">COPY KEY</button>
+      <div id="wFirstGroup">
       <div class="wlabel">First receiving address of this type and account (compare it in your app)</div>
       <div class="wval" id="wFirst"></div>
-      <div class="wlabel">Descriptor, receiving addresses: Sparrow, Nunchuk, Bitcoin Core</div>
+      </div>
+      <div class="wlabel" id="wDescLabelR">Descriptor, receiving addresses: Sparrow, Nunchuk, Bitcoin Core</div>
       <div class="wval" id="wDescR"></div>
       <button class="secondary small" onclick="copyWatch(this,'wDescR')">COPY DESCRIPTOR</button>
+      <div id="wDescGroupC">
       <div class="wlabel">Descriptor, change addresses (only if your app asks for it separately)</div>
       <div class="wval" id="wDescC"></div>
       <button class="secondary small" onclick="copyWatch(this,'wDescC')">COPY CHANGE DESCRIPTOR</button>
+      </div>
       <div class="btn-row" style="margin-top:10px;">
         <button class="secondary small" onclick="showQr('wZpub','public key')">SHOW QR: KEY</button>
         <button class="secondary small" onclick="showQr('wDescR','receive descriptor')">SHOW QR: DESCRIPTOR</button>
-        <button class="secondary small" onclick="showQr('wDescC','change descriptor')">SHOW QR: CHANGE</button>
+        <button class="secondary small" id="wQrC" onclick="showQr('wDescC','change descriptor')">SHOW QR: CHANGE</button>
       </div>
       <div id="qrBox" style="display:none; margin-top:10px; text-align:center;">
         <div id="qrCaption" class="hint"></div>
@@ -842,14 +847,14 @@ async function taggedHash(tag, msg){
   const th=await sha256bytes(new TextEncoder().encode(tag)), b=new Uint8Array(64+msg.length);
   b.set(th,0); b.set(th,32); b.set(msg,64); return sha256bytes(b);
 }
-async function taprootAddress(k){
+async function taprootAddress(k, hrp){
   let P=emul(k,SG); if(P[1]&1n) P=[P[0],SP-P[1]];
   const xonly=fromHex(P[0].toString(16).padStart(64,"0"));
   const t=BigInt("0x"+hex(await taggedHash("TapTweak",xonly)));
   if(t>=SN) throw new Error("Invalid tweak");
   const Q=eadd(P,emul(t,SG));
   if(!Q) throw new Error("Invalid output key");
-  return bech32Encode("bc",1,fromHex(Q[0].toString(16).padStart(64,"0")));
+  return bech32Encode(hrp || "bc",1,fromHex(Q[0].toString(16).padStart(64,"0")));
 }
 async function taprootAddressesFromSeed(seed, n){
   let [k,c]=await masterFromSeed(seed);
@@ -885,18 +890,31 @@ const SCRIPT_TYPES={
   "sh-wpkh":{purpose:49, ver:[0x04,0x9d,0x7c,0xb2], kname:"ypub", label:"Nested SegWit (3...)"},
   pkh:{purpose:44, ver:XPUB_VER, kname:"xpub", label:"Legacy (1...)"}
 };
+// Networks. coin = the coin type in the derivation path; hrp = bech32 prefix; pkh/sh = Base58 address version bytes; ver = extended public key versions per type.
+const NETS={
+  main:{coin:0, hrp:"bc", pkh:0x00, sh:0x05, ver:{wpkh:[0x04,0xb2,0x47,0x46], "sh-wpkh":[0x04,0x9d,0x7c,0xb2], other:XPUB_VER, "ms-wsh":[0x02,0xaa,0x7e,0xd3], "ms-sh-wsh":[0x02,0x95,0xb4,0x3f]}},
+  test:{coin:1, hrp:"tb", pkh:0x6f, sh:0xc4, ver:{wpkh:[0x04,0x5f,0x1c,0xf6], "sh-wpkh":[0x04,0x4a,0x52,0x62], other:[0x04,0x35,0x87,0xcf], "ms-wsh":[0x02,0x57,0x54,0x83], "ms-sh-wsh":[0x02,0x42,0x89,0xef]}}
+};
+// BIP48 multisig cosigner keys: m/48'/coin'/account'/script', script 2 = native SegWit (P2WSH), 1 = nested (P2SH-P2WSH). They have no address of their own.
+const MULTISIG={ "ms-wsh":{script:2, kname:"Zpub", label:"Multisig cosigner, native SegWit (BIP48)"}, "ms-sh-wsh":{script:1, kname:"Ypub", label:"Multisig cosigner, nested SegWit (BIP48)"} };
 function validAccount(a){ return Number.isInteger(a) && a >= 0 && a <= 2147483647; }
 async function hash160(b){ return ripemd160(await sha256bytes(b)); }
 // The mainnet address of a private key for one address type.
-async function addressFromKey(type, k){
-  if(type === "tr") return taprootAddress(k);
+async function addressFromKey(type, k, net){
+  const N = NETS[net || "main"];
+  if(type === "tr") return taprootAddress(k, N.hrp);
   const h = await hash160(pubkeyBytes(k));
-  if(type === "wpkh") return bech32Encode("bc",0,h);
-  if(type === "pkh") return base58check(Uint8Array.from([0x00, ...h]));
-  if(type === "sh-wpkh") return base58check(Uint8Array.from([0x05, ...await hash160(Uint8Array.from([0x00, 0x14, ...h]))]));
+  if(type === "wpkh") return bech32Encode(N.hrp,0,h);
+  if(type === "pkh") return base58check(Uint8Array.from([N.pkh, ...h]));
+  if(type === "sh-wpkh") return base58check(Uint8Array.from([N.sh, ...await hash160(Uint8Array.from([0x00, 0x14, ...h]))]));
   throw new Error("unknown address type");
 }
+function addressNetOf(addr){ return /^(tb1|[2mn])/.test(addr) ? "test" : "main"; }
 function addressTypeOf(addr){
+  if(/^tb1q/.test(addr)) return "wpkh";
+  if(/^tb1p/.test(addr)) return "tr";
+  if(/^2/.test(addr)) return "sh-wpkh";
+  if(/^[mn]/.test(addr)) return "pkh";
   if(/^bc1q/.test(addr)) return "wpkh";
   if(/^bc1p/.test(addr)) return "tr";
   if(/^3/.test(addr)) return "sh-wpkh";
@@ -908,14 +926,14 @@ function addressTypeOf(addr){
 async function findAddress(seed, addr, from, count, account){
   const type = addressTypeOf(addr); if(!type) throw new Error("unknown address type");
   account = account || 0; if(!validAccount(account)) throw new Error("bad account");
-  const purpose = SCRIPT_TYPES[type].purpose;
+  const purpose = SCRIPT_TYPES[type].purpose, net = addressNetOf(addr), coin = NETS[net].coin;
   let [k,c]=await masterFromSeed(seed);
-  for(const [i,h] of [[purpose,true],[0,true],[account,true]]) [k,c]=await ckdPriv(k,c,i,h);
+  for(const [i,h] of [[purpose,true],[coin,true],[account,true]]) [k,c]=await ckdPriv(k,c,i,h);
   for(const chain of [0,1]){
     const [ck,cc]=await ckdPriv(k,c,chain,false);
     for(let i=from;i<from+count;i++){
       const [kk]=await ckdPriv(ck,cc,i,false);
-      if(await addressFromKey(type, kk) === addr) return {chain, index:i, path:"m/" + purpose + "'/0'/" + account + "'/" + chain + "/" + i};
+      if(await addressFromKey(type, kk, net) === addr) return {chain, index:i, path:"m/" + purpose + "'/" + coin + "'/" + account + "'/" + chain + "/" + i};
     }
   }
   return null;
@@ -952,22 +970,29 @@ function descriptorWrap(type, origin, key, branch){
   const inner = "[" + origin + "]" + key + "/" + branch + "/*";
   return type === "sh-wpkh" ? "sh(wpkh(" + inner + "))" : type + "(" + inner + ")";
 }
-async function watchOnlyFromSeed(seed, type, account){
-  type = type || "wpkh"; account = account || 0;
-  const T = SCRIPT_TYPES[type]; if(!T) throw new Error("unknown address type");
+async function watchOnlyFromSeed(seed, type, account, net){
+  type = type || "wpkh"; account = account || 0; net = net || "main";
+  const N = NETS[net]; if(!N) throw new Error("unknown network");
+  const M = MULTISIG[type], T = M ? null : SCRIPT_TYPES[type]; if(!M && !T) throw new Error("unknown address type");
   if(!validAccount(account)) throw new Error("account must be 0 to 2147483647");
+  const steps = M ? [[48,true],[N.coin,true],[account,true],[M.script,true]] : [[T.purpose,true],[N.coin,true],[account,true]];
   let [k,c]=await masterFromSeed(seed);
   const fp=await fingerprintFromSeed(seed);
   let parentPub=null;
-  for(const i of [T.purpose,0,account]){ parentPub=pubkeyBytes(k); [k,c]=await ckdPriv(k,c,i,true); }
+  for(const [i,h] of steps){ parentPub=pubkeyBytes(k); [k,c]=await ckdPriv(k,c,i,h); }
   const parentFp=ripemd160(await sha256bytes(parentPub)).slice(0,4);
-  const pub=pubkeyBytes(k), cn=(account+0x80000000)>>>0;
-  const ser=(ver)=>{ const b=new Uint8Array(78); b.set(ver,0); b[4]=3; b.set(parentFp,5); b.set([(cn>>>24)&255,(cn>>>16)&255,(cn>>>8)&255,cn&255],9); b.set(c,13); b.set(pub,45); return b; };
-  const xpub=await base58check(ser(XPUB_VER)), zpub=await base58check(ser([0x04,0xb2,0x47,0x46])), key=await base58check(ser(T.ver));
-  const origin = fp + "/" + T.purpose + "h/0h/" + account + "h";
+  const pub=pubkeyBytes(k), cn=((M ? M.script : account)+0x80000000)>>>0;
+  const ser=(ver,depth)=>{ const b=new Uint8Array(78); b.set(ver,0); b[4]=depth; b.set(parentFp,5); b.set([(cn>>>24)&255,(cn>>>16)&255,(cn>>>8)&255,cn&255],9); b.set(c,13); b.set(pub,45); return b; };
+  if(M){
+    const key=await base58check(ser(N.ver[type],4)), xpub=await base58check(ser(N.ver.other,4));
+    const origin = fp + "/48h/" + N.coin + "h/" + account + "h/" + M.script + "h";
+    return {fp, xpub, zpub:key, key, receive:"[" + origin + "]" + xpub, change:"", first:""};
+  }
+  const xpub=await base58check(ser(N.ver.other,3)), zpub=await base58check(ser(N.ver.wpkh,3)), key=await base58check(ser(T.purpose===84 ? N.ver.wpkh : T.purpose===49 ? N.ver["sh-wpkh"] : N.ver.other,3));
+  const origin = fp + "/" + T.purpose + "h/" + N.coin + "h/" + account + "h";
   const d=(br)=>descriptorChecksum(descriptorWrap(type, origin, xpub, br));
   const [rk,rc]=await ckdPriv(k,c,0,false), [fk]=await ckdPriv(rk,rc,0,false);
-  return {fp, xpub, zpub, key, receive:d(0), change:d(1), first:await addressFromKey(type, fk)};
+  return {fp, xpub, zpub, key, receive:d(0), change:d(1), first:await addressFromKey(type, fk, net)};
 }
 async function mnemonicWatchOnly(mnemonic, passphrase){ return watchOnlyFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
 // QR code encoder (byte mode, error correction level M, versions 1-12), used only to display watch-only keys on screen.
@@ -1213,7 +1238,15 @@ async function runSelfTests(auto){
     eq("Nested SegWit ypub 'abandon..about'", async()=>(await WA("sh-wpkh",0)).key, "ypub6Ww3ibxVfGzLrAH1PNcjyAWenMTbbAosGNB6VvmSEgytSER9azLDWCxoJwW7Ke7icmizBMXrzBx9979FfaHxHcrArf3zbeJJJUZPf663zsP");
     eq("Legacy xpub 'abandon..about' (m/44'/0'/0')", async()=>(await WA("pkh",0)).key, "xpub6BosfCnifzxcFwrSzQiqu2DBVTshkCXacvNsWGYJVVhhawA7d4R5WSWGFNbi8Aw6ZRc1brxMyWMzG3DSSSSoekkudhUd9yLb6qx39T9nMdj");
     eq("Taproot xpub 'abandon..about' (m/86'/0'/0')", async()=>(await WA("tr",0)).key, "xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ");
-    eq("Nested SegWit ypub for account 3", async()=>(await WA("sh-wpkh",3)).key, "ypub6Ww3ibxVfGzLzWdrR8HeAkPTswB5asMxj239HDCtmghaLXq1omPuHPEH2ocbVY8gF2HStshDmZ4ShGUCSiCsMtL8LFg4PNFd1X2fNsUpPji"); }
+    eq("Nested SegWit ypub for account 3", async()=>(await WA("sh-wpkh",3)).key, "ypub6Ww3ibxVfGzLzWdrR8HeAkPTswB5asMxj239HDCtmghaLXq1omPuHPEH2ocbVY8gF2HStshDmZ4ShGUCSiCsMtL8LFg4PNFd1X2fNsUpPji");
+    const WN=async(t,a,n)=>watchOnlyFromSeed(await mnemonicToSeed(AB,""),t,a,n);
+    eq("Testnet native SegWit first address 'abandon..about' (published testnet vector)", async()=>(await WN("wpkh",0,"test")).first, "tb1q6rz28mcfaxtmd6v789l9rrlrusdprr9pqcpvkl");
+    eq("Testnet vpub 'abandon..about' (m/84'/1'/0')", async()=>(await WN("wpkh",0,"test")).key, "vpub5Y6cjg78GGuNLsaPhmYsiw4gYX3HoQiRBiSwDaBXKUafCt9bNwWQiitDk5VZ5BVxYnQdwoTyXSs2JHRPAgjAvtbBrf8ZhDYe2jWAqvZVnsc");
+    eq("Testnet upub 'abandon..about' (m/49'/1'/0')", async()=>(await WN("sh-wpkh",0,"test")).key, "upub5EFU65HtV5TeiSHmZZm7FUffBGy8UKeqp7vw43jYbvZPpoVsgU93oac7Wk3u6moKegAEWtGNF8DehrnHtv21XXEMYRUocHqguyjknFHYfgY");
+    eq("Testnet tpub, legacy 'abandon..about' (m/44'/1'/0')", async()=>(await WN("pkh",0,"test")).key, "tpubDC5FSnBiZDMmhiuCmWAYsLwgLYrrT9rAqvTySfuCCrgsWz8wxMXUS9Tb9iVMvcRbvFcAHGkMD5Kx8koh4GquNGNTfohfk7pgjhaPCdXpoba");
+    eq("Multisig cosigner Zpub 'abandon..about' (BIP48, m/48'/0'/0'/2')", async()=>(await WN("ms-wsh",0)).key, "Zpub74Jru6aftwwHxCUCWEvP6DgrfFsdA4U6ZRtQ5i8qJpMcC39yZGv3egBhQfV3MS9pZtH5z8iV5qWkJsK6ESs6mSzt4qvGhzJxPeeVS2e1zUG");
+    eq("Multisig cosigner Ypub 'abandon..about' (BIP48, m/48'/0'/0'/1')", async()=>(await WN("ms-sh-wsh",0)).key, "Ypub6jUbbRukkGPp4DgJDD4HL2NKkSZ1UPk111mg59XtJRQZHvJ6XqvJzrntik9U4jCFQkgrBqevdKLPMdYZXU9KAGhKpMhW5XujwqiQ7Csmm4Z");
+    eq("Testnet multisig cosigner Vpub 'abandon..about' (BIP48, m/48'/1'/0'/2')", async()=>(await WN("ms-wsh",0,"test")).key, "Vpub5n95dMZrDHj6SeBgJ1oz4Fae2N2eJNuWK3VTKDb2dzGpMFLUHLmtyDfen7AaQxwQ5mZnMyXdVrkEaoMLVTH8FmVBRVWPGFYWhmtDUGehGmq"); }
   eq("Taproot BIP86 first two receive addresses 'abandon..about' (published BIP86 vectors)", async()=>(await mnemonicTaproot("abandon ".repeat(11)+"about","",2)).join(" "),"bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr bc1p4qhjn9zdvkux4e44uhx8tc55attvtyu358kutcqkudyccelu0was9fqzwh");
   eq("Taproot BIP86 first change address 'abandon..about' (published BIP86 vector)", async()=>taprootChangeFirstFromSeed(await mnemonicToSeed("abandon ".repeat(11)+"about","")),"bc1p3qkhfews2uk44qtvauqyr2ttdsw7svhkl9nkm9s9c3x4ax5h60wqwruhk7");
   eq("bech32m BIP350 example address", ()=>bech32Encode("bc",1,fromHex("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")),"bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0");
@@ -1302,7 +1335,7 @@ async function generate(){
   } catch(e) { clearAddrs(); }
   try {
     watchCtx = {mnemonic, pass};
-    document.getElementById("wType").value = "wpkh"; document.getElementById("wAcct").value = "0";
+    document.getElementById("wType").value = "wpkh"; document.getElementById("wAcct").value = "0"; document.getElementById("wNet").value = "main";
     await refreshWatch();
     document.getElementById("watchBox").style.display = "";
   } catch(e) { clearWatch(); }
@@ -1355,9 +1388,15 @@ async function refreshWatch(){
     hideQr(); return;
   }
   err.textContent = "";
-  const T = SCRIPT_TYPES[type], w = await watchOnlyFromSeed(await mnemonicToSeed(watchCtx.mnemonic, watchCtx.pass), type, parseInt(raw, 10));
+  const net = document.getElementById("wNet").value, M = MULTISIG[type], T = M || SCRIPT_TYPES[type], acct = parseInt(raw, 10), coin = NETS[net].coin;
+  const w = await watchOnlyFromSeed(await mnemonicToSeed(watchCtx.mnemonic, watchCtx.pass), type, acct, net);
   if(mine !== watchSeq || !watchCtx) return;
-  document.getElementById("wKeyLabel").textContent = "Extended public key (" + T.kname + ", m/" + T.purpose + "'/0'/" + parseInt(raw, 10) + "'): Electrum, Blue Wallet, Sparrow";
+  const kn = net === "test" ? ({zpub:"vpub", ypub:"upub", xpub:"tpub", Zpub:"Vpub", Ypub:"Upub"})[T.kname] : T.kname;
+  document.getElementById("wKeyLabel").textContent = "Extended public key (" + kn + ", m/" + (M ? "48'/" + coin + "'/" + acct + "'/" + M.script + "'" : T.purpose + "'/" + coin + "'/" + acct + "'") + (M ? "): add it as a cosigner in Sparrow, Specter, Nunchuk, Electrum" : "): Electrum, Blue Wallet, Sparrow");
+  document.getElementById("wDescLabelR").textContent = M ? "Cosigner key with origin, for a multisig descriptor: Sparrow, Nunchuk, Bitcoin Core" : "Descriptor, receiving addresses: Sparrow, Nunchuk, Bitcoin Core";
+  document.getElementById("wDescGroupC").style.display = M ? "none" : "";
+  document.getElementById("wFirstGroup").style.display = M ? "none" : "";
+  document.getElementById("wQrC").style.display = M ? "none" : "";
   document.getElementById("wZpub").textContent = w.key;
   document.getElementById("wDescR").textContent = w.receive;
   document.getElementById("wDescC").textContent = w.change;
@@ -1505,9 +1544,10 @@ async function checkAddress(range){
   const r = await checkPhrase(document.getElementById("phrase").value);
   if(!r.ok) return say("bad", "Type a valid seed phrase in the box above first. " + r.msg);
   let addr = document.getElementById("checkAddr").value.replace(/\s+/g, "");
-  if(/^bc1/i.test(addr)) addr = addr.toLowerCase();
-  const kind = /^bc1q[0-9a-z]{38}$/.test(addr) ? "SegWit" : /^bc1p[0-9a-z]{58}$/.test(addr) ? "Taproot" : /^3[1-9A-HJ-NP-Za-km-z]{25,34}$/.test(addr) ? "Nested SegWit" : /^1[1-9A-HJ-NP-Za-km-z]{25,34}$/.test(addr) ? "Legacy" : null;
-  if(!kind) return say("bad", "Enter a bc1q... (SegWit), bc1p... (Taproot), 3... (nested SegWit) or 1... (legacy) address.");
+  if(/^(bc1|tb1)/i.test(addr)) addr = addr.toLowerCase();
+  const kind0 = /^(bc1|tb1)q[0-9a-z]{38}$/.test(addr) ? "SegWit" : /^(bc1|tb1)p[0-9a-z]{58}$/.test(addr) ? "Taproot" : /^[32][1-9A-HJ-NP-Za-km-z]{25,34}$/.test(addr) ? "Nested SegWit" : /^[1mn][1-9A-HJ-NP-Za-km-z]{25,34}$/.test(addr) ? "Legacy" : null;
+  const kind = kind0 && addressNetOf(addr) === "test" ? "Testnet " + kind0 : kind0;
+  if(!kind) return say("bad", "Enter a bc1q... (SegWit), bc1p... (Taproot), 3... (nested SegWit) or 1... (legacy) address, or a testnet address (tb1q..., tb1p..., 2..., m... or n...).");
   const acctRaw = document.getElementById("checkAcct").value.trim();
   if(!/^[0-9]{1,10}$/.test(acctRaw) || parseInt(acctRaw, 10) > 2147483647) return say("bad", "The account must be a whole number from 0 to 2147483647 (almost always 0).");
   const account = parseInt(acctRaw, 10);
@@ -1710,6 +1750,7 @@ function toggleTheme() {
 for(const id of ["checkAddr","checkAcct","phrase","verifyPass"]) document.getElementById(id).addEventListener("input", resetAddrScan);
 for(const id of ["phrase","verifyPass","childWords","childIndex"]) document.getElementById(id).addEventListener("input", clearChild);
 document.getElementById("wType").addEventListener("change", refreshWatch);
+document.getElementById("wNet").addEventListener("change", refreshWatch);
 document.getElementById("wAcct").addEventListener("input", refreshWatch);
 document.getElementById("childWords").addEventListener("change", clearChild);
 let savedTheme = null;

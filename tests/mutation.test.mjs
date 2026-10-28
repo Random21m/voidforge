@@ -31,9 +31,15 @@ const b85At = (mn, pw, words, index) => { const k = HDKey.fromMasterSeed(mnemoni
 const segAt = (mn, pw, chain, i) => { const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/84'/0'/0'/${chain}/${i}`);
   return bech32.encode('bc', [0, ...bech32.toWords(ripemd160(nsha(k.publicKey)))]); };
 const b58c = createBase58check(nsha);
-const altAt = (type, mn, pw, acct, chain, i) => { const purpose = { pkh: 44, 'sh-wpkh': 49 }[type]; const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/${purpose}'/0'/${acct}'/${chain}/${i}`);
-  const h = ripemd160(nsha(k.publicKey)); if (type === 'pkh') return b58c.encode(Uint8Array.from([0, ...h]));
-  return b58c.encode(Uint8Array.from([5, ...ripemd160(nsha(Uint8Array.from([0, 0x14, ...h])))])); };
+const altAt = (type, mn, pw, acct, chain, i, test) => { const purpose = { pkh: 44, 'sh-wpkh': 49 }[type]; const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/${purpose}'/${test ? 1 : 0}'/${acct}'/${chain}/${i}`);
+  const h = ripemd160(nsha(k.publicKey)); if (type === 'pkh') return b58c.encode(Uint8Array.from([test ? 0x6f : 0, ...h]));
+  return b58c.encode(Uint8Array.from([test ? 0xc4 : 5, ...ripemd160(nsha(Uint8Array.from([0, 0x14, ...h])))])); };
+const segAtT = (mn, pw, acct, chain, i) => { const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/84'/1'/${acct}'/${chain}/${i}`);
+  return bech32.encode('tb', [0, ...bech32.toWords(ripemd160(nsha(k.publicKey)))]); };
+const trAtT = (mn, pw, acct, chain, i) => { const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/86'/1'/${acct}'/${chain}/${i}`); const xo = k.publicKey.slice(1);
+  const P = secp256k1.ProjectivePoint.fromHex('02' + Buffer.from(xo).toString('hex')); const t = schnorr.utils.taggedHash('TapTweak', xo);
+  const Q = P.add(secp256k1.ProjectivePoint.BASE.multiply(BigInt('0x' + Buffer.from(t).toString('hex'))));
+  return bech32m.encode('tb', [1, ...bech32m.toWords(Q.toRawBytes(true).slice(1))]); };
 const trAt = (mn, pw, chain, i) => { const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/86'/0'/0'/${chain}/${i}`); const xo = k.publicKey.slice(1);
   const P = secp256k1.ProjectivePoint.fromHex('02' + Buffer.from(xo).toString('hex')); const t = schnorr.utils.taggedHash('TapTweak', xo);
   const Q = P.add(secp256k1.ProjectivePoint.BASE.multiply(BigInt('0x' + Buffer.from(t).toString('hex'))));
@@ -88,6 +94,21 @@ async function probe(w) {
       else if (wo.first !== first) fails.push(tag + ': first address');
       const o = `${wo.fp}/${pu}h/0h/${acct}h`, wrap = (b) => type === 'sh-wpkh' ? `sh(wpkh([${o}]${wo.xpub}/${b}/*))#` : `${type}([${o}]${wo.xpub}/${b}/*)#`;
       if (!wo.receive.startsWith(wrap(0)) || !wo.change.startsWith(wrap(1))) fails.push(tag + ': descriptors'); } }
+  { const ABOUT = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'; const seedB = mnemonicToSeedSync(ABOUT, '');
+    const TV = { wpkh: 0x045f1cf6, 'sh-wpkh': 0x044a5262, pkh: 0x043587cf, tr: 0x043587cf }, PUR = { wpkh: 84, 'sh-wpkh': 49, pkh: 44, tr: 86 };
+    const MV = { main: { 'ms-wsh': 0x02aa7ed3, 'ms-sh-wsh': 0x0295b43f }, test: { 'ms-wsh': 0x02575483, 'ms-sh-wsh': 0x024289ef } }, SC = { 'ms-wsh': 2, 'ms-sh-wsh': 1 };
+    for (const [type, acct] of [['wpkh', 0], ['sh-wpkh', 1], ['pkh', 0], ['tr', 4]]) {
+      const wo = await w.watchOnlyFromSeed(seedB, type, acct, 'test'), tag = `testnet ${type} account ${acct}`, path = `m/${PUR[type]}'/1'/${acct}'`;
+      if (wo.key !== HDKey.fromMasterSeed(seedB, { private: 0, public: TV[type] }).derive(path).publicExtendedKey) fails.push(tag + ': key');
+      if (wo.xpub !== HDKey.fromMasterSeed(seedB, { private: 0, public: 0x043587cf }).derive(path).publicExtendedKey) fails.push(tag + ': tpub');
+      if (!wo.receive.includes(`[${wo.fp}/${PUR[type]}h/1h/${acct}h]${wo.xpub}/0/*`)) fails.push(tag + ": descriptor origin");
+      const first = type === 'wpkh' ? segAtT(ABOUT, '', acct, 0, 0) : type === 'tr' ? trAtT(ABOUT, '', acct, 0, 0) : altAt(type, ABOUT, '', acct, 0, 0, true);
+      if (wo.first !== first) fails.push(tag + ': first address'); }
+    for (const net of ['main', 'test']) for (const type of ['ms-wsh', 'ms-sh-wsh']) for (const acct of [0, 2]) {
+      const wo = await w.watchOnlyFromSeed(seedB, type, acct, net), tag = `multisig ${type} ${net} account ${acct}`, coin = net === 'test' ? 1 : 0, path = `m/48'/${coin}'/${acct}'/${SC[type]}'`;
+      if (wo.key !== HDKey.fromMasterSeed(seedB, { private: 0, public: MV[net][type] }).derive(path).publicExtendedKey) fails.push(tag + ': key');
+      if (wo.receive !== `[${wo.fp}/48h/${coin}h/${acct}h/${SC[type]}h]${HDKey.fromMasterSeed(seedB, { private: 0, public: net === 'test' ? 0x043587cf : 0x0488b21e }).derive(path).publicExtendedKey}`) fails.push(tag + ': key origin');
+      if (wo.change !== '' || wo.first !== '') fails.push(tag + ': has no addresses'); } }
   { const cells = [...w.document.querySelectorAll('#wordGrid .wcell')]; await run('dice', 12, D50);
     const cs = [...w.document.querySelectorAll('#wordGrid .wcell')];
     if (cs.length !== 12 || cs[0].textContent !== '1.' + expect.d50.split(' ')[0] || cs[11].textContent !== '12.' + expect.d50.split(' ')[11]) fails.push('numbered word grid');
@@ -197,6 +218,10 @@ async function probe(w) {
       [t1] = await CA('', altAt('sh-wpkh', ABOUT, '', 3, 0, 0)); if (!/receive address #0 \(m\/49'\/0'\/3'\/0\/0\)/.test(t1)) fails.push('find: nested SegWit account 3');
       [t1] = await CA('', altAt('sh-wpkh', ABOUT, '', 0, 0, 0)); if (!/^NOT FOUND/.test(t1)) fails.push('find: account 0 address not found when account 3 is set');
       $('checkAcct').value = '0'; ev('checkAcct');
+      [t1] = await CA('', segAtT(ABOUT, '', 0, 0, 2)); if (!/^FOUND: this Testnet SegWit address is receive address #2 \(m\/84'\/1'\/0'\/0\/2\)/.test(t1)) fails.push('find: testnet SegWit address');
+      [t1] = await CA('', trAtT(ABOUT, '', 0, 1, 1)); if (!/^FOUND: this Testnet Taproot address is change address #1 \(m\/86'\/1'\/0'\/1\/1\)/.test(t1)) fails.push('find: testnet Taproot address');
+      [t1] = await CA('', altAt('pkh', ABOUT, '', 0, 0, 3, true)); if (!/^FOUND: this Testnet Legacy address is receive address #3 \(m\/44'\/1'\/0'\/0\/3\)/.test(t1)) fails.push('find: testnet legacy address');
+      [t1] = await CA('', altAt('sh-wpkh', ABOUT, '', 0, 1, 0, true)); if (!/^FOUND: this Testnet Nested SegWit address is change address #0 \(m\/49'\/1'\/0'\/1\/0\)/.test(t1)) fails.push('find: testnet nested SegWit address');
       [t1, c1] = await CA('', segAt(ABOUT, '', 0, 6)); if (!/^NOT FOUND in indices 0 to 3 /.test(t1) || !/bad/.test(c1)) fails.push('find: index beyond the first range is NOT FOUND');
       [t1] = await CA('', segAt(ABOUT, '', 0, 6), 2); if (!/^FOUND: .*receive address #6 /.test(t1)) fails.push('find: second press continues with the next indices');
       [t1] = await CA('', segAt(ABOUT, '', 0, 6), 3); if (!/^NOT FOUND in indices 0 to 3 /.test(t1)) fails.push('find: after a FOUND the next search starts at 0 again');
@@ -315,17 +340,40 @@ const M = [
   ['watch: ypub version bytes wrong', 'ver:[0x04,0x9d,0x7c,0xb2]', 'ver:[0x04,0x9d,0x7c,0xb3]'],
   ['watch: taproot purpose wrong', 'tr:{purpose:86,', 'tr:{purpose:84,'],
   ['watch: nested descriptor not wrapped in sh()', 'type === "sh-wpkh" ? "sh(wpkh(" + inner + "))"', 'type === "sh-wpkh" ? "wpkh(" + inner + ")"'],
-  ['watch: first address uses the wrong type', 'first:await addressFromKey(type, fk)', 'first:await addressFromKey("wpkh", fk)'],
-  ['watch: depth byte wrong', 'b[4]=3;', 'b[4]=4;'],
+  ['watch: first address uses the wrong type', 'first:await addressFromKey(type, fk, net)', 'first:await addressFromKey("wpkh", fk, net)'],
+  ['net: testnet bech32 prefix wrong', 'test:{coin:1, hrp:"tb",', 'test:{coin:1, hrp:"bc",'],
+  ['net: testnet coin type wrong', 'test:{coin:1,', 'test:{coin:0,'],
+  ['net: testnet legacy version byte wrong', 'pkh:0x6f,', 'pkh:0x00,'],
+  ['net: testnet nested version byte wrong', 'sh:0xc4,', 'sh:0x05,'],
+  ['net: testnet vpub version wrong', 'wpkh:[0x04,0x5f,0x1c,0xf6]', 'wpkh:[0x04,0xb2,0x47,0x46]'],
+  ['net: testnet upub version wrong', '"sh-wpkh":[0x04,0x4a,0x52,0x62]', '"sh-wpkh":[0x04,0x9d,0x7c,0xb2]'],
+  ['net: testnet tpub version wrong', 'other:[0x04,0x35,0x87,0xcf]', 'other:XPUB_VER'],
+  ['net: testnet Vpub version wrong', '"ms-wsh":[0x02,0x57,0x54,0x83]', '"ms-wsh":[0x02,0xaa,0x7e,0xd3]'],
+  ['net: testnet Upub version wrong', '"ms-sh-wsh":[0x02,0x42,0x89,0xef]', '"ms-sh-wsh":[0x02,0x95,0xb4,0x3f]'],
+  ['net: mainnet Zpub version wrong', '"ms-wsh":[0x02,0xaa,0x7e,0xd3]', '"ms-wsh":[0x02,0x57,0x54,0x83]'],
+  ['net: mainnet Ypub version wrong', '"ms-sh-wsh":[0x02,0x95,0xb4,0x3f]', '"ms-sh-wsh":[0x02,0x42,0x89,0xef]'],
+  ['net: address not recognized as testnet', 'return /^(tb1|[2mn])/.test(addr) ? "test" : "main";', 'return "main";'],
+  ['net: testnet nested not recognized', '  if(/^2/.test(addr)) return "sh-wpkh";\n', ''],
+  ['net: testnet legacy not recognized', '  if(/^[mn]/.test(addr)) return "pkh";\n', ''],
+  ['net: testnet taproot not recognized', '  if(/^tb1p/.test(addr)) return "tr";\n', ''],
+  ['net: finder always uses mainnet coin type', 'net = addressNetOf(addr), coin = NETS[net].coin;', 'net = addressNetOf(addr), coin = 0;'],
+  ['net: taproot ignores the network prefix', 'return taprootAddress(k, N.hrp);', 'return taprootAddress(k);'],
+  ['multisig: native script number wrong', '"ms-wsh":{script:2,', '"ms-wsh":{script:1,'],
+  ['multisig: nested script number wrong', '"ms-sh-wsh":{script:1,', '"ms-sh-wsh":{script:2,'],
+  ['multisig: purpose 48 wrong', '[[48,true],[N.coin,true],[account,true],[M.script,true]]', '[[44,true],[N.coin,true],[account,true],[M.script,true]]'],
+  ['multisig: depth byte wrong', 'ser(N.ver[type],4)', 'ser(N.ver[type],3)'],
+  ['multisig: origin path missing the script', '"h/" + account + "h/" + M.script + "h";', '"h/" + account + "h";'],
+  ['multisig: child number is the account not the script', '((M ? M.script : account)+0x80000000)', '(account+0x80000000)'],
+  ['watch: depth byte wrong', 'b[4]=depth;', 'b[4]=depth+1;'],
   ['watch: parent fingerprint dropped', 'b.set(parentFp,5);', 'b.set([0,0,0,0],5);'],
   ['watch: child index not hardened', '(cn>>>24)&255', '(cn>>>24)&127'],
-  ['watch: zpub version bytes -> xpub', 'ser([0x04,0xb2,0x47,0x46])', 'ser([0x04,0x88,0xb2,0x1e])'],
+  ['watch: zpub version bytes -> xpub', 'zpub=await base58check(ser(N.ver.wpkh,3))', 'zpub=await base58check(ser(N.ver.other,3))'],
   ['watch: base58 alphabet swapped', 'B58="123456789ABCDEFGHJKLMNPQRSTUVWXYZ', 'B58="123456789ABCDEFGHJKLMNPQRSTUVWXZY'],
   ['watch: base58 checksum skips second SHA-256', 'await sha256bytes(await sha256bytes(payload))', 'await sha256bytes(payload)'],
   ['watch: leading-zero bytes not encoded (payload always starts with a non-zero version byte)', 'if(b===0) out="1"+out;', 'if(b===0) out=out;'],
-  ['watch: account path wrong (m/84h/0h/1h)', 'for(const i of [T.purpose,0,account]){', 'for(const i of [T.purpose,0,account+1]){'],
+  ['watch: account path wrong (m/84h/0h/1h)', '[T.purpose,true],[N.coin,true],[account,true]]', '[T.purpose,true],[N.coin,true],[account+1,true]]'],
   ['watch: descriptor checksum final xor removed', 'chk^=1n; let out="";', 'let out="";'],
-  ['watch: descriptor origin path wrong', '"h/0h/" + account + "h"', '"h/0h/" + (account+1) + "h"'],
+  ['watch: descriptor origin path wrong', '"h/" + N.coin + "h/" + account + "h";\n  const d=', '"h/" + N.coin + "h/" + (account+1) + "h";\n  const d='],
   ['watch: change descriptor uses branch 0', 'd(1)', 'd(0)'],
   ['watch: export not hidden on errors', '    clearWatch();\n    clearFpIcons();', '    clearFpIcons();'],
   ['qr: format info XOR mask wrong', '^0x5412', '^0x5413'],
@@ -392,11 +440,11 @@ const M = [
   ['compare: descriptor key ignored', 'ids.fp === d.fp && ids.cands.find(c => c.xpub === d.key)', 'ids.fp === d.fp && ids.cands.find(c => true)'],
   ['compare: descriptor checksum not enforced', 'if(!d.sumOk) return', 'if(false) return'],
   ['compare: taproot address check always passes', 'test = (f, a, ids) => !!ids && ids.list.some(t => t === fold);', 'test = (f, a, ids) => !!ids;'],
-  ['find: legacy version byte wrong', 'Uint8Array.from([0x00, ...h]))', 'Uint8Array.from([0x05, ...h]))'],
+  ['find: legacy version byte wrong', 'Uint8Array.from([N.pkh, ...h])', 'Uint8Array.from([N.sh, ...h])'],
   ['find: nested redeem script prefix wrong', 'Uint8Array.from([0x00, 0x14, ...h])', 'Uint8Array.from([0x00, 0x15, ...h])'],
-  ['find: nested version byte wrong', 'base58check(Uint8Array.from([0x05, ...await', 'base58check(Uint8Array.from([0x06, ...await'],
+  ['find: nested version byte wrong', 'Uint8Array.from([N.sh, ...await', 'Uint8Array.from([N.pkh, ...await'],
   ['find: nested SegWit treated as legacy', '  if(/^3/.test(addr)) return "sh-wpkh";\n', ''],
-  ['find: account ignored', 'for(const [i,h] of [[purpose,true],[0,true],[account,true]])', 'for(const [i,h] of [[purpose,true],[0,true],[0,true]])'],
+  ['find: account ignored', '[[purpose,true],[coin,true],[account,true]]', '[[purpose,true],[coin,true],[0,true]]'],
   ['find: nested purpose wrong', '"sh-wpkh":{purpose:49,', '"sh-wpkh":{purpose:84,'],
   ['find: legacy purpose wrong', 'pkh:{purpose:44,', 'pkh:{purpose:49,'],
   ['find: change chain not searched', 'for(const chain of [0,1]){', 'for(const chain of [0]){'],
@@ -409,8 +457,8 @@ const M = [
   ['find: child index off by one', 'const [kk]=await ckdPriv(ck,cc,i,false);', 'const [kk]=await ckdPriv(ck,cc,i+1,false);'],
   ['find: reports the wrong chain', 'return {chain, index:i, path:', 'return {chain:0, index:i, path:'],
   ['find: reports the wrong index', 'return {chain, index:i, path:', 'return {chain, index:i+1, path:'],
-  ['find: always found', 'if(await addressFromKey(type, kk) === addr) return {chain', 'if(true) return {chain'],
-  ['find: address compared case-insensitively wrong (never matches)', 'if(await addressFromKey(type, kk) === addr) return {chain', 'if(await addressFromKey(type, kk) === addr + "x") return {chain'],
+  ['find: always found', 'if(await addressFromKey(type, kk, net) === addr) return {chain', 'if(true) return {chain'],
+  ['find: address compared case-insensitively wrong (never matches)', 'if(await addressFromKey(type, kk, net) === addr) return {chain', 'if(await addressFromKey(type, kk, net) === addr + "x") return {chain'],
   ['find: next press does not continue', 'addrScanFrom = to;\n    say(', 'addrScanFrom = 0;\n    say('],
   ['find: search position not reset after FOUND', 'if(f){ addrScanFrom = 0; return say("ok"', 'if(f){ return say("ok"'],
   ['find: passphrase wallet never searched', 'if(vp) variants.push(["with passphrase", vp]);', ''],
@@ -418,7 +466,7 @@ const M = [
   ['find: NOT FOUND shown as success', 'say("bad", "NOT FOUND in indices', 'say("ok", "NOT FOUND in indices'],
   ['find: FOUND shown as failure', 'return say("ok", "FOUND: this "', 'return say("bad", "FOUND: this "'],
   ['find: invalid phrase not rejected', 'if(!r.ok) return say("bad", "Type a valid seed phrase in the box above first. " + r.msg);', ''],
-  ['find: address format not validated', '  if(!kind) return say("bad", "Enter a bc1q... (SegWit), bc1p... (Taproot), 3... (nested SegWit) or 1... (legacy) address.");', '  if(false) return say("", "");'],
+  ['find: address format not validated', '  if(!kind) return say("bad", "Enter a bc1q', '  if(false) return say("bad", "Enter a bc1q'],
   ['find: scan position not reset when the address changes', 'for(const id of ["checkAddr","checkAcct","phrase","verifyPass"]) document.getElementById(id).addEventListener("input", resetAddrScan);', ''],
   ['bip85: wrong application number', 'for(const i of [83696968, 39, 0, words, index])', 'for(const i of [83696968, 32, 0, words, index])'],
   ['bip85: wrong language', 'for(const i of [83696968, 39, 0, words, index])', 'for(const i of [83696968, 39, 1, words, index])'],
