@@ -197,6 +197,7 @@ async function probe(w) {
       const mn24 = entropyToMnemonic(new Uint8Array(32).fill(0x5a), wordlist), dg = (m) => m.split(' ').map((x) => String(wordlist.indexOf(x)).padStart(4, '0')).join('');
       let [m1, b1, c1] = await V(dg(ABOUT)); if (!/^Valid 12-word BIP39 phrase \(read from a SeedQR digit string\)/.test(m1) || b1 !== ABOUT || !/ok/.test(c1)) fails.push('seedqr: 12-word digit string');
       [m1, b1] = await V(dg(mn24)); if (!/^Valid 24-word/.test(m1) || b1 !== mn24) fails.push('seedqr: 24-word digit string');
+      for (const nb of [20, 24, 28]) { const mw = entropyToMnemonic(new Uint8Array(nb).fill(0x2b), wordlist); [m1, b1] = await V(dg(mw)); if (!new RegExp('^Valid ' + (nb * 3 / 4) + '-word').test(m1) || b1 !== mw) fails.push('seedqr: ' + (nb * 3 / 4) + '-word digit string'); }
       [m1, b1] = await V(dg(ABOUT).replace(/(\d{4})/g, '$1 ')); if (b1 !== ABOUT) fails.push('seedqr: digit string with spaces');
       [m1, b1] = await V(Buffer.from(mnemonicToEntropy(mn24, wordlist)).toString('hex')); if (!/CompactSeedQR hex/.test(m1) || b1 !== mn24) fails.push('seedqr: 24-word compact hex');
       [m1, b1] = await V('7F'.repeat(16)); if (b1 !== 'legal winner thank year wave sausage worth useful legal winner thank yellow') fails.push('seedqr: 12-word compact hex (capitals)');
@@ -414,7 +415,7 @@ const M = [
   ['seedqr: 5-digit groups', 'parseInt(q.slice(i, i + 4), 10)', 'parseInt(q.slice(i, i + 3), 10)'],
   ['seedqr: hex lengths wrong', '[32,40,48,56,64].includes(q.length)', '[32,64].includes(q.length)'],
   ['seedqr: hex capitals not accepted', '/^[0-9a-fA-F]+$/.test(q) && [32,40,48,56,64]', '/^[0-9a-f]+$/.test(q) && [32,40,48,56,64]'],
-  ['seedqr: hex capitals not lowered', 'fromHex(q.toLowerCase())', 'fromHex(q)'],
+  ['seedqr: hex capitals not lowered', 'fromHex(q.toLowerCase())', 'fromHex(q)', true],
   ['seedqr: wrong wordlist index', 'words.push(WORDLIST[n]);', 'words.push(WORDLIST[n + 1]);'],
   ['seedqr: converted words not shown in the box', 'if(r.ok && r.fromCode) document.getElementById("phrase").value = r.mnemonic;', ''],
   ['seedqr: source not named', ' (read from "+pc.kind+")" : ""', ' (read from)" : ""'],

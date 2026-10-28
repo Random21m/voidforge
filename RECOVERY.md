@@ -44,3 +44,7 @@ Afterwards check that the app's first receiving address equals the **First recei
 - **Different addresses after restore:** wrong address type, wrong passphrase, or one wrong word that still passes the checksum. Recheck each word, then the passphrase.
 - **Passphrase typed with different characters:** capital letters, spaces and accents all matter. VOIDFORGE's two passphrase boxes must match exactly before it will forge.
 - **Words in the wrong order:** the order is part of the seed.
+
+## Child seeds (BIP85)
+
+A child seed made with the Child seed (BIP85) tool is not stored anywhere. To get it back you need the parent words, the parent passphrase if one was used, the word count and the index. Write the word count and index down with the parent backup. Anyone who has the parent can recreate every child, and losing the parent loses every child.
