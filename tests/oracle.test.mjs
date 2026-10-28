@@ -230,4 +230,14 @@ for (let i = 0; i < 20; i++) {
 }
 R.ok(bad === 0, `${n} backup-match checks (with / without passphrase / neither) classify correctly against the independent libraries (${bad} errors)`);
 
+// 2f. Find-the-last-word against @scure's validateMnemonic (brute force over all 2048 words)
+bad = 0; n = 0;
+for (const len of [11, 14, 17, 20, 23, 11, 23, 14]) {
+  const full = entropyToMnemonic(new Uint8Array(nc.randomBytes({ 11: 16, 14: 20, 17: 24, 20: 28, 23: 32 }[len])), wordlist).split(' ');
+  const head = full.slice(0, len), want = wordlist.filter((x) => validateMnemonic([...head, x].join(' '), wordlist));
+  const got = await w.lastWordCandidates(head); n++;
+  if (got.join(' ') !== want.join(' ') || !got.includes(full[len])) { bad++; console.log('LAST WORD MISMATCH', len, got.length, want.length); }
+}
+R.ok(bad === 0, `${n} last-word candidate lists (11 to 23 words) equal the independent brute-force validation (${bad} mismatches)`);
+
 R.done('oracle');

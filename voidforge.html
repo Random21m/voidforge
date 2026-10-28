@@ -448,6 +448,17 @@
       <div class="btn-row" style="margin-top:8px;"><button type="button" class="secondary" id="checkAddrBtn" onclick="checkAddress()">CHECK ADDRESS</button></div>
       <div class="status" id="addrCheckStatus" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
     </div>
+    <details id="lwBox" style="margin-top:14px;">
+      <summary>Find the last word</summary>
+      <p class="hint" style="margin:8px 0;">If you have all but the last word of a seed phrase (11, 14, 17, 20 or 23 words), this lists every word that makes the checksum valid. The last word is partly a checksum, so only about 1 in 16 of the 2048 words fits (128 for 12 words). It does not tell you which one you had: a valid last word is not necessarily yours. Type the words from your own backup; they are not saved or sent.</p>
+      <textarea id="lwInput" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="All words except the last" placeholder="Type the first 11 (or 14, 17, 20, 23) words"></textarea>
+      <div style="display:flex; gap:6px; margin-top:6px;">
+        <button type="button" class="secondary" id="lwBtn" onclick="findLastWords()">FIND LAST WORD</button>
+        <button type="button" class="secondary small" onclick="clearLastWords(true)">CLEAR</button>
+      </div>
+      <div class="status" id="lwStatus" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
+      <pre id="lwOut" style="display:none; white-space:pre-wrap; word-break:break-word; font-family:'Courier New',monospace; font-size:14px; margin:8px 0 0;"></pre>
+    </details>
     <details id="childBox" style="margin-top:14px;">
       <summary>Child seed (BIP85)</summary>
       <p class="hint" style="margin:8px 0;">Makes a brand new seed phrase from the parent words (and passphrase) typed above, for a separate wallet, using the BIP85 standard. The same parent, word count and index always give the same child. <b>The child is as secret as the parent.</b> It is only shown here: there is no copy, save or print for it. Use the same safety steps as for a new seed, and keep the parent safe: if you lose the parent you lose every child.</p>
@@ -1186,6 +1197,39 @@ async function checkPhrase(phrase){
   return {ok:true, msg:"Valid "+words.length+"-word BIP39 phrase"+(pc ? " (read from "+pc.kind+")" : ""), mnemonic:words.join(" "), fromCode:!!pc};
 }
 
+// "Find the last word": every word that completes the given words into a valid BIP39 phrase. Input is 11, 14, 17, 20 or 23 words.
+async function lastWordCandidates(words){
+  if(![11,14,17,20,23].includes(words.length)) throw new Error("Type 11, 14, 17, 20 or 23 words (all but the last).");
+  for(const w of words){ if(!(w in WORD_MAP)) throw new Error("Unknown word: " + w); }
+  const total = words.length + 1, cLen = Math.floor((total*11)/32), eBits = total*11 - cLen;
+  const head = words.map(w => WORD_MAP[w].toString(2).padStart(11,"0")).join("");
+  const free = 11 - cLen, out = [];
+  for(let i = 0; i < 2048; i++){
+    const bits = head + i.toString(2).padStart(11,"0");
+    const eBytes = new Uint8Array(eBits/8);
+    for(let b = 0; b < eBytes.length; b++) eBytes[b] = parseInt(bits.slice(b*8, (b+1)*8), 2);
+    const h = new Uint8Array(await crypto.subtle.digest("SHA-256", eBytes));
+    if(bits.slice(eBits) === bytesToBits(h).slice(0, cLen)) out.push(WORDLIST[i]);
+  }
+  return out;
+}
+function clearLastWords(all){
+  const o = document.getElementById("lwOut"); o.textContent = ""; o.style.display = "none";
+  const t = document.getElementById("lwStatus"); t.textContent = ""; t.className = "status";
+  if(all) document.getElementById("lwInput").value = "";
+}
+async function findLastWords(){
+  if(!gateOk()) return;
+  const st = document.getElementById("lwStatus"), o = document.getElementById("lwOut");
+  const say = (cls, t) => { st.className = "status " + cls; st.textContent = t; };
+  clearLastWords(false);
+  const words = document.getElementById("lwInput").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  try {
+    const c = await lastWordCandidates(words);
+    say("ok", c.length + " words complete this " + (words.length + 1) + "-word phrase. Any one of them gives a valid checksum, but only your own backup tells you which is the real last word.");
+    o.textContent = c.join("  "); o.style.display = "block";
+  } catch(e) { say("bad", e.message); }
+}
 // SELF-TEST button: first press shows the results, second press hides them
 function toggleSelfTests(){
   const out=document.getElementById("testResults");
@@ -1248,6 +1292,9 @@ async function runSelfTests(auto){
     eq("Multisig cosigner Zpub 'abandon..about' (BIP48, m/48'/0'/0'/2')", async()=>(await WN("ms-wsh",0)).key, "Zpub74Jru6aftwwHxCUCWEvP6DgrfFsdA4U6ZRtQ5i8qJpMcC39yZGv3egBhQfV3MS9pZtH5z8iV5qWkJsK6ESs6mSzt4qvGhzJxPeeVS2e1zUG");
     eq("Multisig cosigner Ypub 'abandon..about' (BIP48, m/48'/0'/0'/1')", async()=>(await WN("ms-sh-wsh",0)).key, "Ypub6jUbbRukkGPp4DgJDD4HL2NKkSZ1UPk111mg59XtJRQZHvJ6XqvJzrntik9U4jCFQkgrBqevdKLPMdYZXU9KAGhKpMhW5XujwqiQ7Csmm4Z");
     eq("Testnet multisig cosigner Vpub 'abandon..about' (BIP48, m/48'/1'/0'/2')", async()=>(await WN("ms-wsh",0,"test")).key, "Vpub5n95dMZrDHj6SeBgJ1oz4Fae2N2eJNuWK3VTKDb2dzGpMFLUHLmtyDfen7AaQxwQ5mZnMyXdVrkEaoMLVTH8FmVBRVWPGFYWhmtDUGehGmq"); }
+  eq("last-word helper: 11 x abandon gives 128 words, and 'about' is one (published test vector)", async()=>{ const c=await lastWordCandidates(Array(11).fill("abandon")); return c.length+" "+c.includes("about"); }, "128 true");
+  eq("last-word helper: 23 x abandon gives 8 words, and 'art' is one (published test vector)", async()=>{ const c=await lastWordCandidates(Array(23).fill("abandon")); return c.length+" "+c.includes("art"); }, "8 true");
+  eq("last-word helper: 11 x zoo gives 'wrong' among 128 (published test vector)", async()=>{ const c=await lastWordCandidates(Array(11).fill("zoo")); return c.length+" "+c.includes("wrong"); }, "128 true");
   eq("Taproot BIP86 first two receive addresses 'abandon..about' (published BIP86 vectors)", async()=>(await mnemonicTaproot("abandon ".repeat(11)+"about","",2)).join(" "),"bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr bc1p4qhjn9zdvkux4e44uhx8tc55attvtyu358kutcqkudyccelu0was9fqzwh");
   eq("Taproot BIP86 first change address 'abandon..about' (published BIP86 vector)", async()=>taprootChangeFirstFromSeed(await mnemonicToSeed("abandon ".repeat(11)+"about","")),"bc1p3qkhfews2uk44qtvauqyr2ttdsw7svhkl9nkm9s9c3x4ax5h60wqwruhk7");
   eq("bech32m BIP350 example address", ()=>bech32Encode("bc",1,fromHex("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")),"bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0");
@@ -1754,6 +1801,7 @@ document.getElementById("wType").addEventListener("change", refreshWatch);
 document.getElementById("wNet").addEventListener("change", refreshWatch);
 document.getElementById("wAcct").addEventListener("input", refreshWatch);
 document.getElementById("childWords").addEventListener("change", clearChild);
+document.getElementById("lwInput").addEventListener("input", () => clearLastWords(false));
 let savedTheme = null;
 try { savedTheme = localStorage.getItem("voidforge-theme"); } catch(e) {}
 if (savedTheme === "light") {
