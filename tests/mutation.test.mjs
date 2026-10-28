@@ -5,7 +5,7 @@
 // Run: npm ci && node tests/mutation.test.mjs
 import nc from 'node:crypto';
 import fs from 'node:fs';
-import { entropyToMnemonic, validateMnemonic } from '@scure/bip39';
+import { entropyToMnemonic, validateMnemonic, mnemonicToEntropy } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { mnemonicToSeedSync } from '@scure/bip39';
 import { HDKey } from '@scure/bip32';
@@ -26,6 +26,8 @@ const addr = (mn, pw) => {
   return bech32.encode('bc', [0, ...bech32.toWords(ripemd160(nsha(k.publicKey)))]);
 };
 
+const b85At = (mn, pw, words, index) => { const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/83696968'/39'/0'/${words}'/${index}'`);
+  const e = nc.createHmac('sha512', 'bip-entropy-from-k').update(k.privateKey).digest(); return entropyToMnemonic(new Uint8Array(e.subarray(0, words * 4 / 3)), wordlist); };
 const segAt = (mn, pw, chain, i) => { const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/84'/0'/0'/${chain}/${i}`);
   return bech32.encode('bc', [0, ...bech32.toWords(ripemd160(nsha(k.publicKey)))]); };
 const trAt = (mn, pw, chain, i) => { const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/86'/0'/0'/${chain}/${i}`); const xo = k.publicKey.slice(1);
@@ -190,6 +192,41 @@ async function probe(w) {
       [t1, c1] = await CA('', 'bc1qxyz'); if (!/Enter a bc1q/.test(t1) || !/bad/.test(c1)) fails.push('find: rejects text that is not an address');
       $('phrase').value = 'abandon abandon'; [t1] = await CA('', segAt(ABOUT, '', 0, 0)); if (!/valid seed phrase/.test(t1)) fails.push('find: needs a valid phrase');
       $('phrase').value = ABOUT; $('verifyPass').value = ''; $('checkAddr').value = ''; $('addrCheckStatus').textContent = ''; }
+    // SeedQR digit strings, CompactSeedQR hex, and BIP85 child seeds
+    { const V = async (x) => { $('phrase').value = x; await w.verify(); return [$('verifyStatus').textContent.split('\n')[0], $('phrase').value, $('verifyStatus').className]; };
+      const mn24 = entropyToMnemonic(new Uint8Array(32).fill(0x5a), wordlist), dg = (m) => m.split(' ').map((x) => String(wordlist.indexOf(x)).padStart(4, '0')).join('');
+      let [m1, b1, c1] = await V(dg(ABOUT)); if (!/^Valid 12-word BIP39 phrase \(read from a SeedQR digit string\)/.test(m1) || b1 !== ABOUT || !/ok/.test(c1)) fails.push('seedqr: 12-word digit string');
+      [m1, b1] = await V(dg(mn24)); if (!/^Valid 24-word/.test(m1) || b1 !== mn24) fails.push('seedqr: 24-word digit string');
+      [m1, b1] = await V(dg(ABOUT).replace(/(\d{4})/g, '$1 ')); if (b1 !== ABOUT) fails.push('seedqr: digit string with spaces');
+      [m1, b1] = await V(Buffer.from(mnemonicToEntropy(mn24, wordlist)).toString('hex')); if (!/CompactSeedQR hex/.test(m1) || b1 !== mn24) fails.push('seedqr: 24-word compact hex');
+      [m1, b1] = await V('7F'.repeat(16)); if (b1 !== 'legal winner thank year wave sausage worth useful legal winner thank yellow') fails.push('seedqr: 12-word compact hex (capitals)');
+      [m1, b1] = await V(Buffer.from(mnemonicToEntropy(entropyToMnemonic(new Uint8Array(20).fill(0x33), wordlist), wordlist)).toString('hex')); if (!/^Valid 15-word/.test(m1)) fails.push('seedqr: 15-word compact hex (40 characters)');
+      [m1, b1, c1] = await V('2047'.repeat(12)); if (/above 2047/.test(m1)) fails.push('seedqr: 2047 is a valid word number'); 
+      [m1, b1, c1] = await V('2048' + '0000'.repeat(11)); if (!/above 2047/.test(m1) || !/bad/.test(c1)) fails.push('seedqr: number above 2047 rejected');
+      [m1, b1, c1] = await V('0000'.repeat(12)); if (!/Checksum failed/.test(m1) || !/bad/.test(c1)) fails.push('seedqr: bad checksum rejected');
+      [m1, b1] = await V('0000'.repeat(11)); if (!/Invalid length/.test(m1)) fails.push('seedqr: wrong digit count rejected');
+      [m1, b1] = await V('7f'.repeat(15)); if (/^Valid/.test(m1)) fails.push('seedqr: wrong hex length rejected');
+      [m1, b1] = await V(ABOUT); if (m1 !== 'Valid 12-word BIP39 phrase') fails.push('seedqr: plain words unchanged');
+      // BIP85
+      const CH = async (parent, pw, words, idx) => { $('phrase').value = parent; $('verifyPass').value = pw; $('childWords').value = String(words); $('childIndex').value = String(idx); await w.deriveChild();
+        return [$('childOut').textContent.replace(/Child master[\s\S]*$/, '').replace(/^CHILD[^\n]*\n/, '').replace(/\s*\d+\. /g, ' ').trim(), $('childStatus').textContent, $('childStatus').className, $('childOut').textContent]; };
+      let [cw, cs, cc, co] = await CH(ABOUT, '', 12, 0); if (cw !== b85At(ABOUT, '', 12, 0) || !/ok/.test(cc)) fails.push('bip85: child 12 words index 0');
+      [cw] = await CH(ABOUT, '', 18, 7); if (cw !== b85At(ABOUT, '', 18, 7)) fails.push('bip85: child 18 words index 7');
+      [cw] = await CH(mn24, '', 24, 123456); if (cw !== b85At(mn24, '', 24, 123456)) fails.push('bip85: child 24 words');
+      [cw, cs, cc, co] = await CH(ABOUT, 'TREZOR', 12, 1); if (cw !== b85At(ABOUT, 'TREZOR', 12, 1) || !/and passphrase/.test(cs)) fails.push('bip85: passphrase changes the child');
+      [cw] = await CH(ABOUT, '', 12, 2147483647); if (cw !== b85At(ABOUT, '', 12, 2147483647)) fails.push('bip85: largest index works');
+      if ((await w.mnemonicBip85(ABOUT, '', 15, 0)) !== b85At(ABOUT, '', 15, 0) || (await w.mnemonicBip85(ABOUT, '', 21, 3)) !== b85At(ABOUT, '', 21, 3)) fails.push('bip85: 15 and 21 word children');
+      [cw, cs, cc] = await CH(ABOUT, '', 12, 2147483648); if (!/whole number/.test(cs) || !/bad/.test(cc) || $('childOut').textContent !== '') fails.push('bip85: index above the limit rejected');
+      [cw, cs, cc] = await CH(ABOUT, '', 12, 'x1'); if (!/whole number/.test(cs)) fails.push('bip85: non-number index rejected');
+      [cw, cs, cc] = await CH(ABOUT, '', 12, ''); if (!/whole number/.test(cs)) fails.push('bip85: empty index rejected');
+      [cw, cs, cc, co] = await CH(ABOUT, '', 12, 0); { const fpc = co.match(/Child master fingerprint: ([0-9a-f]{8})/), adc = co.match(/Child first receive address \(BIP84\): (bc1q[0-9a-z]+)/);
+        if (!fpc || fpc[1] !== fp(b85At(ABOUT, '', 12, 0), '') || !adc || adc[1] !== addr(b85At(ABOUT, '', 12, 0), '')) fails.push('bip85: child fingerprint and first address shown'); }
+      $('childIndex').dispatchEvent(new w.Event('input')); if ($('childOut').textContent !== '' || $('childOut').style.display !== 'none') fails.push('bip85: output cleared when the index is edited');
+      await CH(ABOUT, '', 12, 0); $('verifyPass').dispatchEvent(new w.Event('input')); if ($('childOut').textContent !== '') fails.push('bip85: output cleared when the passphrase is edited');
+      await CH(ABOUT, '', 12, 0); $('phrase').dispatchEvent(new w.Event('input')); if ($('childOut').textContent !== '') fails.push('bip85: output cleared when the phrase is edited');
+      await CH(ABOUT, '', 12, 0); $('childWords').dispatchEvent(new w.Event('change')); if ($('childOut').textContent !== '') fails.push('bip85: output cleared when the length is changed');
+      [cw, cs, cc] = await CH('abandon abandon', '', 12, 0); if (!/valid parent seed phrase/.test(cs) || !/bad/.test(cc) || $('childOut').textContent !== '') fails.push('bip85: invalid parent rejected');
+      $('childOut').textContent = ''; $('childStatus').textContent = ''; $('verifyPass').value = ''; $('phrase').value = ABOUT; $('verifyStatus').textContent = ''; }
     $('verifyRecorded').value = ''; $('verifyPass').value = ''; }
   r = await run('dice', 12, D50, ''); if (!/Passphrase: none/.test($('genResult').textContent) || !/Passphrase used: NO/.test(w.passLine('printed'))) fails.push('passphrase none line');
   r = await run('dice', 12, D50, 'abc'); if (!/Passphrase: used \(3 characters/.test($('genResult').textContent) || !/Passphrase used: YES/.test(w.passLine('saved'))) fails.push('passphrase used line');
@@ -348,6 +385,38 @@ const M = [
   ['find: invalid phrase not rejected', 'if(!r.ok) return say("bad", "Type a valid seed phrase in the box above first. " + r.msg);', ''],
   ['find: address format not validated', 'if(!kind) return say("bad", "Enter a bc1q... (SegWit) or bc1p... (Taproot) address.");', 'if(false) return say("", "");'],
   ['find: scan position not reset when the address changes', 'for(const id of ["checkAddr","phrase","verifyPass"]) document.getElementById(id).addEventListener("input", resetAddrScan);', ''],
+  ['bip85: wrong application number', 'for(const i of [83696968, 39, 0, words, index])', 'for(const i of [83696968, 32, 0, words, index])'],
+  ['bip85: wrong language', 'for(const i of [83696968, 39, 0, words, index])', 'for(const i of [83696968, 39, 1, words, index])'],
+  ['bip85: wrong root', 'for(const i of [83696968, 39, 0, words, index])', 'for(const i of [83696967, 39, 0, words, index])'],
+  ['bip85: index ignored', 'for(const i of [83696968, 39, 0, words, index])', 'for(const i of [83696968, 39, 0, words, 0])'],
+  ['bip85: length ignored', 'for(const i of [83696968, 39, 0, words, index])', 'for(const i of [83696968, 39, 0, 12, index])'],
+  ['bip85: wrong HMAC key', 'new TextEncoder().encode("bip-entropy-from-k")', 'new TextEncoder().encode("bip-entropy-from-K")'],
+  ['bip85: entropy not truncated from the front', 'e.slice(0, words * 4 / 3)', 'e.slice(64 - words * 4 / 3)'],
+  ['bip85: entropy one byte long', 'e.slice(0, words * 4 / 3)', 'e.slice(0, words * 4 / 3 + 1)'],
+  ['bip85: key bytes not padded', 'fromHex(k.toString(16).padStart(64,"0")));\n  return entropyToMnemonic', 'fromHex(k.toString(16).padStart(62,"0")));\n  return entropyToMnemonic'],
+  ['bip85: 15 words accepted wrongly removed', 'if(![12,15,18,21,24].includes(words)) throw new Error("words must be 12, 15, 18, 21 or 24");', 'if(![12,18,24].includes(words)) throw new Error("words must be 12, 15, 18, 21 or 24");'],
+  ['bip85: index limit off by one', 'index > 2147483647) throw new Error("index must be 0 to 2147483647");', 'index > 2147483646) throw new Error("index must be 0 to 2147483647");'],
+  ['bip85: UI index limit raised', 'parseInt(raw, 10) > 2147483647){ clearChild();', 'parseInt(raw, 10) > 4294967295){ clearChild();'],
+  ['bip85: UI index limit lowered', 'parseInt(raw, 10) > 2147483647){ clearChild();', 'parseInt(raw, 10) > 2147483646){ clearChild();'],
+  ['bip85: UI index not validated', 'if(!/^[0-9]{1,10}$/.test(raw) ||', 'if(false ||'],
+  ['bip85: passphrase ignored', 'const child = await mnemonicBip85(r.mnemonic, vp, words, index);', 'const child = await mnemonicBip85(r.mnemonic, "", words, index);'],
+  ['bip85: parent phrase not checked', 'if(!r.ok){ clearChild(); return say("bad", "Type your valid parent', 'if(false){ clearChild(); return say("bad", "Type your valid parent'],
+  ['bip85: output not cleared when phrase/passphrase/index edited', 'for(const id of ["phrase","verifyPass","childWords","childIndex"]) document.getElementById(id).addEventListener("input", clearChild);', ''],
+  ['bip85: output not cleared when length changed', 'document.getElementById("childWords").addEventListener("change", clearChild);', ''],
+  ['bip85: child fingerprint wrong passphrase', 'const fp = await mnemonicFingerprint(child, ""), a0', 'const fp = await mnemonicFingerprint(child, "x"), a0'],
+  ['bip85: error shown as success', 'say("bad", "The index must be a whole number', 'say("ok", "The index must be a whole number'],
+  ['seedqr: number limit raised', 'if(n > 2047) return {error', 'if(n > 2048) return {error'],
+  ['seedqr: number limit lowered', 'if(n > 2047) return {error', 'if(n > 2046) return {error'],
+  ['seedqr: number limit removed', 'if(n > 2047) return {error', 'if(false) return {error'],
+  ['seedqr: digit string needs the wrong length', 'q.length % 4 === 0 && [12,15,18,21,24].includes(q.length / 4)', 'q.length % 4 === 0'],
+  ['seedqr: only 12 and 24 words', '[12,15,18,21,24].includes(q.length / 4)', '[12,24].includes(q.length / 4)'],
+  ['seedqr: 5-digit groups', 'parseInt(q.slice(i, i + 4), 10)', 'parseInt(q.slice(i, i + 3), 10)'],
+  ['seedqr: hex lengths wrong', '[32,40,48,56,64].includes(q.length)', '[32,64].includes(q.length)'],
+  ['seedqr: hex capitals not accepted', '/^[0-9a-fA-F]+$/.test(q) && [32,40,48,56,64]', '/^[0-9a-f]+$/.test(q) && [32,40,48,56,64]'],
+  ['seedqr: hex capitals not lowered', 'fromHex(q.toLowerCase())', 'fromHex(q)'],
+  ['seedqr: wrong wordlist index', 'words.push(WORDLIST[n]);', 'words.push(WORDLIST[n + 1]);'],
+  ['seedqr: converted words not shown in the box', 'if(r.ok && r.fromCode) document.getElementById("phrase").value = r.mnemonic;', ''],
+  ['seedqr: source not named', ' (read from "+pc.kind+")" : ""', ' (read from)" : ""'],
   ['compare: taproot list only first address', 'ids.tr.some(t => t === ql)', 'ids.tr.slice(0,1).some(t => t === ql)'],
   ['passphrase line: YES/NO swapped (print and download)', '(used ? "YES (keep it separate; it is not " + kind + " here)" : "NO")', '(used ? "NO" : "YES (keep it separate; it is not " + kind + " here)")'],
   ['result line: no-passphrase wording wrong', ': "none"), mnemonic.split(" "));', ': "used"), mnemonic.split(" "));'],

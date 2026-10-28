@@ -58,6 +58,7 @@
     --bad-text: #c0143c;
   }
   body.light textarea,
+  body.light select,
   body.light input[type="text"],
   body.light input[type="password"],
   body.light .result {
@@ -127,7 +128,7 @@
   }
   .radio-group input { display: none; }
   .radio-group input:checked + span { color: var(--accent); font-weight: 600; }
-  textarea, input[type="text"], input[type="password"] {
+  textarea, input[type="text"], input[type="password"], select {
     width: 100%;
     background: #0a0a10;
     border: 1px solid var(--border);
@@ -413,6 +414,7 @@
   <div class="card">
     <h2>4 &middot; CHECK YOUR BACKUP</h2>
     <textarea id="phrase" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Type or paste your seed words to check..."></textarea>
+    <div class="hint" style="margin:4px 0 0;">Also accepts a SeedSigner SeedQR digit string (48 or 96 digits) or CompactSeedQR hex. Type it in; do not scan a real seed QR with a connected phone.</div>
     <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
       <input type="password" id="verifyPass" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Passphrase (only if you used one)" style="flex:1; min-width:0;">
       <button type="button" class="secondary small" onclick="toggleVerifyPassphrase(this)">SHOW</button>
@@ -433,6 +435,18 @@
       <div class="btn-row" style="margin-top:8px;"><button type="button" class="secondary" id="checkAddrBtn" onclick="checkAddress()">CHECK ADDRESS</button></div>
       <div class="status" id="addrCheckStatus" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
     </div>
+    <details id="childBox" style="margin-top:14px;">
+      <summary>Child seed (BIP85)</summary>
+      <p class="hint" style="margin:8px 0;">Makes a brand new seed phrase from the parent words (and passphrase) typed above, for a separate wallet, using the BIP85 standard. The same parent, word count and index always give the same child. <b>The child is as secret as the parent.</b> It is only shown here: there is no copy, save or print for it. Use the same safety steps as for a new seed, and keep the parent safe: if you lose the parent you lose every child.</p>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <select id="childWords" aria-label="Child seed length" style="width:auto; flex:none;"><option value="12">12 words</option><option value="18">18 words</option><option value="24">24 words</option></select>
+        <input type="text" id="childIndex" value="0" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="Child index" placeholder="Index" style="width:90px; flex:none;">
+        <button type="button" class="secondary" id="childBtn" onclick="deriveChild()">DERIVE CHILD SEED</button>
+        <button type="button" class="secondary small" onclick="clearChild()">HIDE</button>
+      </div>
+      <div class="status" id="childStatus" aria-live="polite" style="word-break:break-word; margin-top:8px;"></div>
+      <pre id="childOut" style="display:none; white-space:pre-wrap; word-break:break-word; font-family:'Courier New',monospace; font-size:14px; margin:8px 0 0;"></pre>
+    </details>
   </div>
 
 
@@ -839,6 +853,19 @@ async function taprootChangeFirstFromSeed(seed){
   for(const [i,h] of [[86,true],[0,true],[0,true],[1,false],[0,false]]) [k,c]=await ckdPriv(k,c,i,h);
   return taprootAddress(k);
 }
+// BIP85 child seed (English BIP39 application): entropy = HMAC-SHA512("bip-entropy-from-k", private key at m/83696968'/39'/0'/{words}'/{index}'),
+// cut to 16/20/24/28/32 bytes. The child is a normal seed phrase; the parent (words + passphrase) plus words count and index recreates it.
+async function bip85Mnemonic(k, c, words, index){
+  if(![12,15,18,21,24].includes(words)) throw new Error("words must be 12, 15, 18, 21 or 24");
+  if(!Number.isInteger(index) || index < 0 || index > 2147483647) throw new Error("index must be 0 to 2147483647");
+  for(const i of [83696968, 39, 0, words, index]) [k,c]=await ckdPriv(k,c,i,true);
+  const e = await hmac512(new TextEncoder().encode("bip-entropy-from-k"), fromHex(k.toString(16).padStart(64,"0")));
+  return entropyToMnemonic(e.slice(0, words * 4 / 3));
+}
+async function mnemonicBip85(mnemonic, passphrase, words, index){
+  const [k,c] = await masterFromSeed(await mnemonicToSeed(mnemonic, passphrase));
+  return bip85Mnemonic(k, c, words, index);
+}
 async function mnemonicTaproot(mnemonic, passphrase, n){ return taprootAddressesFromSeed(await mnemonicToSeed(mnemonic, passphrase), n); }
 // Is this address one of the wallet's? Looks at `count` indices from `from` on both the receive (0) and change (1) chains.
 // A bc1q address is searched as SegWit (BIP84), a bc1p address as Taproot (BIP86). Returns {chain, index, path} or null.
@@ -1053,7 +1080,26 @@ async function rollsToMnemonic(rolls, wc){
   const digest = await sha256(rolls);
   return entropyToMnemonic(digest.slice(0, entLen));
 }
+// SeedSigner formats typed into VERIFY. A standard SeedQR is each word's number (0000 to 2047) as 4 digits, in order (48 digits for
+// 12 words, 96 for 24). A CompactSeedQR is the raw entropy, which scanner apps show as hex (32 or 64 characters for 12 or 24 words).
+async function phraseFromCode(raw){
+  const q = (raw || "").replace(/\s+/g, "");
+  if(/^[0-9]+$/.test(q) && q.length % 4 === 0 && [12,15,18,21,24].includes(q.length / 4)){
+    const words = [];
+    for(let i = 0; i < q.length; i += 4){
+      const n = parseInt(q.slice(i, i + 4), 10);
+      if(n > 2047) return {error:"Not a SeedQR digit string: the number " + q.slice(i, i + 4) + " is above 2047."};
+      words.push(WORDLIST[n]);
+    }
+    return {words:words.join(" "), kind:"a SeedQR digit string"};
+  }
+  if(/^[0-9a-fA-F]+$/.test(q) && [32,40,48,56,64].includes(q.length)) return {words:await entropyToMnemonic(fromHex(q.toLowerCase())), kind:"CompactSeedQR hex"};
+  return null;
+}
 async function checkPhrase(phrase){
+  const pc = await phraseFromCode(phrase);
+  if(pc && pc.error) return {ok:false, msg:pc.error};
+  if(pc) phrase = pc.words;
   const words = phrase.trim().toLowerCase().split(/\s+/).filter(Boolean);
   if(![12,15,18,21,24].includes(words.length)) return {ok:false, msg:"Invalid length"};
   for(const w of words){ if(!(w in WORD_MAP)) return {ok:false, msg:"Unknown word: "+w}; }
@@ -1064,7 +1110,7 @@ async function checkPhrase(phrase){
   for(let i=0;i<eBytes.length;i++) eBytes[i]=parseInt(bits.slice(i*8,(i+1)*8),2);
   const h = new Uint8Array(await crypto.subtle.digest("SHA-256", eBytes));
   if(bits.slice(eBits)!==bytesToBits(h).slice(0,cLen)) return {ok:false, msg:"Checksum failed"};
-  return {ok:true, msg:"Valid "+words.length+"-word BIP39 phrase", mnemonic:words.join(" ")};
+  return {ok:true, msg:"Valid "+words.length+"-word BIP39 phrase"+(pc ? " (read from "+pc.kind+")" : ""), mnemonic:words.join(" "), fromCode:!!pc};
 }
 
 // SELF-TEST button: first press shows the results, second press hides them
@@ -1131,6 +1177,12 @@ async function runSelfTests(auto){
   eq("RIPEMD-160 'message digest'", ()=>rmd("message digest"),"5d0689ef49d2fae572b881b123a85ffa21595f36");
   eq("RIPEMD-160 'a' x 100", ()=>rmd("a".repeat(100)),"fdcd0faf7faa5b59f4b5757dc8bc901091880461");
   // phrase checker
+  { const BK=BigInt("0x3f15e5d852dc2e9ba5e9fe189a8dd2e1547badef5b563bbe6579fc6807d80ed9"), BC=fromHex("1b67969d1ec69bdfeeae43213da8460ba34b92d0788c8f7bfcfa44906e8a589c");
+    eq("BIP85 child seed, 12 words (published BIP85 vector)", ()=>bip85Mnemonic(BK,BC,12,0),"girl mad pet galaxy egg matter matrix prison refuse sense ordinary nose");
+    eq("BIP85 child seed, 18 words (published BIP85 vector)", ()=>bip85Mnemonic(BK,BC,18,0),"near account window bike charge season chef number sketch tomorrow excuse sniff circle vital hockey outdoor supply token");
+    eq("BIP85 child seed, 24 words (published BIP85 vector)", ()=>bip85Mnemonic(BK,BC,24,0),"puppy ocean match cereal symbol another shed magic wrap hammer bulb intact gadget divorce twin tonight reason outdoor destroy simple truth cigar social volcano"); }
+  eq("SeedQR digit string -> words ('abandon..about' = 0000 x11 + 0003)", async()=>(await checkPhrase("0000".repeat(11)+"0003")).mnemonic, "abandon ".repeat(11)+"about");
+  eq("CompactSeedQR hex -> words (BIP39 vector 7f x16)", async()=>(await checkPhrase("7f".repeat(16))).mnemonic, "legal winner thank year wave sausage worth useful legal winner thank yellow");
   eq("checkPhrase accepts valid", async()=>(await checkPhrase("abandon ".repeat(11)+"about")).ok, true);
   eq("checkPhrase rejects bad checksum", async()=>(await checkPhrase("abandon ".repeat(12))).ok, false);
   eq("checkPhrase rejects unknown word", async()=>(await checkPhrase("abandon ".repeat(11)+"zzzz")).ok, false);
@@ -1372,6 +1424,30 @@ async function checkAddress(range){
   } catch(e) { say("bad", "Could not check: " + e.message); }
   finally { btn.disabled = false; }
 }
+// "Child seed (BIP85)": derives a new seed phrase from the typed parent words (and passphrase). Shown on screen only; nothing is copied or saved.
+function clearChild(){
+  const o = document.getElementById("childOut"); o.textContent = ""; o.style.display = "none";
+  const t = document.getElementById("childStatus"); t.textContent = ""; t.className = "status";
+}
+async function deriveChild(){
+  if(!gateOk()) return;
+  const say = (cls, t) => { const t0 = document.getElementById("childStatus"); t0.className = "status " + cls; t0.textContent = t; };
+  const r = await checkPhrase(document.getElementById("phrase").value);
+  if(!r.ok){ clearChild(); return say("bad", "Type your valid parent seed phrase in the box above first. " + r.msg); }
+  const words = parseInt(document.getElementById("childWords").value, 10), raw = document.getElementById("childIndex").value.trim();
+  if(!/^[0-9]{1,10}$/.test(raw) || parseInt(raw, 10) > 2147483647){ clearChild(); return say("bad", "The index must be a whole number from 0 to 2147483647."); }
+  const index = parseInt(raw, 10), vp = document.getElementById("verifyPass").value;
+  try {
+    const child = await mnemonicBip85(r.mnemonic, vp, words, index);
+    const fp = await mnemonicFingerprint(child, ""), a0 = await mnemonicFirstAddress(child, "");
+    const ws = child.split(" "), rows = [];
+    for(let i = 0; i < ws.length; i += 3) rows.push(ws.slice(i, i + 3).map((w, j) => (String(i + j + 1).padStart(2, " ") + ". " + w).padEnd(16, " ")).join("").trimEnd());
+    const o = document.getElementById("childOut");
+    o.textContent = "CHILD SEED (BIP85, English, " + words + " words, index " + index + ")\n\n" + rows.join("\n") + "\n\nChild master fingerprint: " + fp + "\nChild first receive address (BIP84): " + a0;
+    o.style.display = "";
+    say("ok", "Child seed " + index + " derived from the parent words" + (vp ? " and passphrase" : "") + ". It is a normal seed with no passphrase. Write down the parent, the word count and the index; that recreates it. Anyone who has the parent can recreate every child.");
+  } catch(e) { clearChild(); say("bad", "Could not derive the child seed: " + e.message); }
+}
 function toggleVerifyPassphrase(btn){
   const el = document.getElementById("verifyPass");
   const show = el.type === "password";
@@ -1494,6 +1570,7 @@ async function verify(){
   const r = await checkPhrase(document.getElementById("phrase").value);
   st.className = "status " + (r.ok ? "ok" : "bad");
   st.textContent = r.msg;
+  if(r.ok && r.fromCode) document.getElementById("phrase").value = r.mnemonic;
   document.getElementById("verifyMatch").textContent = ""; document.getElementById("verifyMatch").className = "status";
   if(r.ok){
     const vp = document.getElementById("verifyPass").value, lines = [r.msg];
@@ -1525,6 +1602,8 @@ function toggleTheme() {
   try { localStorage.setItem("voidforge-theme", isLight ? "light" : "dark"); } catch(e) {}
 }
 for(const id of ["checkAddr","phrase","verifyPass"]) document.getElementById(id).addEventListener("input", resetAddrScan);
+for(const id of ["phrase","verifyPass","childWords","childIndex"]) document.getElementById(id).addEventListener("input", clearChild);
+document.getElementById("childWords").addEventListener("change", clearChild);
 let savedTheme = null;
 try { savedTheme = localStorage.getItem("voidforge-theme"); } catch(e) {}
 if (savedTheme === "light") {
@@ -1571,6 +1650,7 @@ function setGate(state, text, cls){
   document.getElementById("forgeBtn").disabled = !on;
   document.getElementById("verifyBtn").disabled = !on;
   document.getElementById("checkAddrBtn").disabled = !on;
+  document.getElementById("childBtn").disabled = !on;
 }
 window.selfTestDone = (async function(){
   if(!CRYPTO_OK){

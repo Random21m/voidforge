@@ -42,6 +42,19 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     [tx,cl]=await C('hello',4); ok(/Enter a bc1q/.test(tx),'address finder: rejects text that is not an address');
     t.$('phrase').value='abandon abandon'; [tx,cl]=await C('bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu',4); ok(/valid seed phrase/.test(tx),'address finder: needs a valid phrase');
     t.$('phrase').value=''; t.$('checkAddr').value=''; t.$('addrCheckStatus').textContent=''; }
+  // SeedQR / CompactSeedQR input and BIP85 child seeds
+  { const AB='abandon '.repeat(11)+'about'; const V=async x=>{ t.$('phrase').value=x; await t.w.verify(); return [t.$('verifyStatus').textContent.split('\n')[0], t.$('phrase').value]; };
+    let [m,box]=await V('0000'.repeat(11)+'0003'); ok(/^Valid 12-word BIP39 phrase \(read from a SeedQR digit string\)/.test(m)&&box===AB,'VERIFY reads a SeedQR digit string and shows the words');
+    [m,box]=await V('7f'.repeat(16)); ok(/CompactSeedQR hex/.test(m)&&box==='legal winner thank year wave sausage worth useful legal winner thank yellow','VERIFY reads CompactSeedQR hex and shows the words');
+    [m]=await V('2048'+'0000'.repeat(11)); ok(/above 2047/.test(m),'SeedQR number above 2047 is rejected');
+    [m]=await V('0000'.repeat(12)); ok(/Checksum failed/.test(m),'SeedQR with a bad checksum is rejected');
+    [m]=await V(AB); ok(/^Valid 12-word BIP39 phrase$/.test(m),'plain words still verify as before');
+    t.$('phrase').value=AB; t.$('verifyPass').value=''; t.$('childWords').value='12'; t.$('childIndex').value='0';
+    await t.w.deriveChild(); ok(/prosper short ramp prepare exchange stove life snack client enough purpose fold/.test(t.$('childOut').textContent.replace(/\s+/g,' ').replace(/\d+\. /g,'')),'BIP85 child seed 0 (12 words) for abandon..about');
+    t.$('childIndex').value='abc'; await t.w.deriveChild(); ok(/whole number/.test(t.$('childStatus').textContent)&&t.$('childOut').textContent==='','BIP85 rejects a bad index and clears the output');
+    t.$('childIndex').value='0'; await t.w.deriveChild(); t.$('childIndex').dispatchEvent(new t.w.Event('input')); ok(t.$('childOut').textContent==='','BIP85 output is cleared when the index is edited');
+    t.$('phrase').value='abandon abandon'; await t.w.deriveChild(); ok(/valid parent seed phrase/.test(t.$('childStatus').textContent),'BIP85 needs a valid parent phrase');
+    t.$('phrase').value=''; t.$('childOut').textContent=''; t.$('childStatus').textContent=''; t.$('verifyStatus').textContent=''; }
   // SELF-TEST button toggles: press again hides the results without CLEAR
   t.w.toggleSelfTests();
   ok(t.$('testResults').textContent==='','SELF-TEST button: press while results are shown hides them');

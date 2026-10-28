@@ -145,6 +145,29 @@ for (const bytes of [16, 24, 32]) for (let i = 0; i < 10; i++) {
 }
 R.ok(bad === 0, `${n} random phrases: all five Taproot (BIP86) addresses match the independent libraries (${bad} mismatches)`);
 
+// 2e. SeedQR digit strings / CompactSeedQR hex / BIP85 child seeds against independent code
+import { mnemonicToEntropy } from '@scure/bip39';
+bad = 0; n = 0;
+for (const bytes of [16, 20, 24, 28, 32]) for (let i = 0; i < 8; i++) {
+  const mn = entropyToMnemonic(new Uint8Array(nc.randomBytes(bytes)), wordlist);
+  const digits = mn.split(' ').map((x) => String(wordlist.indexOf(x)).padStart(4, '0')).join('');
+  const hexe = Buffer.from(mnemonicToEntropy(mn, wordlist)).toString('hex');
+  n++;
+  if ((await w.checkPhrase(digits)).mnemonic !== mn) { bad++; console.log('SEEDQR DIGITS MISMATCH', mn); }
+  if (!/^\d+$/.test(hexe) && (await w.checkPhrase(hexe)).mnemonic !== mn) { bad++; console.log('SEEDQR HEX MISMATCH', mn); }
+}
+R.ok(bad === 0, `${n} random phrases: SeedQR digit strings and CompactSeedQR hex read back to the same words (${bad} mismatches)`);
+const b85 = (mn, pw, words, index) => { const k = HDKey.fromMasterSeed(mnemonicToSeedSync(mn, pw)).derive(`m/83696968'/39'/0'/${words}'/${index}'`);
+  const e = nc.createHmac('sha512', 'bip-entropy-from-k').update(k.privateKey).digest(); return entropyToMnemonic(new Uint8Array(e.subarray(0, words * 4 / 3)), wordlist); };
+bad = 0; n = 0;
+for (const bytes of [16, 24, 32]) for (let i = 0; i < 5; i++) {
+  const mn = entropyToMnemonic(new Uint8Array(nc.randomBytes(bytes)), wordlist), pw = PASS[nc.randomInt(PASS.length)];
+  for (const words of [12, 15, 18, 21, 24]) for (const index of [0, 1, nc.randomInt(100000), 2147483647]) {
+    n++; if ((await w.mnemonicBip85(mn, pw, words, index)) !== b85(mn, pw, words, index)) { bad++; console.log('BIP85 MISMATCH', words, index); }
+  }
+}
+R.ok(bad === 0, `${n} BIP85 child seeds (all lengths, odd passphrases, edge indexes) match the independent libraries (${bad} mismatches)`);
+
 // 3. phrase checker agrees with @scure on valid, corrupted, and random phrases
 bad = 0; n = 0;
 for (let i = 0; i < 300; i++) {
