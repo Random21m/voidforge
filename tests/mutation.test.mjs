@@ -739,7 +739,7 @@ const M = [
   ["seedqr: level L uses the M table", "spec.level===\"L\"?QR_L:QR_M", "spec.level===\"L\"?QR_M:QR_M"],
   ["seedqr: format bits for level L wrong", "eccBits=spec.level===\"L\"?1:0", "eccBits=spec.level===\"L\"?0:0"],
   ["seedqr: numeric mode flag inverted", "numeric=spec.mode===\"numeric\"", "numeric=spec.mode!==\"numeric\""],
-  ["seedqr: numeric bits per 3 digits wrong", "Math.floor(digits.length/3)*10+", "Math.floor(digits.length/3)*9+"],
+  ["seedqr: numeric bits per 3 digits wrong", "Math.floor(digits.length/3)*10+", "Math.floor(digits.length/3)*8+"],
   ["seedqr: numeric bits for a leftover pair wrong", "[0,4,7][digits.length%3]", "[0,4,8][digits.length%3]"],
   ["seedqr: numeric bits for a leftover digit wrong", "[0,4,7][digits.length%3]", "[0,3,7][digits.length%3]"],
   ["seedqr: numeric count field too short", "(numeric?(v<10?10:12)", "(numeric?(v<10?9:12)"],
