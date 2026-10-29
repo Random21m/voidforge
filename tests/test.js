@@ -341,6 +341,9 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     t.w.toggleGuide(); ok(!t.d.querySelector('.gh')&&!B.classList.contains('guided'),'turning the guide off shows everything again');
     const terms=[...t.d.querySelectorAll('.term')]; ok(terms.length>=6&&terms.every(e=>e.tabIndex===0&&e.dataset.tip.length>40),'explained words are focusable and have a plain explanation');
     t.w.toggleSize(); ok(B.classList.contains('big'),'TEXT A+ enlarges the page'); t.w.toggleSize(); ok(!B.classList.contains('big'),'TEXT A- restores it'); }
+  { ok(t.$('logo').querySelectorAll('svg').length===3&&t.$('logo').tabIndex===0,'logo is three dice and can be reached by keyboard'); t.w.rollLogo(); ok(t.$('logo').classList.contains('again'),'tapping the logo rolls the dice again'); t.w.rollLogo();
+    t.$('demoOn').checked=true; t.$('rolls').value='3141'; await t.w.demoRefresh(); ok(t.d.querySelectorAll('#demoGrid .dm-w').length===12&&/NOT your seed/.test(t.$('demoOut').textContent),'demo shows 12 labelled demo words');
+    t.w.demoOff(); ok(!t.d.querySelector('#demoGrid .dm-w')&&t.$('demoOut').style.display==='none','demo wipes when switched off'); t.$('rolls').value=''; }
   { let threw=false; try{ await t.w.rollsToMnemonic('1'.repeat(62),15);}catch(e){threw=true;} ok(threw,'15-word generation is rejected'); }
   ok(/Recovery notes/.test(html)&&/move the funds/.test(html),'changelog has recovery notes for removed modes');
   ok((await t.w.checkPhrase('abandon '.repeat(14)+'address')).ok,'VERIFY still accepts 15-word phrases from other tools');

@@ -74,9 +74,10 @@
   body.light button {
     color: #ffffff;
   }
-  body.light button.secondary, body.light .theme-toggle, body.light .print-btn {
+  body.light button.secondary, body.light .theme-toggle, body.light .print-btn, body.light .guide-btn, body.light .size-btn {
     color: var(--text);
   }
+  body.light .guide-btn.on { color: #fff; }
   body.light .entropy-bar {
     background: #e5e7eb;
   }
@@ -345,6 +346,22 @@
   #guideWhy { font-size: 12px; color: var(--muted); min-height: 16px; }
   body.guided .gh { display: none !important; }
   @media print { body.big { zoom: 1; } .guide-btn, .size-btn, #guidePanel, #guideNew, #tipBox { display: none !important; } }
+
+  .logo { display: inline-flex; align-items: center; justify-content: center; gap: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
+  .logo svg { width: 58px; height: 58px; display: block; margin: 0 -2px; transform: rotate(var(--tilt, 0deg)); animation: dieRoll 1.4s cubic-bezier(.2,.8,.3,1) both; animation-delay: var(--dl, 0s); }
+  .logo.again svg { animation-name: dieRoll2; }
+  .logo:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 12px; }
+  @keyframes dieRoll { 0% { transform: translateY(-38px) rotate(calc(var(--tilt, 0deg) - 540deg)) scale(.6); opacity: 0; } 40% { opacity: 1; } 68% { transform: translateY(0) rotate(calc(var(--tilt, 0deg) + 26deg)) scale(1.07); } 84% { transform: translateY(-7px) rotate(calc(var(--tilt, 0deg) - 9deg)) scale(1); } 100% { transform: translateY(0) rotate(var(--tilt, 0deg)) scale(1); opacity: 1; } }
+  @keyframes dieRoll2 { 0% { transform: translateY(-38px) rotate(calc(var(--tilt, 0deg) - 540deg)) scale(.6); opacity: 0; } 40% { opacity: 1; } 68% { transform: translateY(0) rotate(calc(var(--tilt, 0deg) + 26deg)) scale(1.07); } 84% { transform: translateY(-7px) rotate(calc(var(--tilt, 0deg) - 9deg)) scale(1); } 100% { transform: translateY(0) rotate(var(--tilt, 0deg)) scale(1); opacity: 1; } }
+  #demoBox { margin-top: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+  #demoBox summary { cursor: pointer; font-weight: 600; }
+  #demoBox summary small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+  .demo-ban { background: var(--danger); color: #000; font-weight: 700; font-size: 12px; text-align: center; padding: 6px 8px; border-radius: 8px; margin: 8px 0; letter-spacing: .3px; }
+  #demoGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; margin-top: 6px; opacity: .9; }
+  @media (min-width: 520px) { #demoGrid { grid-template-columns: repeat(3, 1fr); } }
+  .dm-w { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; padding: 4px 8px; border: 1px dashed var(--border); border-radius: 6px; color: var(--muted); }
+  .dm-ch { border-color: var(--accent); color: var(--text); }
+  @media print { #demoBox { display: none !important; } }
 </style>
 </head>
 <body>
@@ -364,8 +381,16 @@
     <div id="selfTestBadge" role="status"></div>
   </div>
   <header>
-    <div class="logo">
-      <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+    <div class="logo" id="logo" role="button" tabindex="0" aria-label="Three dice. Press to roll them again." title="Roll the dice" onclick="rollLogo()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();rollLogo();}">
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true" style="--tilt:-12deg; --dl:0.12s">
+        <rect x="8" y="8" width="56" height="56" rx="10" fill="url(#face)" stroke="url(#grad)" stroke-width="2.5"/>
+        <rect x="8" y="8" width="56" height="8" rx="10" fill="#00f0ff" opacity="0.15"/>
+        <circle cx="22" cy="22" r="4.5" fill="#00f0ff"/>
+        <circle cx="36" cy="36" r="5" fill="#ff00aa"/>
+        <circle cx="50" cy="50" r="4.5" fill="#00f0ff"/>
+        <rect x="12" y="12" width="48" height="48" rx="6" stroke="url(#grad)" stroke-width="0.5" opacity="0.3" fill="none"/>
+      </svg>
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true" style="--tilt:3deg; --dl:0s">
         <defs>
           <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="#00f0ff"/>
@@ -376,17 +401,24 @@
             <stop offset="100%" stop-color="#0a0a14"/>
           </linearGradient>
         </defs>
-        <!-- Dice body with rounded corners and slight 3D feel -->
         <rect x="8" y="8" width="56" height="56" rx="10" fill="url(#face)" stroke="url(#grad)" stroke-width="2.5"/>
-        <!-- Top highlight for 3D effect -->
         <rect x="8" y="8" width="56" height="8" rx="10" fill="#00f0ff" opacity="0.15"/>
-        <!-- Dice pips (5-face style) -->
         <circle cx="22" cy="22" r="4.5" fill="#00f0ff"/>
         <circle cx="50" cy="22" r="4.5" fill="#00f0ff"/>
         <circle cx="36" cy="36" r="5" fill="#ff00aa"/>
         <circle cx="22" cy="50" r="4.5" fill="#00f0ff"/>
         <circle cx="50" cy="50" r="4.5" fill="#00f0ff"/>
-        <!-- Subtle inner glow -->
+        <rect x="12" y="12" width="48" height="48" rx="6" stroke="url(#grad)" stroke-width="0.5" opacity="0.3" fill="none"/>
+      </svg>
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true" style="--tilt:11deg; --dl:0.24s">
+        <rect x="8" y="8" width="56" height="56" rx="10" fill="url(#face)" stroke="url(#grad)" stroke-width="2.5"/>
+        <rect x="8" y="8" width="56" height="8" rx="10" fill="#00f0ff" opacity="0.15"/>
+        <circle cx="24" cy="22" r="4.5" fill="#00f0ff"/>
+        <circle cx="48" cy="22" r="4.5" fill="#00f0ff"/>
+        <circle cx="24" cy="36" r="4.5" fill="#ff00aa"/>
+        <circle cx="48" cy="36" r="4.5" fill="#ff00aa"/>
+        <circle cx="24" cy="50" r="4.5" fill="#00f0ff"/>
+        <circle cx="48" cy="50" r="4.5" fill="#00f0ff"/>
         <rect x="12" y="12" width="48" height="48" rx="6" stroke="url(#grad)" stroke-width="0.5" opacity="0.3" fill="none"/>
       </svg>
     </div>
@@ -422,7 +454,7 @@
       <div class="gstep" data-gs="1"><h3>Choose how your seed is made</h3>
         <p>Your wallet starts as a very large random number. Real dice (or a coin) are how you create it yourself, instead of trusting a computer to pick it. First choose the length: <b>12 words</b> is strong enough for almost everyone and needs about 50 dice rolls. <b>24 words</b> is the longest option and needs about 99 rolls. Then choose <b>dice</b> (easier for most people) or <b>coin</b> (many more flips).</p></div>
       <div class="gstep" data-gs="2"><h3>Roll your dice</h3>
-        <p>Roll a real die, then tap the number it shows. Do not make numbers up: people are bad at being random, and the whole point is that nobody could guess your rolls. You need <b id="gNeed">50</b> <span id="gUnit">rolls</span>. The bar fills as you go, and NEXT unlocks when you have enough. Make sure nobody can see your screen.</p></div>
+        <p>Roll a real die, then tap the number it shows. Do not make numbers up: people are bad at being random, and the whole point is that nobody could guess your rolls. You need <b id="gNeed">50</b> <span id="gUnit">rolls</span>. The bar fills as you go, and NEXT unlocks when you have enough. Curious how rolls become words? Try the demo switch below the bar. Make sure nobody can see your screen.</p></div>
       <div class="gstep" data-gs="3"><h3>Optional: add a passphrase</h3>
         <p>A <span class="term" tabindex="0" data-tip="An extra secret you choose. The same twelve words with a different passphrase give a completely different wallet. If you forget it, the money cannot be recovered.">passphrase</span> is an extra secret that makes a different wallet from the same words. It protects you if someone finds your paper, but if you lose it the funds are gone for good. <b>If you are not sure, skip this step.</b> You can always make another seed later.</p></div>
       <div class="gstep" data-gs="4"><h3>Forge the seed and write it down</h3>
@@ -451,6 +483,16 @@
     <div id="entropyStatus" data-g="2" style="font-size:12px; margin-top:4px; font-weight:600;"></div>
     <div id="bitsNote" data-g="2" style="font-size:12px; margin-top:4px; color:var(--muted);"></div>
     <div id="ignoredNote" data-g="2" style="font-size:12px; margin-top:4px; font-weight:600; color:var(--danger);"></div>
+    <details id="demoBox" data-g="2">
+      <summary>Watch the words change (demo only)<small>See why one different roll changes every word.</small></summary>
+      <p class="hint" style="margin:8px 0 0;">Curious how rolls turn into words? Switch this on and add rolls: the demo words below are re-made after every roll, and you will see that <b>one new roll changes every word</b>. That scrambling is why nobody can work backwards from the words to your rolls. These words are made from your rolls plus a demo tag, so they are <b>never your real seed</b>. They are not saved, printed or carried into FORGE.</p>
+      <label style="display:flex; gap:8px; align-items:center; margin-top:8px; font-weight:600;"><input type="checkbox" id="demoOn" onchange="demoToggle()"> Show the demo</label>
+      <div id="demoOut" style="display:none;">
+        <div class="demo-ban">DEMO ONLY: these are NOT your seed words. Do not write them down.</div>
+        <div id="demoInfo" class="hint" aria-live="polite" style="margin:0;"></div>
+        <div id="demoGrid" aria-label="Demo words, not your seed"></div>
+      </div>
+    </details>
     <details id="advanced" data-g="3">
       <summary id="advSummary">Advanced options (passphrase, note)</summary>
       <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
@@ -729,6 +771,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.19.4</b> &mdash; Two friendly additions. (1) The logo is now <b>three rolling dice</b> that tumble in and roll again when you tap them (still on the same look, and still when your device asks for reduced motion). (2) <b>Watch the words change (demo only)</b>, an optional switch under the roll counter: as you add rolls it shows demo words that scramble completely with every roll, so you can see why one wrong roll gives a different wallet. The demo words are made with a demo tag, so they are never your real seed; they are labelled NOT YOUR SEED, wiped when you switch it off, clear or forge, and never printed or saved. Also fixed: the GUIDE ME and TEXT A+ buttons were hard to read in the light theme. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.3.</li>
         <li><b>1.19.3</b> &mdash; Easier for first-time users. <b>GUIDE ME</b> (top left) walks you through making a seed one screen at a time: choose the length and method, roll, optional passphrase, FORGE and write down, then check and back up. Each step explains why, and NEXT stays locked until the step is done. Underlined words (passphrase, fingerprint, zpub, descriptor, watch-only) show a plain-language explanation when you hover, tap or focus them. <b>TEXT A+</b> makes everything larger. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.2.</li>
         <li><b>1.19.2</b> &mdash; Two additions after FORGE. (1) <b>How your seed was made</b> (marked SECRET, closed by default): shows every step from your typed rolls to the words, in five plain-language steps with the real numbers (the SHA-256 result, the raw entropy, the checksum bits, and each 11-bit piece with its word number), and checks itself against the words above. It never shows your passphrase. (2) A redesigned <b>printed backup sheet</b>: numbered boxes for the words, the fingerprint and first address, the passphrase-used line, and fields to fill in, laid out for a clean paper copy. Printing still asks you to confirm first. Self-test is now 66 checks. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.1.</li>
         <li><b>1.19.1</b> &mdash; A new <b>Browser safety checklist</b> in About &amp; docs: eight short habits (go offline first, a clean browser window, translation, clipboard history, print and PDF copies, downloads, and restarting afterwards), each with the reason. Releases now also carry a <code>CID.txt</code>, a second way to check that your download is the right file. Seeds, fingerprints, addresses, keys, descriptors and every check are identical to v1.19.0.</li>
@@ -769,7 +812,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.19.3 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.19.4 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -877,6 +920,7 @@ function renderRollChart(rolls, isCoin){
 }
 function updateCount(){
   if(guideOn) guideRender();
+  if(document.getElementById("demoOn").checked) demoRefresh();
   const n = clean(document.getElementById("rolls").value).length;
   const wc = document.querySelector('input[name="words"]:checked').value;
   const need = getNeeded(wc);
@@ -2184,6 +2228,7 @@ function updateAbbrNote(){
   document.getElementById("abbrNote").textContent = (abbrOn && hasSeed()) ? "Showing only the first 4 letters of each word. The full words are still your backup; write down full words unless your backup method uses 4-letter abbreviations." : "";
 }
 function setResult(text, words){
+  demoOff();
   const g = document.getElementById("genResult"), grid = document.getElementById("wordGrid");
   g.textContent = text; grid.textContent = "";
   hideExplain(); { const eb = document.getElementById("explainBox"); eb.style.display = (words && [12,24].includes(words.length)) ? "" : "none"; eb.open = false; }
@@ -2508,6 +2553,35 @@ try { if(localStorage.getItem("voidforge-big") === "1") toggleSize(); } catch(e)
   document.addEventListener("keydown", e => { if(e.key === "Escape") hide(); });
   document.addEventListener("touchstart", e => { if(!term(e)) hide(); }, {passive:true});
 })();
+// ---- Rolling-dice logo and the "watch the words change" demo (v1.19.4). Display only: the demo words use a demo tag, so they are never the real seed. ----
+let demoSeq = 0, demoPrev = null;
+function rollLogo(){ document.getElementById("logo").classList.toggle("again"); }
+async function demoWordsFor(rolls, wc){
+  const entLen = {12:16,24:32}[wc];
+  const d = await sha256("VOIDFORGE DEMO, NOT A SEED|" + rolls);
+  return (await entropyToMnemonic(d.slice(0, entLen))).split(" ");
+}
+function demoWipe(){
+  demoSeq++; demoPrev = null;
+  document.getElementById("demoGrid").textContent = ""; document.getElementById("demoInfo").textContent = "";
+  document.getElementById("demoOut").style.display = "none";
+}
+function demoOff(){ document.getElementById("demoOn").checked = false; demoWipe(); }
+function demoToggle(){ if(!document.getElementById("demoOn").checked) demoWipe(); return demoRefresh(); }
+async function demoRefresh(){
+  if(!document.getElementById("demoOn").checked){ demoWipe(); return; }
+  const my = ++demoSeq, out = document.getElementById("demoOut"), info = document.getElementById("demoInfo"), grid = document.getElementById("demoGrid");
+  const rolls = clean(document.getElementById("rolls").value), wc = +document.querySelector('input[name="words"]:checked').value;
+  out.style.display = "";
+  if(!rolls){ grid.textContent = ""; demoPrev = null; info.textContent = "Add a roll to see the demo words."; return; }
+  const words = await demoWordsFor(rolls, wc);
+  if(my !== demoSeq) return;
+  const prev = demoPrev && demoPrev.length === words.length ? demoPrev : null;
+  let changed = 0; grid.textContent = "";
+  words.forEach((w, i) => { const c = document.createElement("div"), ch = !!prev && prev[i] !== w; if(ch) changed++; c.className = "dm-w" + (ch ? " dm-ch" : ""); c.textContent = (i + 1) + ". " + w; grid.appendChild(c); });
+  demoPrev = words;
+  info.textContent = prev ? changed + " of " + words.length + " words changed with your last roll." : "These words come from your " + rolls.length + " roll" + (rolls.length === 1 ? "" : "s") + " so far. Add another and watch.";
+}
 // Reached only if the whole script parsed and ran: hide the "script is not running" notice.
 document.getElementById("noJs").style.display = "none";
 

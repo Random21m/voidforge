@@ -390,6 +390,35 @@ async function probe(w) {
     w.toggleSize(); if (B.classList.contains('big') || $('sizeBtn').getAttribute('aria-pressed') !== 'false') fails.push('text size: A- goes back');
     w.confirm = () => true;
   } catch (e) { fails.push('guide: the probe crashed: ' + e.message); }
+  try { // rolling-dice logo and the demo words
+    const demoOf = (r, n) => entropyToMnemonic(sha('VOIDFORGE DEMO, NOT A SEED|' + r).slice(0, n * 4 / 3), wordlist).split(' ');
+    const cells = () => [...w.document.querySelectorAll('#demoGrid .dm-w')].map(e => e.textContent), setRolls = (v) => { $('rolls').value = v; $('rolls').oninput(); };
+    w.clearAll(); await new Promise(r => setTimeout(r, 20)); mode('dice'); words(12);
+    if ($('demoOn').checked || $('demoOut').style.display !== 'none' || cells().length) fails.push('demo: off and empty by default');
+    $('demoOn').checked = true; await w.demoToggle();
+    if ($('demoOut').style.display !== '' || cells().length || !/Add a roll/.test($('demoInfo').textContent) || !/NOT your seed words/.test($('demoOut').textContent)) fails.push('demo: with no rolls it asks for one and shows the NOT YOUR SEED banner');
+    setRolls(D50.slice(0, 7)); await w.demoRefresh();
+    const e1 = demoOf(D50.slice(0, 7), 12); if (cells().join('|') !== e1.map((x, i) => (i + 1) + '. ' + x).join('|') || !/from your 7 rolls so far/.test($('demoInfo').textContent)) fails.push('demo: words are the tagged hash of the rolls');
+    setRolls(D50.slice(0, 8)); await w.demoRefresh();
+    const e2 = demoOf(D50.slice(0, 8), 12), nch = e2.filter((x, i) => x !== e1[i]).length, marked = w.document.querySelectorAll('#demoGrid .dm-ch').length;
+    if (cells().join('|') !== e2.map((x, i) => (i + 1) + '. ' + x).join('|') || $('demoInfo').textContent !== nch + ' of 12 words changed with your last roll.' || marked !== nch || nch < 8) fails.push('demo: a new roll re-makes every word and counts what changed');
+    setRolls('1'); await w.demoRefresh(); setRolls('11'); await w.demoRefresh(); if (!/from your 1 roll so far/.test($('demoInfo').textContent) && !/of 12 words changed/.test($('demoInfo').textContent)) fails.push('demo: singular roll wording');
+    setRolls(D50); await w.demoRefresh(); const e50 = demoOf(D50, 12);
+    if (cells().join('|') !== e50.map((x, i) => (i + 1) + '. ' + x).join('|') || e50.join(' ') === expect.d50) fails.push('demo: with all 50 rolls the demo words are still not the real seed');
+    words(24); setRolls(D99); await w.demoRefresh(); if (cells().length !== 24 || cells().join('|') !== demoOf(D99, 24).map((x, i) => (i + 1) + '. ' + x).join('|')) fails.push('demo: 24 words'); words(12);
+    setRolls(D50); await w.demoRefresh(); $('demoOn').checked = false; await w.demoToggle(); if ($('demoOut').style.display !== 'none' || cells().length || $('demoInfo').textContent) fails.push('demo: switching off wipes the words');
+    $('demoOn').checked = true; await w.demoToggle(); const before = cells().join('|'); await w.generate();
+    if ($('demoOn').checked || $('demoOut').style.display !== 'none' || cells().length || $('demoInfo').textContent || !before) fails.push('demo: FORGE wipes the demo words');
+    const real = $('genResult').textContent.split('\n')[0]; if (real !== expect.d50 || before.includes('. ' + real.split(' ')[0] + '|') && false) fails.push('demo: FORGE still makes the real seed');
+    $('demoOn').checked = true; await w.demoToggle(); w.clearAll(); await new Promise(r => setTimeout(r, 20)); if ($('demoOn').checked || cells().length || $('demoOut').style.display !== 'none') fails.push('demo: CLEAR wipes the demo words');
+    $('demoOn').checked = true; setRolls(D50.slice(0, 3)); await w.demoRefresh(); const mid = cells().join('|'); $('demoOn').checked = false; await w.demoToggle(); setRolls(D50.slice(0, 4)); await w.demoRefresh(); if (cells().length) fails.push('demo: stays empty while off');
+    if (w.document.querySelectorAll('#demoBox input').length !== 1 || w.document.querySelector('#demoBox a, #demoBox script, #demoBox img')) fails.push('demo: only the one switch, no links or images');
+    const lg = $('logo'), svgs = lg.querySelectorAll('svg'); if (svgs.length !== 3 || lg.getAttribute('role') !== 'button' || lg.tabIndex !== 0 || [...svgs].some(x => x.querySelectorAll('rect').length !== 3) || [...svgs].map(x => x.querySelectorAll('circle').length).join() !== '3,5,6') fails.push('logo: three dice showing 3, 5 and 6');
+    if (lg.classList.contains('again')) fails.push('logo: starts on the first roll'); w.rollLogo(); if (!lg.classList.contains('again')) fails.push('logo: tapping rolls again'); w.rollLogo(); if (lg.classList.contains('again')) fails.push('logo: second tap rolls again');
+    lg.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); if (!lg.classList.contains('again')) fails.push('logo: Enter key rolls');
+    lg.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true })); if (!lg.classList.contains('again')) fails.push('logo: other keys do not roll');
+    w.clearAll();
+  } catch (e) { fails.push('demo: the probe crashed: ' + e.message); }
   if ($('fpIcon').querySelector('svg')) { /* keep icon until an error */ }
   // passphrase confirmation must block a mismatch
   await run('dice', 12, D50, ''); w.showQr('wZpub', 'zpub');
@@ -845,6 +874,29 @@ const M = [
   ['text size: button state not shown', 'b.setAttribute("aria-pressed", on ? "true" : "false"); b.textContent = on ? "TEXT A-" : "TEXT A+";', 'b.textContent = on ? "TEXT A-" : "TEXT A+";'],
   ['text size: choice not remembered (browser storage)', 'try { localStorage.setItem("voidforge-big", on ? "1" : "0"); } catch(e) {}', '', true],
   ['guide: locked-step hint text', 'why.textContent = ok ? "" : (guideN === 2 ? "Keep rolling to unlock NEXT" : "Press FORGE SEED to unlock NEXT");', 'why.textContent = "";', true],
+  ['demo: not tagged (would equal the real seed)', 'const d = await sha256("VOIDFORGE DEMO, NOT A SEED|" + rolls);', 'const d = await sha256(rolls);'],
+  ['demo: always 12 words', 'const entLen = {12:16,24:32}[wc];\n  const d = await sha256("VOIDFORGE', 'const entLen = 16;\n  const d = await sha256("VOIDFORGE'],
+  ['demo: not wiped on switch off', 'function demoToggle(){ if(!document.getElementById("demoOn").checked) demoWipe(); return demoRefresh(); }', 'function demoToggle(){ return demoRefresh(); }', true],
+  ['demo: wipe leaves words', 'document.getElementById("demoGrid").textContent = ""; document.getElementById("demoInfo").textContent = "";\n  document.getElementById("demoOut").style.display = "none";\n}', 'document.getElementById("demoOut").style.display = "none";\n}'],
+  ['demo: wipe leaves panel visible', '  document.getElementById("demoOut").style.display = "none";\n}\nfunction demoOff()', '}\nfunction demoOff()'],
+  ['demo: FORGE does not wipe', 'function setResult(text, words){\n  demoOff();\n', 'function setResult(text, words){\n'],
+  ['demo: switch stays on after wipe', 'function demoOff(){ document.getElementById("demoOn").checked = false; demoWipe(); }', 'function demoOff(){ demoWipe(); }'],
+  ['demo: not refreshed after each roll', '  if(document.getElementById("demoOn").checked) demoRefresh();\n', ''],
+  ['demo: shows when switched off', '  if(!document.getElementById("demoOn").checked){ demoWipe(); return; }\n  const my', '  const my'],
+  ['demo: no-rolls prompt missing', 'info.textContent = "Add a roll to see the demo words."; return; }', 'info.textContent = ""; return; }'],
+  ['demo: changed words not counted', 'if(ch) changed++;', ''],
+  ['demo: changed words not marked', 'c.className = "dm-w" + (ch ? " dm-ch" : "");', 'c.className = "dm-w";'],
+  ['demo: previous words not kept', '  demoPrev = words;\n  info.textContent', '  info.textContent'],
+  ['demo: stale result can overwrite', '  if(my !== demoSeq) return;\n  const prev', '  const prev'],
+  ['demo: words not numbered', 'c.textContent = (i + 1) + ". " + w; grid.appendChild(c); });\n  demoPrev', 'c.textContent = w; grid.appendChild(c); });\n  demoPrev'],
+  ['demo: plural wording', '" roll" + (rolls.length === 1 ? "" : "s") + " so far.', '" roll so far.'],
+  ['demo: previous words compared across lengths', 'const prev = demoPrev && demoPrev.length === words.length ? demoPrev : null;', 'const prev = demoPrev;', true],
+  ['logo: tap does not roll', 'function rollLogo(){ document.getElementById("logo").classList.toggle("again"); }', 'function rollLogo(){}'],
+  ['logo: Enter key does not roll', "if(event.key==='Enter'||event.key===' '){event.preventDefault();rollLogo();}", "if(event.key===' '){event.preventDefault();rollLogo();}"],
+  ['logo: every key rolls', "if(event.key==='Enter'||event.key===' '){event.preventDefault();rollLogo();}", "{event.preventDefault();rollLogo();}"],
+  ['logo: not keyboard reachable', 'role="button" tabindex="0" aria-label="Three dice.', 'role="button" aria-label="Three dice.'],
+  ['logo: print styles hide demo (print only)', '  @media print { #demoBox { display: none !important; } }\n', '', true],
+  ['logo: reduced-motion handled globally (CSS only)', '.logo.again svg { animation-name: dieRoll2; }', '.logo.again svg { animation-name: dieRoll2; animation-delay: var(--dl, 0s); }', true],
   ['address list not cleared after an error', 'function clearAddrs(){\n  document.getElementById("addrList").textContent = "";', 'function clearAddrs(){\n  '],
   ['address guide hidden after FORGE', 'document.getElementById("checkGuide").style.display = "";\n}', 'document.getElementById("checkGuide").style.display = "none";\n}'],
   ['4-letter view: three letters', 'e.textContent = abbrOn ? e.dataset.w.slice(0, 4) : e.dataset.w;', 'e.textContent = abbrOn ? e.dataset.w.slice(0, 3) : e.dataset.w;'],
