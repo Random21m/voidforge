@@ -354,6 +354,42 @@ async function probe(w) {
       if (!eo.querySelector('.ex-bad') || eo.querySelector('.ex-ok') || !/do NOT match/.test(eo.textContent)) fails.push('explain: a mismatch between the steps and the seed is reported, not hidden'); }
     w.print = () => {}; w.confirm = () => true;
   } catch (e) { fails.push('explain: the probe crashed: ' + e.message); }
+  try { // Guide me, term tips, larger text
+    if (!w.Element.prototype.scrollIntoView) w.Element.prototype.scrollIntoView = function () {};
+    w.confirm = () => true; const B = w.document.body, gh = (id) => $(id).classList.contains('gh'), nextOff = () => $('gNext').disabled;
+    w.clearAll(); await new Promise(r => setTimeout(r, 20));
+    if (B.classList.contains('guided') || w.document.querySelectorAll('.gh').length || $('guideBtn').getAttribute('aria-pressed') !== 'false') fails.push('guide: off by default, nothing hidden');
+    mode('dice'); words(12); w.toggleGuide();
+    if (!B.classList.contains('guided') || $('guideBtn').getAttribute('aria-pressed') !== 'true' || $('guideBtn').textContent !== 'GUIDE: ON') fails.push('guide: GUIDE ME turns the guide on');
+    if (gh('wordRadios') || !gh('rolls') || !gh('forgeBtn'.replace('forgeBtn', 'wordGrid')) || !gh('advanced') || !gh('addrBox') || $('gBack').disabled !== true || !/step 1 of 5/.test($('gTitle').textContent)) fails.push('guide: step 1 shows only the choices');
+    w.guideStep(1); if (w.document.querySelectorAll('#gDots i.on').length !== 2 || w.document.querySelectorAll('.gstep').length !== 5 || [...w.document.querySelectorAll('.gstep')].filter(e => e.style.display !== 'none').length !== 1) fails.push('guide: progress bar and one explanation at a time');
+    if (gh('rolls') || gh('tapRow') || !gh('wordRadios') || !/step 2 of 5/.test($('gTitle').textContent) || $('gNeed').textContent !== '50' || $('gUnit').textContent !== 'rolls') fails.push('guide: step 2 shows the rolls and how many are needed');
+    if (!nextOff()) fails.push('guide: NEXT locked with no rolls');
+    $('rolls').value = D50.slice(0, 49); $('rolls').oninput(); if (!nextOff()) fails.push('guide: NEXT still locked one roll short');
+    $('rolls').value = D50; $('rolls').oninput(); if (nextOff()) fails.push('guide: NEXT unlocks with enough rolls');
+    w.guideStep(1); if (!/step 3 of 5/.test($('gTitle').textContent) || gh('advanced') || !$('advanced').open || nextOff()) fails.push('guide: step 3 shows the passphrase box and can be skipped');
+    w.guideStep(-1); if (!/step 2 of 5/.test($('gTitle').textContent)) fails.push('guide: BACK goes back one step');
+    w.guideStep(1); w.guideStep(1); if (!/step 4 of 5/.test($('gTitle').textContent) || gh('wordGrid') || gh('forgeBtn'.replace('forgeBtn', 'genResult')) || !gh('rolls') || !nextOff()) fails.push('guide: step 4 locked until FORGE');
+    w.guideStep(1); if (/step 5/.test($('gTitle').textContent)) fails.push('guide: cannot skip FORGE');
+    await w.generate(); if (nextOff()) fails.push('guide: FORGE unlocks NEXT');
+    w.guideStep(1); if (!/step 5 of 5/.test($('gTitle').textContent) || $('gNext').textContent !== 'DONE' || gh('watchBox') || gh('addrBox') || !gh('wordGrid')) fails.push('guide: step 5 shows the checks and DONE');
+    w.guideStep(1); if (B.classList.contains('guided') || w.document.querySelectorAll('.gh').length) fails.push('guide: DONE turns the guide off and shows everything');
+    w.toggleGuide(); if (!/step 4 of 5/.test($('gTitle').textContent)) fails.push('guide: reopening with a seed starts at the words');
+    w.clearAll(); await new Promise(r => setTimeout(r, 20)); if (!/step 1 of 5/.test($('gTitle').textContent)) fails.push('guide: CLEAR returns to step 1');
+    mode('coin'); words(24); if ($('gNeed').textContent !== '256' || $('gUnit').textContent !== 'flips') fails.push('guide: coin 24 words needs 256 flips');
+    mode('dice'); words(24); if ($('gNeed').textContent !== '99') fails.push('guide: dice 24 words needs 99 rolls'); words(12);
+    w.toggleGuide(); if (B.classList.contains('guided') || w.document.querySelectorAll('.gh').length) fails.push('guide: switching off shows everything');
+    const terms = [...w.document.querySelectorAll('.term')];
+    if (terms.length < 6 || terms.some(e => e.getAttribute('tabindex') !== '0' || (e.getAttribute('data-tip') || '').length < 40)) fails.push('terms: every explained word is focusable and has a real explanation');
+    const tip = $('tipBox'); terms[0].dispatchEvent(new w.MouseEvent('mouseover', { bubbles: true }));
+    if (tip.style.display !== 'block' || tip.textContent !== terms[0].getAttribute('data-tip')) fails.push('terms: hovering shows the explanation');
+    terms[0].dispatchEvent(new w.MouseEvent('mouseout', { bubbles: true })); if (tip.style.display !== 'none') fails.push('terms: moving away hides it');
+    terms[1].dispatchEvent(new w.FocusEvent('focusin', { bubbles: true })); if (tip.style.display !== 'block') fails.push('terms: focusing shows the explanation');
+    w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); if (tip.style.display !== 'none') fails.push('terms: Escape hides it');
+    w.toggleSize(); if (!B.classList.contains('big') || $('sizeBtn').getAttribute('aria-pressed') !== 'true') fails.push('text size: A+ makes the page larger');
+    w.toggleSize(); if (B.classList.contains('big') || $('sizeBtn').getAttribute('aria-pressed') !== 'false') fails.push('text size: A- goes back');
+    w.confirm = () => true;
+  } catch (e) { fails.push('guide: the probe crashed: ' + e.message); }
   if ($('fpIcon').querySelector('svg')) { /* keep icon until an error */ }
   // passphrase confirmation must block a mismatch
   await run('dice', 12, D50, ''); w.showQr('wZpub', 'zpub');
@@ -680,7 +716,7 @@ const M = [
   ['lifehash: luminance weight wrong', 'Math.pow(0.299*c[0],2)', 'Math.pow(0.3*c[0],2)'],
   ['lifehash: spectrum colour wrong', '[217,63,53]', '[217,63,54]'],
   ['lifehash: byte rounding wrong', 'Math.floor(lhClamp(c[1])*255)', 'Math.round(lhClamp(c[1])*255)'],
-  ['lifehash: icon not cleared on errors', '    clearWatch();\n    clearFpIcons();\n  }\n}', '    clearWatch();\n  }\n}'],
+  ['lifehash: icon not cleared on errors', '    clearWatch();\n    clearFpIcons();\n    if(guideOn) guideRender();\n  }\n}', '    clearWatch();\n    if(guideOn) guideRender();\n  }\n}'],
   ['VERIFY ignores the typed passphrase (address)', 'a1 = await mnemonicFirstAddress(r.mnemonic, vp)', 'a1 = await mnemonicFirstAddress(r.mnemonic, "")'],
   ['VERIFY without-passphrase line uses the typed passphrase', 'fp0 = await mnemonicFingerprint(r.mnemonic, "");', 'fp0 = await mnemonicFingerprint(r.mnemonic, vp);'],
   ['match: with-passphrase check compares the wrong values', 'if(hasPass && test(fp1, a1, ids1))', 'if(hasPass && test(fp0, a0, ids0))'],
@@ -777,6 +813,38 @@ const M = [
   ['five addresses: receive chain replaced by change chain', 'for(const [i,h] of [[84,true],[0,true],[0,true],[0,false]]) [k,c]=await ckdPriv(k,c,i,h);\n  const out=[];', 'for(const [i,h] of [[84,true],[0,true],[0,true],[1,false]]) [k,c]=await ckdPriv(k,c,i,h);\n  const out=[];'],
   ['taproot list not cleared after an error', 'document.getElementById("addrList").textContent = ""; document.getElementById("trList").textContent = "";', 'document.getElementById("addrList").textContent = "";'],
   ['taproot list never filled', 'tl.textContent = "";\n  (trList || []).forEach', 'tl.textContent = "";\n  ([]).forEach'],
+  ['guide: NEXT unlocks one roll late', '.length >= getNeeded(document.querySelector(\'input[name="words"]:checked\').value);', '.length > getNeeded(document.querySelector(\'input[name="words"]:checked\').value);'],
+  ['guide: step 4 not locked until FORGE', '  if(n === 4) return hasSeed();', '  if(n === 4) return true;'],
+  ['guide: step 2 not locked', '  if(n === 2) return clean(', '  if(n === 2) return true || clean('],
+  ['guide: NEXT can skip a locked step', '  if(d > 0 && !guideCanNext(guideN)) return;\n', ''],
+  ['guide: DONE does not leave the guide', 'if(d > 0 && guideN >= GUIDE_STEPS){ toggleGuide(); jumpTo("cardCheck"); return; }', 'if(d > 0 && guideN >= GUIDE_STEPS){ return; }'],
+  ['guide: hidden test off by one', 'return g.indexOf(String(n)) < 0;', 'return g.indexOf(String(n)) <= 0;'],
+  ['guide: hidden test inverted', 'return g.indexOf(String(n)) < 0;', 'return g.indexOf(String(n)) >= 0;'],
+  ['guide: passphrase box not opened at step 3', '  if(guideN === 3) document.getElementById("advanced").open = true;\n', ''],
+  ['guide: last step button not DONE', 'next.textContent = guideN >= GUIDE_STEPS ? "DONE" : "NEXT \\u2192";', 'next.textContent = "NEXT \\u2192";'],
+  ['guide: reopening ignores an existing seed', 'if(guideOn) guideN = hasSeed() ? 4 : 1;', 'if(guideOn) guideN = 1;'],
+  ['guide: CLEAR does not return to step 1', 'if(guideOn){ guideN = 1; guideRender(); }', 'if(guideOn){ guideRender(); }'],
+  ['guide: BACK enabled on step 1', 'back.disabled = guideN <= 1;', 'back.disabled = false;'],
+  ['guide: progress dots off by one', 'el.classList.toggle("on", i < guideN)', 'el.classList.toggle("on", i <= guideN)'],
+  ['guide: coin unit label', 'getElementById("gUnit").textContent = mode === "coin" ? "flips" : "rolls";', 'getElementById("gUnit").textContent = "rolls";'],
+  ['guide: count not refreshed', 'getElementById("gNeed").textContent = String(need);', 'getElementById("gNeed").textContent = "50";'],
+  ['guide: explanations all shown', 'el.style.display = (+el.getAttribute("data-gs") === guideN) ? "" : "none";', 'el.style.display = "";'],
+  ['guide: button state not shown', 'b.setAttribute("aria-pressed", guideOn ? "true" : "false"); b.textContent = guideOn ? "GUIDE: ON" : "GUIDE ME";', 'b.textContent = guideOn ? "GUIDE: ON" : "GUIDE ME";'],
+  ['guide: body class not toggled', 'document.body.classList.toggle("guided", guideOn);', ''],
+  ['guide: FORGE does not refresh the guide', '    if(guideOn) guideRender();\n    document.getElementById("nextStep").textContent = "Write these', '    document.getElementById("nextStep").textContent = "Write these'],
+  ['guide: roll count does not refresh the guide', 'function updateCount(){\n  if(guideOn) guideRender();\n', 'function updateCount(){\n'],
+  ['terms: hover does not show', 'document.addEventListener("mouseover", e => { const t = term(e); if(t) show(t); });', ''],
+  ['terms: moving away does not hide', 'document.addEventListener("mouseout", e => { if(term(e)) hide(); });', ''],
+  ['terms: focus does not show', 'document.addEventListener("focusin", e => { const t = term(e); if(t) show(t); });', ''],
+  ['terms: Escape does not hide', 'document.addEventListener("keydown", e => { if(e.key === "Escape") hide(); });', ''],
+  ['terms: wrong text shown', 'tip.textContent = el.getAttribute("data-tip") || ""; tip.style.display = "block";', 'tip.textContent = ""; tip.style.display = "block";'],
+  ['terms: tip kept inside the screen (layout only)', 'let x = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));', 'let x = r.left;', true],
+  ['terms: tip placed below when no room above (layout only)', 'let y = r.top - h - 8; if(y < 8) y = r.bottom + 8;', 'let y = r.top - h - 8;', true],
+  ['terms: touch outside does not hide (touch only)', 'document.addEventListener("touchstart", e => { if(!term(e)) hide(); }, {passive:true});', '', true],
+  ['text size: class not toggled', 'const on = document.body.classList.toggle("big");', 'const on = false;'],
+  ['text size: button state not shown', 'b.setAttribute("aria-pressed", on ? "true" : "false"); b.textContent = on ? "TEXT A-" : "TEXT A+";', 'b.textContent = on ? "TEXT A-" : "TEXT A+";'],
+  ['text size: choice not remembered (browser storage)', 'try { localStorage.setItem("voidforge-big", on ? "1" : "0"); } catch(e) {}', '', true],
+  ['guide: locked-step hint text', 'why.textContent = ok ? "" : (guideN === 2 ? "Keep rolling to unlock NEXT" : "Press FORGE SEED to unlock NEXT");', 'why.textContent = "";', true],
   ['address list not cleared after an error', 'function clearAddrs(){\n  document.getElementById("addrList").textContent = "";', 'function clearAddrs(){\n  '],
   ['address guide hidden after FORGE', 'document.getElementById("checkGuide").style.display = "";\n}', 'document.getElementById("checkGuide").style.display = "none";\n}'],
   ['4-letter view: three letters', 'e.textContent = abbrOn ? e.dataset.w.slice(0, 4) : e.dataset.w;', 'e.textContent = abbrOn ? e.dataset.w.slice(0, 3) : e.dataset.w;'],

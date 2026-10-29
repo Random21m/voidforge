@@ -323,11 +323,36 @@
   #advanced summary { cursor: pointer; font-weight: 600; }
   button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   #onlineWarn { display: none; background: var(--danger); color: #000; font-weight: 700; font-size: 13px; text-align: center; padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
+
+  .guide-btn, .size-btn { position: absolute; top: 16px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; letter-spacing: 1px; }
+  .guide-btn { left: 16px; } .size-btn { left: 118px; }
+  .guide-btn.on { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
+  body.big { zoom: 1.25; }
+  .term { border-bottom: 1px dotted var(--accent); cursor: help; }
+  #tipBox { position: fixed; z-index: 50; display: none; max-width: min(300px, 86vw); background: var(--surface2); color: var(--text); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; font-size: 13px; line-height: 1.4; box-shadow: 0 6px 22px rgba(0,0,0,.45); pointer-events: none; }
+  #guideNew { text-align: center; font-size: 13px; color: var(--muted); margin: 10px 0 0; }
+  #guideNew button { margin-left: 6px; }
+  #guidePanel { display: none; margin: 10px 0 14px; background: var(--surface2); border: 1px solid var(--accent); border-radius: 12px; padding: 12px 14px; }
+  body.guided #guidePanel { display: block; }
+  body.guided #guideNew { display: none; }
+  #guidePanel .gtitle { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); }
+  #guidePanel h3 { font-size: 17px; margin: 4px 0 6px; }
+  #guidePanel p { font-size: 13px; line-height: 1.5; margin: 0 0 6px; }
+  #guidePanel .gdots { display: flex; gap: 6px; margin: 8px 0; }
+  #guidePanel .gdots i { flex: 1; height: 5px; border-radius: 3px; background: var(--border); }
+  #guidePanel .gdots i.on { background: var(--accent); }
+  #guidePanel .gnav { display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-top: 8px; }
+  #guideWhy { font-size: 12px; color: var(--muted); min-height: 16px; }
+  body.guided .gh { display: none !important; }
+  @media print { body.big { zoom: 1; } .guide-btn, .size-btn, #guidePanel, #guideNew, #tipBox { display: none !important; } }
 </style>
 </head>
 <body>
+<button class="guide-btn" id="guideBtn" onclick="toggleGuide()" aria-pressed="false">GUIDE ME</button>
+<button class="size-btn" id="sizeBtn" onclick="toggleSize()" aria-pressed="false">TEXT A+</button>
 <button class="theme-toggle" onclick="toggleTheme()">DARK</button>
 <button class="print-btn" onclick="printSeed()">PRINT SEED</button>
+<div id="tipBox" role="tooltip"></div>
 <div class="container">
   <div id="onlineWarn" role="alert"></div>
   <div id="fatalWarn" role="alert"></div>
@@ -367,6 +392,7 @@
     </div>
     <h1>VOIDFORGE</h1>
     <div class="subtitle">DICE / COIN ENTROPY → BIP39 SEED</div>
+    <div id="guideNew">New here? <button type="button" class="secondary small" onclick="toggleGuide()">GUIDE ME</button> walks you through making a seed one screen at a time.</div>
     <div class="steps">Start here</div>
     <div class="start">
       <button type="button" onclick="jumpTo('cardGen')">MAKE A SEED<small>new wallet words from dice or coins</small></button>
@@ -389,60 +415,76 @@
   <div class="card" id="cardGen">
     <h2>MAKE A SEED</h2>
     <p class="sub">Pick 12 or 24 words, enter your dice rolls or coin flips, then press FORGE SEED and write the words on paper.</p>
-    <div class="radio-group" id="wordRadios">
+
+    <div id="guidePanel" aria-live="polite">
+      <div class="gtitle" id="gTitle">Step 1 of 5</div>
+      <div class="gdots" id="gDots"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="gstep" data-gs="1"><h3>Choose how your seed is made</h3>
+        <p>Your wallet starts as a very large random number. Real dice (or a coin) are how you create it yourself, instead of trusting a computer to pick it. First choose the length: <b>12 words</b> is strong enough for almost everyone and needs about 50 dice rolls. <b>24 words</b> is the longest option and needs about 99 rolls. Then choose <b>dice</b> (easier for most people) or <b>coin</b> (many more flips).</p></div>
+      <div class="gstep" data-gs="2"><h3>Roll your dice</h3>
+        <p>Roll a real die, then tap the number it shows. Do not make numbers up: people are bad at being random, and the whole point is that nobody could guess your rolls. You need <b id="gNeed">50</b> <span id="gUnit">rolls</span>. The bar fills as you go, and NEXT unlocks when you have enough. Make sure nobody can see your screen.</p></div>
+      <div class="gstep" data-gs="3"><h3>Optional: add a passphrase</h3>
+        <p>A <span class="term" tabindex="0" data-tip="An extra secret you choose. The same twelve words with a different passphrase give a completely different wallet. If you forget it, the money cannot be recovered.">passphrase</span> is an extra secret that makes a different wallet from the same words. It protects you if someone finds your paper, but if you lose it the funds are gone for good. <b>If you are not sure, skip this step.</b> You can always make another seed later.</p></div>
+      <div class="gstep" data-gs="4"><h3>Forge the seed and write it down</h3>
+        <p>Press <b>FORGE SEED</b>. Your rolls are scrambled together into your seed words. Write the words on paper, in order, with a pen. <b>Never</b> take a photo, type them into a connected device, or store them in a cloud. Anyone who has these words has your money. NEXT unlocks once the words are shown.</p></div>
+      <div class="gstep" data-gs="5"><h3>Check it and make a backup</h3>
+        <p>Last step, and the most important. Compare the <span class="term" tabindex="0" data-tip="A short code (8 characters) that identifies your seed without revealing it. Wallet apps show it too, so you can see you have the same seed.">fingerprint</span> and first address in a second wallet app, make a paper backup if you like (SeedQR or the printed sheet), then use <b>CHECK A BACKUP</b> below to type your words back in. Start with a small amount first.</p></div>
+      <div class="gnav"><button type="button" class="secondary small" id="gBack" onclick="guideStep(-1)">&larr; BACK</button><span id="guideWhy"></span><button type="button" class="small" id="gNext" onclick="guideStep(1)">NEXT &rarr;</button></div>
+    </div>
+    <div class="radio-group" id="wordRadios" data-g="1">
       <label><input type="radio" name="words" value="12" checked onchange="updateLabels()"><span id="lbl12">12 (50)</span></label>
       <label><input type="radio" name="words" value="24" onchange="updateLabels()"><span id="lbl24">24 (99)</span></label>
     </div>
 
-    <div class="radio-group" style="margin-top:8px;">
+    <div class="radio-group" style="margin-top:8px;" data-g="1">
       <label><input type="radio" name="mode" value="dice" checked onchange="onModeChange()"><span>Dice (1-6)</span></label>
       <label><input type="radio" name="mode" value="coin" onchange="onModeChange()"><span>Coin (1/0)</span></label>
     </div>
-    <div id="tapRow" class="radio-group" style="margin-top:8px; margin-bottom:6px;" aria-label="Tap to add a roll or flip"></div>
-    <textarea id="rolls" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Dice: rolls 1-6. Coin: flips as 1 and 0."></textarea>
-    <div id="coinHint" style="display:none; font-size:12px; margin-top:6px; color:var(--muted);">Pick which side is 1 and which is 0 (the usual choice: heads = 1, tails = 0) and keep it the same for every flip. Only the 1/0 string is used, so any consistent choice is fine, but you cannot get the mapping back from the words. Write down the exact string or your mapping with your backup.</div>
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+    <div id="tapRow" data-g="2" class="radio-group" style="margin-top:8px; margin-bottom:6px;" aria-label="Tap to add a roll or flip"></div>
+    <textarea id="rolls" data-g="2" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Dice: rolls 1-6. Coin: flips as 1 and 0."></textarea>
+    <div id="coinHint" data-g="2" style="display:none; font-size:12px; margin-top:6px; color:var(--muted);">Pick which side is 1 and which is 0 (the usual choice: heads = 1, tails = 0) and keep it the same for every flip. Only the 1/0 string is used, so any consistent choice is fine, but you cannot get the mapping back from the words. Write down the exact string or your mapping with your backup.</div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;" data-g="2">
       <div id="rollCount" aria-live="polite" style="font-size:13px;color:#7a7a90;font-weight:600;">0 / 50 rolls</div>
       <button class="secondary small" onclick="undoRoll()">UNDO</button>
     </div>
-    <div class="entropy-bar"><div class="entropy-fill" id="entropyFill"></div></div>
-    <div id="entropyStatus" style="font-size:12px; margin-top:4px; font-weight:600;"></div>
-    <div id="bitsNote" style="font-size:12px; margin-top:4px; color:var(--muted);"></div>
-    <div id="ignoredNote" style="font-size:12px; margin-top:4px; font-weight:600; color:var(--danger);"></div>
-    <details id="advanced">
+    <div class="entropy-bar" data-g="2"><div class="entropy-fill" id="entropyFill"></div></div>
+    <div id="entropyStatus" data-g="2" style="font-size:12px; margin-top:4px; font-weight:600;"></div>
+    <div id="bitsNote" data-g="2" style="font-size:12px; margin-top:4px; color:var(--muted);"></div>
+    <div id="ignoredNote" data-g="2" style="font-size:12px; margin-top:4px; font-weight:600; color:var(--danger);"></div>
+    <details id="advanced" data-g="3">
       <summary id="advSummary">Advanced options (passphrase, note)</summary>
       <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
         <input type="password" id="passphrase" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Optional passphrase" style="flex:1; min-width:0;" oninput="updateAdvSummary()">
         <button type="button" class="secondary small" onclick="togglePassphrase(this)">SHOW</button>
       </div>
       <input type="password" id="passphrase2" spellcheck="false" autocomplete="new-password" autocapitalize="off" autocorrect="off" placeholder="Confirm passphrase (must match)" style="margin-top:6px;" oninput="updateAdvSummary()">
-      <div style="font-size:12px; color:var(--muted); margin-top:6px;">A passphrase makes a different wallet from the same words. Write it down separately: without it the funds cannot be recovered.</div>
+      <div style="font-size:12px; color:var(--muted); margin-top:6px;">A <span class="term" tabindex="0" data-tip="An extra secret you choose. The same twelve words with a different passphrase give a completely different wallet. If you forget it, the money cannot be recovered.">passphrase</span> makes a different wallet from the same words. Write it down separately: without it the funds cannot be recovered.</div>
       <input type="text" id="note" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Optional note (not used in the seed)" style="margin-top:6px;">
     </details>
-    <div id="rollHistory" style="font-size:11px;color:#7a7a90;margin-top:6px;min-height:16px;"></div>
-    <div id="diceVisual" style="font-size:30px; letter-spacing:4px; margin-top:4px; min-height:28px;"></div>
-    <div id="rollChart" class="rc" role="img" aria-label="Chart of how many times each face came up" style="display:none;"></div>
-    <div class="btn-row">
+    <div id="rollHistory" data-g="2" style="font-size:11px;color:#7a7a90;margin-top:6px;min-height:16px;"></div>
+    <div id="diceVisual" data-g="2" style="font-size:30px; letter-spacing:4px; margin-top:4px; min-height:28px;"></div>
+    <div id="rollChart" data-g="2" class="rc" role="img" aria-label="Chart of how many times each face came up" style="display:none;"></div>
+    <div class="btn-row" data-g="4">
       <button id="forgeBtn" onclick="generate()" disabled>FORGE SEED</button>
       <button class="secondary" onclick="clearAll()">CLEAR</button>
       <button class="secondary small" onclick="toggleSelfTests()">SELF-TEST</button>
     </div>
-    <div id="wordGrid" aria-hidden="true"></div>
-    <div id="secretNote" class="hint" style="margin:8px 0 0;"><span class="tag tag-secret" style="margin-left:0;">SECRET</span> These words are your money. Write them on paper and never share them.</div>
-    <div id="abbrNote" class="hint" aria-live="polite"></div>
-    <div id="passNote"></div>
-    <div id="nextStep" aria-live="polite"></div>
-    <div class="result" id="genResult" role="status">—</div>
-    <div class="btn-row" style="margin-top:6px;">
+    <div id="wordGrid" data-g="4" aria-hidden="true"></div>
+    <div id="secretNote" data-g="4" class="hint" style="margin:8px 0 0;"><span class="tag tag-secret" style="margin-left:0;">SECRET</span> These words are your money. Write them on paper and never share them.</div>
+    <div id="abbrNote" data-g="4" class="hint" aria-live="polite"></div>
+    <div id="passNote" data-g="4"></div>
+    <div id="nextStep" data-g="4" aria-live="polite"></div>
+    <div class="result" id="genResult" data-g="4" role="status">—</div>
+    <div class="btn-row" style="margin-top:6px;" data-g="4">
       <button class="secondary small" id="abbrBtn" onclick="toggleAbbr()">SHOW FIRST 4 LETTERS</button>
       <button class="secondary small" onclick="sendToVerify()">SEND TO CHECK</button>
       <button class="secondary small" onclick="copyFingerprint(this)">COPY FINGERPRINT</button>
       <button class="secondary small" onclick="copyAddress(this)">COPY ADDRESS</button>
       <button class="secondary small" onclick="downloadSeed()">DOWNLOAD</button>
     </div>
-    <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;"><div class="fp" id="fingerprint"></div><div id="fpIcon" class="lh" title="Fingerprint picture (LifeHash): the same picture Sparrow Wallet shows for this fingerprint"></div></div>
-    <div id="address" style="margin-top:6px; font-size:13px; word-break:break-all; color:var(--muted);"></div>
-    <details id="addrBox" style="display:none; margin-top:8px;">
+    <div data-g="4 5" style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;"><div class="fp" id="fingerprint"></div><div id="fpIcon" class="lh" title="Fingerprint picture (LifeHash): the same picture Sparrow Wallet shows for this fingerprint"></div></div>
+    <div id="address" data-g="4 5" style="margin-top:6px; font-size:13px; word-break:break-all; color:var(--muted);"></div>
+    <details id="addrBox" data-g="5" style="display:none; margin-top:8px;">
       <summary>First 5 receiving addresses, SegWit and Taproot (to compare in another wallet)</summary>
       <ol id="addrList" class="addr-list"></ol>
       <button class="secondary small" onclick="copyAddrList(this,'addrList')">COPY ALL 5</button>
@@ -453,18 +495,18 @@
         <button class="secondary small" onclick="copyAddrList(this,'trList')">COPY ALL 5 TAPROOT</button>
       </div>
     </details>
-    <details id="checkGuide" style="display:none; margin-top:8px;">
+    <details id="checkGuide" data-g="5" style="display:none; margin-top:8px;">
       <summary>How to check this wallet in a second tool (recommended)</summary>
       <ol>
         <li>On a <b>different</b> device or app, open a watch-only wallet (Sparrow, Electrum, Blue Wallet or Nunchuk).</li>
-        <li>Import the <b>zpub</b> or the <b>receiving descriptor</b> from the Watch-only box above (copy it, or show the QR and scan it). <b>Never type your seed words into a connected device.</b></li>
+        <li>Import the <b><span class="term" tabindex="0" data-tip="An extended public key. It lets a wallet app work out all your receiving addresses without any ability to spend.">zpub</span></b> or the <b>receiving <span class="term" tabindex="0" data-tip="A one-line recipe that tells a wallet app exactly how your addresses are built from your keys. Public, no spending power.">descriptor</span></b> from the Watch-only box above (copy it, or show the QR and scan it). <b>Never type your seed words into a connected device.</b></li>
         <li>Compare that app&rsquo;s first <b>5</b> receiving addresses with the list above. All five must match exactly, character for character.</li>
         <li>With a descriptor import, Sparrow also shows the master fingerprint and the same fingerprint picture. A zpub import does not carry the master fingerprint, which is normal.</li>
         <li>If anything differs, <b>do not use this wallet</b>. Start again, and check your words against a second offline tool.</li>
       </ol>
       <p class="hint" style="margin:6px 0 0;">This checks the public side only. It cannot prove your dice were fair, or that the words you wrote down are right: check those with the VERIFY box below.</p>
     </details>
-    <details id="explainBox" style="display:none; margin-top:10px;">
+    <details id="explainBox" data-g="5" style="display:none; margin-top:10px;">
       <summary>How your seed was made<span class="tag tag-secret">SECRET</span><small>Optional: watch your dice rolls turn into these words, one step at a time.</small></summary>
       <p class="hint" style="margin:8px 0 0;">This shows every step from the rolls you typed to the words above, using the same math as FORGE. It prints the secret numbers in between, so only open it where nobody can see your screen. It never shows your passphrase.</p>
       <div class="btn-row" style="margin-top:8px;">
@@ -473,7 +515,7 @@
       </div>
       <div id="exOut" style="display:none;"></div>
     </details>
-    <details id="seedQrBox" style="display:none; margin-top:10px;">
+    <details id="seedQrBox" data-g="5" style="display:none; margin-top:10px;">
       <summary>Paper backup as a SeedQR<span class="tag tag-secret">SECRET</span><small>For SeedSigner and similar offline devices. Print it or copy it by hand.</small></summary>
       <p class="hint" style="margin:8px 0 0;">A SeedQR is your seed words as a QR code, so <b>anyone who can scan it controls the funds</b>: treat it exactly like the written words. Scan it only with an offline device such as a SeedSigner, never with a phone camera app. It does not contain the passphrase. <b>SeedQR</b> is the digit format (25&times;25 squares for 12 words, 29&times;29 for 24). <b>CompactSeedQR</b> is smaller (21&times;21 or 25&times;25). SeedSigner reads both.</p>
       <div class="btn-row" style="margin-top:8px;">
@@ -503,9 +545,9 @@
         <p class="hint" style="margin:8px 0 0;">Draw a grid of the same size on paper (or use PRINT BLANK GRID, or a SeedSigner template card). Copy one block at a time: the numbers along the edges tell you where each block goes. Fill squares solid black with a pen, leave white squares empty, and keep a blank border of about 4 squares around the whole code. When done, scan it into your SeedSigner and check that the fingerprint matches.</p>
       </div>
     </details>
-    <details id="watchBox" style="display:none; margin-top:10px;">
+    <details id="watchBox" data-g="5" style="display:none; margin-top:10px;">
       <summary>Watch-only wallet<span class="tag tag-public">PUBLIC KEYS ONLY</span><small>See balances on a phone without the seed. Cannot spend.</small></summary>
-      <p class="hint" style="margin:8px 0;">Use this to see this wallet&rsquo;s addresses and balance on a phone or online computer <b>without the seed words</b>. It cannot spend. Anyone who gets it can see every address and balance of this wallet, so share it only with your own wallet app. If you used a passphrase, it belongs to this passphrase only.</p>
+      <p class="hint" style="margin:8px 0;">A <span class="term" tabindex="0" data-tip="A wallet that holds only public keys: it can show addresses and balances but cannot spend. Safe to keep on a phone.">watch-only</span> wallet shows this wallet&rsquo;s addresses and balance on a phone or online computer <b>without the seed words</b>. It cannot spend. Anyone who gets it can see every address and balance of this wallet, so share it only with your own wallet app. If you used a passphrase, it belongs to this passphrase only.</p>
       <div style="display:flex; gap:6px; align-items:center; margin:6px 0;">
         <select id="wType" aria-label="Address type" style="flex:1; min-width:0;"><option value="wpkh">Native SegWit (bc1q...), most wallets</option><option value="tr">Taproot (bc1p...)</option><option value="sh-wpkh">Nested SegWit (3...)</option><option value="pkh">Legacy (1...)</option><option value="ms-wsh">Multisig cosigner key, native SegWit (BIP48)</option><option value="ms-sh-wsh">Multisig cosigner key, nested SegWit (BIP48)</option></select>
         <select id="wNet" aria-label="Network" style="width:104px; flex:none;"><option value="main">Mainnet</option><option value="test">Testnet</option></select>
@@ -687,6 +729,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.19.3</b> &mdash; Easier for first-time users. <b>GUIDE ME</b> (top left) walks you through making a seed one screen at a time: choose the length and method, roll, optional passphrase, FORGE and write down, then check and back up. Each step explains why, and NEXT stays locked until the step is done. Underlined words (passphrase, fingerprint, zpub, descriptor, watch-only) show a plain-language explanation when you hover, tap or focus them. <b>TEXT A+</b> makes everything larger. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.2.</li>
         <li><b>1.19.2</b> &mdash; Two additions after FORGE. (1) <b>How your seed was made</b> (marked SECRET, closed by default): shows every step from your typed rolls to the words, in five plain-language steps with the real numbers (the SHA-256 result, the raw entropy, the checksum bits, and each 11-bit piece with its word number), and checks itself against the words above. It never shows your passphrase. (2) A redesigned <b>printed backup sheet</b>: numbered boxes for the words, the fingerprint and first address, the passphrase-used line, and fields to fill in, laid out for a clean paper copy. Printing still asks you to confirm first. Self-test is now 66 checks. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.1.</li>
         <li><b>1.19.1</b> &mdash; A new <b>Browser safety checklist</b> in About &amp; docs: eight short habits (go offline first, a clean browser window, translation, clipboard history, print and PDF copies, downloads, and restarting afterwards), each with the reason. Releases now also carry a <code>CID.txt</code>, a second way to check that your download is the right file. Seeds, fingerprints, addresses, keys, descriptors and every check are identical to v1.19.0.</li>
         <li><b>1.19.0</b> &mdash; Paper backup as a SeedQR. After FORGE you can show your seed as a SeedQR or CompactSeedQR (the formats SeedSigner uses) directly on screen, copy it onto a printed grid with a pen or pencil one 7x7 block at a time (with row and column numbers and a small map, like SeedSigner's transcribe screen), or print the QR, the hand-copy guide or a blank grid. Printing asks you to confirm first because it sends your seed to a printer. Nothing is stored or sent anywhere.</li>
@@ -726,11 +769,12 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.19.2 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.19.3 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
 <script>
+let guideOn = false, guideN = 1;
 const WORDLIST = ["abandon","ability","able","about","above","absent","absorb","abstract","absurd","abuse","access","accident","account","accuse","achieve","acid","acoustic","acquire","across","act","action","actor","actress","actual","adapt","add","addict","address","adjust","admit","adult","advance","advice","aerobic","affair","afford","afraid","again","age","agent","agree","ahead","aim","air","airport","aisle","alarm","album","alcohol","alert","alien","all","alley","allow","almost","alone","alpha","already","also","alter","always","amateur","amazing","among","amount","amused","analyst","anchor","ancient","anger","angle","angry","animal","ankle","announce","annual","another","answer","antenna","antique","anxiety","any","apart","apology","appear","apple","approve","april","arch","arctic","area","arena","argue","arm","armed","armor","army","around","arrange","arrest","arrive","arrow","art","artefact","artist","artwork","ask","aspect","assault","asset","assist","assume","asthma","athlete","atom","attack","attend","attitude","attract","auction","audit","august","aunt","author","auto","autumn","average","avocado","avoid","awake","aware","away","awesome","awful","awkward","axis","baby","bachelor","bacon","badge","bag","balance","balcony","ball","bamboo","banana","banner","bar","barely","bargain","barrel","base","basic","basket","battle","beach","bean","beauty","because","become","beef","before","begin","behave","behind","believe","below","belt","bench","benefit","best","betray","better","between","beyond","bicycle","bid","bike","bind","biology","bird","birth","bitter","black","blade","blame","blanket","blast","bleak","bless","blind","blood","blossom","blouse","blue","blur","blush","board","boat","body","boil","bomb","bone","bonus","book","boost","border","boring","borrow","boss","bottom","bounce","box","boy","bracket","brain","brand","brass","brave","bread","breeze","brick","bridge","brief","bright","bring","brisk","broccoli","broken","bronze","broom","brother","brown","brush","bubble","buddy","budget","buffalo","build","bulb","bulk","bullet","bundle","bunker","burden","burger","burst","bus","business","busy","butter","buyer","buzz","cabbage","cabin","cable","cactus","cage","cake","call","calm","camera","camp","can","canal","cancel","candy","cannon","canoe","canvas","canyon","capable","capital","captain","car","carbon","card","cargo","carpet","carry","cart","case","cash","casino","castle","casual","cat","catalog","catch","category","cattle","caught","cause","caution","cave","ceiling","celery","cement","census","century","cereal","certain","chair","chalk","champion","change","chaos","chapter","charge","chase","chat","cheap","check","cheese","chef","cherry","chest","chicken","chief","child","chimney","choice","choose","chronic","chuckle","chunk","churn","cigar","cinnamon","circle","citizen","city","civil","claim","clap","clarify","claw","clay","clean","clerk","clever","click","client","cliff","climb","clinic","clip","clock","clog","close","cloth","cloud","clown","club","clump","cluster","clutch","coach","coast","coconut","code","coffee","coil","coin","collect","color","column","combine","come","comfort","comic","common","company","concert","conduct","confirm","congress","connect","consider","control","convince","cook","cool","copper","copy","coral","core","corn","correct","cost","cotton","couch","country","couple","course","cousin","cover","coyote","crack","cradle","craft","cram","crane","crash","crater","crawl","crazy","cream","credit","creek","crew","cricket","crime","crisp","critic","crop","cross","crouch","crowd","crucial","cruel","cruise","crumble","crunch","crush","cry","crystal","cube","culture","cup","cupboard","curious","current","curtain","curve","cushion","custom","cute","cycle","dad","damage","damp","dance","danger","daring","dash","daughter","dawn","day","deal","debate","debris","decade","december","decide","decline","decorate","decrease","deer","defense","define","defy","degree","delay","deliver","demand","demise","denial","dentist","deny","depart","depend","deposit","depth","deputy","derive","describe","desert","design","desk","despair","destroy","detail","detect","develop","device","devote","diagram","dial","diamond","diary","dice","diesel","diet","differ","digital","dignity","dilemma","dinner","dinosaur","direct","dirt","disagree","discover","disease","dish","dismiss","disorder","display","distance","divert","divide","divorce","dizzy","doctor","document","dog","doll","dolphin","domain","donate","donkey","donor","door","dose","double","dove","draft","dragon","drama","drastic","draw","dream","dress","drift","drill","drink","drip","drive","drop","drum","dry","duck","dumb","dune","during","dust","dutch","duty","dwarf","dynamic","eager","eagle","early","earn","earth","easily","east","easy","echo","ecology","economy","edge","edit","educate","effort","egg","eight","either","elbow","elder","electric","elegant","element","elephant","elevator","elite","else","embark","embody","embrace","emerge","emotion","employ","empower","empty","enable","enact","end","endless","endorse","enemy","energy","enforce","engage","engine","enhance","enjoy","enlist","enough","enrich","enroll","ensure","enter","entire","entry","envelope","episode","equal","equip","era","erase","erode","erosion","error","erupt","escape","essay","essence","estate","eternal","ethics","evidence","evil","evoke","evolve","exact","example","excess","exchange","excite","exclude","excuse","execute","exercise","exhaust","exhibit","exile","exist","exit","exotic","expand","expect","expire","explain","expose","express","extend","extra","eye","eyebrow","fabric","face","faculty","fade","faint","faith","fall","false","fame","family","famous","fan","fancy","fantasy","farm","fashion","fat","fatal","father","fatigue","fault","favorite","feature","february","federal","fee","feed","feel","female","fence","festival","fetch","fever","few","fiber","fiction","field","figure","file","film","filter","final","find","fine","finger","finish","fire","firm","first","fiscal","fish","fit","fitness","fix","flag","flame","flash","flat","flavor","flee","flight","flip","float","flock","floor","flower","fluid","flush","fly","foam","focus","fog","foil","fold","follow","food","foot","force","forest","forget","fork","fortune","forum","forward","fossil","foster","found","fox","fragile","frame","frequent","fresh","friend","fringe","frog","front","frost","frown","frozen","fruit","fuel","fun","funny","furnace","fury","future","gadget","gain","galaxy","gallery","game","gap","garage","garbage","garden","garlic","garment","gas","gasp","gate","gather","gauge","gaze","general","genius","genre","gentle","genuine","gesture","ghost","giant","gift","giggle","ginger","giraffe","girl","give","glad","glance","glare","glass","glide","glimpse","globe","gloom","glory","glove","glow","glue","goat","goddess","gold","good","goose","gorilla","gospel","gossip","govern","gown","grab","grace","grain","grant","grape","grass","gravity","great","green","grid","grief","grit","grocery","group","grow","grunt","guard","guess","guide","guilt","guitar","gun","gym","habit","hair","half","hammer","hamster","hand","happy","harbor","hard","harsh","harvest","hat","have","hawk","hazard","head","health","heart","heavy","hedgehog","height","hello","helmet","help","hen","hero","hidden","high","hill","hint","hip","hire","history","hobby","hockey","hold","hole","holiday","hollow","home","honey","hood","hope","horn","horror","horse","hospital","host","hotel","hour","hover","hub","huge","human","humble","humor","hundred","hungry","hunt","hurdle","hurry","hurt","husband","hybrid","ice","icon","idea","identify","idle","ignore","ill","illegal","illness","image","imitate","immense","immune","impact","impose","improve","impulse","inch","include","income","increase","index","indicate","indoor","industry","infant","inflict","inform","inhale","inherit","initial","inject","injury","inmate","inner","innocent","input","inquiry","insane","insect","inside","inspire","install","intact","interest","into","invest","invite","involve","iron","island","isolate","issue","item","ivory","jacket","jaguar","jar","jazz","jealous","jeans","jelly","jewel","job","join","joke","journey","joy","judge","juice","jump","jungle","junior","junk","just","kangaroo","keen","keep","ketchup","key","kick","kid","kidney","kind","kingdom","kiss","kit","kitchen","kite","kitten","kiwi","knee","knife","knock","know","lab","label","labor","ladder","lady","lake","lamp","language","laptop","large","later","latin","laugh","laundry","lava","law","lawn","lawsuit","layer","lazy","leader","leaf","learn","leave","lecture","left","leg","legal","legend","leisure","lemon","lend","length","lens","leopard","lesson","letter","level","liar","liberty","library","license","life","lift","light","like","limb","limit","link","lion","liquid","list","little","live","lizard","load","loan","lobster","local","lock","logic","lonely","long","loop","lottery","loud","lounge","love","loyal","lucky","luggage","lumber","lunar","lunch","luxury","lyrics","machine","mad","magic","magnet","maid","mail","main","major","make","mammal","man","manage","mandate","mango","mansion","manual","maple","marble","march","margin","marine","market","marriage","mask","mass","master","match","material","math","matrix","matter","maximum","maze","meadow","mean","measure","meat","mechanic","medal","media","melody","melt","member","memory","mention","menu","mercy","merge","merit","merry","mesh","message","metal","method","middle","midnight","milk","million","mimic","mind","minimum","minor","minute","miracle","mirror","misery","miss","mistake","mix","mixed","mixture","mobile","model","modify","mom","moment","monitor","monkey","monster","month","moon","moral","more","morning","mosquito","mother","motion","motor","mountain","mouse","move","movie","much","muffin","mule","multiply","muscle","museum","mushroom","music","must","mutual","myself","mystery","myth","naive","name","napkin","narrow","nasty","nation","nature","near","neck","need","negative","neglect","neither","nephew","nerve","nest","net","network","neutral","never","news","next","nice","night","noble","noise","nominee","noodle","normal","north","nose","notable","note","nothing","notice","novel","now","nuclear","number","nurse","nut","oak","obey","object","oblige","obscure","observe","obtain","obvious","occur","ocean","october","odor","off","offer","office","often","oil","okay","old","olive","olympic","omit","once","one","onion","online","only","open","opera","opinion","oppose","option","orange","orbit","orchard","order","ordinary","organ","orient","original","orphan","ostrich","other","outdoor","outer","output","outside","oval","oven","over","own","owner","oxygen","oyster","ozone","pact","paddle","page","pair","palace","palm","panda","panel","panic","panther","paper","parade","parent","park","parrot","party","pass","patch","path","patient","patrol","pattern","pause","pave","payment","peace","peanut","pear","peasant","pelican","pen","penalty","pencil","people","pepper","perfect","permit","person","pet","phone","photo","phrase","physical","piano","picnic","picture","piece","pig","pigeon","pill","pilot","pink","pioneer","pipe","pistol","pitch","pizza","place","planet","plastic","plate","play","please","pledge","pluck","plug","plunge","poem","poet","point","polar","pole","police","pond","pony","pool","popular","portion","position","possible","post","potato","pottery","poverty","powder","power","practice","praise","predict","prefer","prepare","present","pretty","prevent","price","pride","primary","print","priority","prison","private","prize","problem","process","produce","profit","program","project","promote","proof","property","prosper","protect","proud","provide","public","pudding","pull","pulp","pulse","pumpkin","punch","pupil","puppy","purchase","purity","purpose","purse","push","put","puzzle","pyramid","quality","quantum","quarter","question","quick","quit","quiz","quote","rabbit","raccoon","race","rack","radar","radio","rail","rain","raise","rally","ramp","ranch","random","range","rapid","rare","rate","rather","raven","raw","razor","ready","real","reason","rebel","rebuild","recall","receive","recipe","record","recycle","reduce","reflect","reform","refuse","region","regret","regular","reject","relax","release","relief","rely","remain","remember","remind","remove","render","renew","rent","reopen","repair","repeat","replace","report","require","rescue","resemble","resist","resource","response","result","retire","retreat","return","reunion","reveal","review","reward","rhythm","rib","ribbon","rice","rich","ride","ridge","rifle","right","rigid","ring","riot","ripple","risk","ritual","rival","river","road","roast","robot","robust","rocket","romance","roof","rookie","room","rose","rotate","rough","round","route","royal","rubber","rude","rug","rule","run","runway","rural","sad","saddle","sadness","safe","sail","salad","salmon","salon","salt","salute","same","sample","sand","satisfy","satoshi","sauce","sausage","save","say","scale","scan","scare","scatter","scene","scheme","school","science","scissors","scorpion","scout","scrap","screen","script","scrub","sea","search","season","seat","second","secret","section","security","seed","seek","segment","select","sell","seminar","senior","sense","sentence","series","service","session","settle","setup","seven","shadow","shaft","shallow","share","shed","shell","sheriff","shield","shift","shine","ship","shiver","shock","shoe","shoot","shop","short","shoulder","shove","shrimp","shrug","shuffle","shy","sibling","sick","side","siege","sight","sign","silent","silk","silly","silver","similar","simple","since","sing","siren","sister","situate","six","size","skate","sketch","ski","skill","skin","skirt","skull","slab","slam","sleep","slender","slice","slide","slight","slim","slogan","slot","slow","slush","small","smart","smile","smoke","smooth","snack","snake","snap","sniff","snow","soap","soccer","social","sock","soda","soft","solar","soldier","solid","solution","solve","someone","song","soon","sorry","sort","soul","sound","soup","source","south","space","spare","spatial","spawn","speak","special","speed","spell","spend","sphere","spice","spider","spike","spin","spirit","split","spoil","sponsor","spoon","sport","spot","spray","spread","spring","spy","square","squeeze","squirrel","stable","stadium","staff","stage","stairs","stamp","stand","start","state","stay","steak","steel","stem","step","stereo","stick","still","sting","stock","stomach","stone","stool","story","stove","strategy","street","strike","strong","struggle","student","stuff","stumble","style","subject","submit","subway","success","such","sudden","suffer","sugar","suggest","suit","summer","sun","sunny","sunset","super","supply","supreme","sure","surface","surge","surprise","surround","survey","suspect","sustain","swallow","swamp","swap","swarm","swear","sweet","swift","swim","swing","switch","sword","symbol","symptom","syrup","system","table","tackle","tag","tail","talent","talk","tank","tape","target","task","taste","tattoo","taxi","teach","team","tell","ten","tenant","tennis","tent","term","test","text","thank","that","theme","then","theory","there","they","thing","this","thought","three","thrive","throw","thumb","thunder","ticket","tide","tiger","tilt","timber","time","tiny","tip","tired","tissue","title","toast","tobacco","today","toddler","toe","together","toilet","token","tomato","tomorrow","tone","tongue","tonight","tool","tooth","top","topic","topple","torch","tornado","tortoise","toss","total","tourist","toward","tower","town","toy","track","trade","traffic","tragic","train","transfer","trap","trash","travel","tray","treat","tree","trend","trial","tribe","trick","trigger","trim","trip","trophy","trouble","truck","true","truly","trumpet","trust","truth","try","tube","tuition","tumble","tuna","tunnel","turkey","turn","turtle","twelve","twenty","twice","twin","twist","two","type","typical","ugly","umbrella","unable","unaware","uncle","uncover","under","undo","unfair","unfold","unhappy","uniform","unique","unit","universe","unknown","unlock","until","unusual","unveil","update","upgrade","uphold","upon","upper","upset","urban","urge","usage","use","used","useful","useless","usual","utility","vacant","vacuum","vague","valid","valley","valve","van","vanish","vapor","various","vast","vault","vehicle","velvet","vendor","venture","venue","verb","verify","version","very","vessel","veteran","viable","vibrant","vicious","victory","video","view","village","vintage","violin","virtual","virus","visa","visit","visual","vital","vivid","vocal","voice","void","volcano","volume","vote","voyage","wage","wagon","wait","walk","wall","walnut","want","warfare","warm","warrior","wash","wasp","waste","water","wave","way","wealth","weapon","wear","weasel","weather","web","wedding","weekend","weird","welcome","west","wet","whale","what","wheat","wheel","when","where","whip","whisper","wide","width","wife","wild","will","win","window","wine","wing","wink","winner","winter","wire","wisdom","wise","wish","witness","wolf","woman","wonder","wood","wool","word","work","world","worry","worth","wrap","wreck","wrestle","wrist","write","wrong","yard","year","yellow","you","young","youth","zebra","zero","zone","zoo"];
 const WORD_MAP = Object.fromEntries(WORDLIST.map((w,i)=>[w,i]));
 function getNeeded(wc){
@@ -832,6 +876,7 @@ function renderRollChart(rolls, isCoin){
   box.setAttribute("aria-label", "Counts: " + faces.map((f, i) => f + " came up " + counts[i] + " times").join(", "));
 }
 function updateCount(){
+  if(guideOn) guideRender();
   const n = clean(document.getElementById("rolls").value).length;
   const wc = document.querySelector('input[name="words"]:checked').value;
   const need = getNeeded(wc);
@@ -2148,12 +2193,14 @@ function setResult(text, words){
     words.forEach((w, i) => { const c = document.createElement("div"); c.className = "wcell"; const n = document.createElement("b"); n.textContent = (i + 1) + "."; c.appendChild(n); const ws = document.createElement("span"); ws.className = "wtxt"; ws.dataset.w = w; ws.textContent = abbrOn ? w.slice(0, 4) : w; c.appendChild(ws); grid.appendChild(c); });
     grid.style.display = "grid"; updateAbbrNote();
     document.getElementById("passNote").textContent = text.split("\n").slice(-1)[0];
+    if(guideOn) guideRender();
     document.getElementById("nextStep").textContent = "Write these " + words.length + " words down in order, then check your backup below. PRINT SEED prints them.";
   } else {
     delete g.dataset.seed; g.classList.remove("sr"); grid.style.display = "none"; updateAbbrNote();
     document.getElementById("passNote").textContent = ""; document.getElementById("nextStep").textContent = "";
     clearWatch();
     clearFpIcons();
+    if(guideOn) guideRender();
   }
 }
 function hasSeed(){ return document.getElementById("genResult").dataset.seed === "1"; }
@@ -2226,7 +2273,7 @@ function clearAll(){
   document.getElementById("verifyPass").type="password";
   document.getElementById("verifyStatus").textContent="";
   document.getElementById("testResults").textContent="";
-  setResult("\u2014"); updateAdvSummary();
+  setResult("\u2014"); updateAdvSummary(); if(guideOn){ guideN = 1; guideRender(); }
   document.getElementById("fingerprint").textContent="";
   document.getElementById("address").textContent="";
   clearWatch(); clearFpIcons();
@@ -2395,6 +2442,72 @@ function updateLabels(){
   updateCount();
 }
 updateLabels();
+
+// ---- Guide me, plain-word term tips, larger text (v1.19.3) ----
+const GUIDE_STEPS = 5;
+function guideHidden(el, n){ const g = (el.getAttribute("data-g") || "").split(/\s+/); return g.indexOf(String(n)) < 0; }
+function guideCanNext(n){
+  if(n === 2) return clean(document.getElementById("rolls").value).length >= getNeeded(document.querySelector('input[name="words"]:checked').value);
+  if(n === 4) return hasSeed();
+  return true;
+}
+function guideRender(){
+  const card = document.getElementById("cardGen");
+  card.querySelectorAll("[data-g]").forEach(el => { el.classList.toggle("gh", guideOn && guideHidden(el, guideN)); });
+  document.querySelectorAll("#guidePanel .gstep").forEach(el => { el.style.display = (+el.getAttribute("data-gs") === guideN) ? "" : "none"; });
+  document.querySelectorAll("#gDots i").forEach((el, i) => el.classList.toggle("on", i < guideN));
+  document.getElementById("gTitle").textContent = "Guide: step " + guideN + " of " + GUIDE_STEPS;
+  const mode = getMode();
+  const need = getNeeded(document.querySelector('input[name="words"]:checked').value);
+  document.getElementById("gNeed").textContent = String(need);
+  document.getElementById("gUnit").textContent = mode === "coin" ? "flips" : "rolls";
+  const back = document.getElementById("gBack"), next = document.getElementById("gNext"), why = document.getElementById("guideWhy");
+  back.disabled = guideN <= 1;
+  next.textContent = guideN >= GUIDE_STEPS ? "DONE" : "NEXT \u2192";
+  const ok = guideCanNext(guideN);
+  next.disabled = !ok;
+  why.textContent = ok ? "" : (guideN === 2 ? "Keep rolling to unlock NEXT" : "Press FORGE SEED to unlock NEXT");
+  if(guideN === 3) document.getElementById("advanced").open = true;
+}
+function guideStep(d){
+  if(d > 0 && !guideCanNext(guideN)) return;
+  if(d > 0 && guideN >= GUIDE_STEPS){ toggleGuide(); jumpTo("cardCheck"); return; }
+  guideN = Math.max(1, Math.min(GUIDE_STEPS, guideN + d));
+  guideRender();
+  jumpTo("cardGen");
+}
+function toggleGuide(){
+  guideOn = !guideOn; if(guideOn) guideN = hasSeed() ? 4 : 1;
+  document.body.classList.toggle("guided", guideOn);
+  const b = document.getElementById("guideBtn"); b.classList.toggle("on", guideOn); b.setAttribute("aria-pressed", guideOn ? "true" : "false"); b.textContent = guideOn ? "GUIDE: ON" : "GUIDE ME";
+  guideRender();
+  if(guideOn) jumpTo("cardGen");
+}
+document.querySelectorAll('input[name="words"], input[name="mode"]').forEach(el => el.addEventListener("change", () => { if(guideOn) guideRender(); }));
+function toggleSize(){
+  const on = document.body.classList.toggle("big");
+  const b = document.getElementById("sizeBtn"); b.setAttribute("aria-pressed", on ? "true" : "false"); b.textContent = on ? "TEXT A-" : "TEXT A+";
+  try { localStorage.setItem("voidforge-big", on ? "1" : "0"); } catch(e) {}
+}
+try { if(localStorage.getItem("voidforge-big") === "1") toggleSize(); } catch(e) {}
+(function(){
+  const tip = document.getElementById("tipBox");
+  function show(el){
+    tip.textContent = el.getAttribute("data-tip") || ""; tip.style.display = "block";
+    const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+    let x = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+    let y = r.top - h - 8; if(y < 8) y = r.bottom + 8;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  }
+  function hide(){ tip.style.display = "none"; }
+  function term(e){ return e.target && e.target.closest ? e.target.closest(".term") : null; }
+  document.addEventListener("mouseover", e => { const t = term(e); if(t) show(t); });
+  document.addEventListener("mouseout", e => { if(term(e)) hide(); });
+  document.addEventListener("focusin", e => { const t = term(e); if(t) show(t); });
+  document.addEventListener("focusout", e => { if(term(e)) hide(); });
+  document.addEventListener("keydown", e => { if(e.key === "Escape") hide(); });
+  document.addEventListener("touchstart", e => { if(!term(e)) hide(); }, {passive:true});
+})();
 // Reached only if the whole script parsed and ran: hide the "script is not running" notice.
 document.getElementById("noJs").style.display = "none";
 
