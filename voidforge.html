@@ -413,7 +413,13 @@
   @media (min-width: 520px) { #demoGrid { grid-template-columns: repeat(3, 1fr); } }
   .dm-w { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; padding: 4px 8px; border: 1px dashed var(--border); border-radius: 6px; color: var(--muted); }
   .dm-ch { border-color: var(--accent); color: var(--text); }
-  @media print { #demoBox { display: none !important; } }
+  @media print { #demoBox, #wdBox { display: none !important; } }
+  #wdBox { margin-top: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+  #wdBox summary { cursor: pointer; font-weight: 600; }
+  #wdBox summary small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+  #wdOut { margin-top: 10px; }
+  .wd-row { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; padding: 3px 0; border-bottom: 1px dashed var(--border); word-break: break-word; }
+  .wd-key { color: var(--accent); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -507,7 +513,7 @@
       <div class="gtitle" id="gTitle">Step 1 of 5</div>
       <div class="gdots" id="gDots"><i></i><i></i><i></i><i></i><i></i></div>
       <div class="gstep" data-gs="1"><h3>Choose how your seed is made</h3>
-        <p>Your wallet starts as a very large random number. Real dice (or a coin) are how you create it yourself, instead of trusting a computer to pick it. First choose the length: <b>12 words</b> is strong enough for almost everyone and needs about 50 dice rolls. <b>24 words</b> is the longest option and needs about 99 rolls. Then choose <b>dice</b> (easier for most people) or <b>coin</b> (many more flips).</p></div>
+        <p>Your wallet starts as a very large random number. Real dice (or a coin) are how you create it yourself, instead of trusting a computer to pick it. First choose the length: <b>12 words</b> is strong enough for almost everyone and needs about 50 dice rolls. <b>24 words</b> is the longest option and needs about 99 rolls. Then choose <b>dice</b> (easier for most people) or <b>coin</b> (many more flips). If you have physical word tiles, use the <b>Word draw</b> box instead.</p></div>
       <div class="gstep" data-gs="2"><h3>Roll your dice</h3>
         <p>Roll a real die, then tap the number it shows. Do not make numbers up: people are bad at being random, and the whole point is that nobody could guess your rolls. You need <b id="gNeed">50</b> <span id="gUnit">rolls</span>. The bar fills as you go, and NEXT unlocks when you have enough. Curious how rolls become words? Try the demo switch below the bar. Make sure nobody can see your screen.</p></div>
       <div class="gstep" data-gs="3"><h3>Optional: add a passphrase</h3>
@@ -527,6 +533,21 @@
       <label><input type="radio" name="mode" value="dice" checked onchange="onModeChange()"><span>Dice (1-6)</span></label>
       <label><input type="radio" name="mode" value="coin" onchange="onModeChange()"><span>Coin (1/0)</span></label>
     </div>
+    <details id="wdBox" data-g="1">
+      <summary>Word draw: made your words with physical tiles?<span class="tag tag-secret">SECRET</span><small>Type words drawn from word tiles (such as SeedSigner&rsquo;s SeedPills) plus a few coin flips.</small></summary>
+      <p class="hint" style="margin:8px 0 0;">Word tiles let you pick the words by hand: mix them in a bag, draw one without looking, flip it to choose a face, write the word down and <b>put the tile back</b> before the next draw. Each word is 11 random bits. A 12-word seed needs 11 drawn words and 7 coin flips; a 24-word seed needs 23 words and 3 flips. The flips are needed because part of the last word is a <span class="term" tabindex="0" data-tip="A few extra bits, calculated from all the others, that let wallets catch typing mistakes. The last word of a seed is partly made of them.">checksum</span>. Type your words (the first four letters of each are enough) and your flips; VOIDFORGE finishes the last word the standard BIP39 way, with no hashing, so any BIP39 wallet reads the result. Repeated words are fine, because every draw goes back in the bag. It never fills in the flips for you. Typed words are secret: use it only where nobody can see your screen.</p>
+      <div style="display:flex; gap:8px; align-items:center; margin-top:8px;"><label for="wdLen" style="font-weight:600;">Seed length</label><select id="wdLen" aria-label="Seed length" style="flex:1; min-width:0;" onchange="wdUpdate()"><option value="12">12 words (draw 11 + 7 flips)</option><option value="24">24 words (draw 23 + 3 flips)</option></select></div>
+      <textarea id="wdWords" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="The words you drew" placeholder="Type the words you drew, in order (first four letters are enough)" oninput="wdUpdate()" style="margin-top:8px;"></textarea>
+      <input type="text" id="wdFlips" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="Your coin flips as 1 and 0" placeholder="Your coin flips as 1 and 0" oninput="wdUpdate()" style="margin-top:6px;">
+      <div id="wdCount" class="hint" aria-live="polite" style="margin:6px 0 0; font-weight:600;"></div>
+      <div id="wdMsg" class="hint" aria-live="polite" style="margin:4px 0 0; color:var(--danger);"></div>
+      <div class="hint" style="margin:4px 0 0;">The passphrase (if any) comes from Advanced options below. Coin: pick which side is 1 and keep it the same for every flip.</div>
+      <div class="btn-row" style="margin-top:8px;">
+        <button type="button" id="wdBtn" onclick="wdGenerate()" disabled>MAKE SEED FROM WORDS</button>
+        <button type="button" class="secondary small" onclick="wdClear()">CLEAR</button>
+      </div>
+      <div id="wdOut" style="display:none;"></div>
+    </details>
     <div id="tapRow" data-g="2" class="radio-group" style="margin-top:8px; margin-bottom:6px;" aria-label="Tap to add a roll or flip"></div>
     <textarea id="rolls" data-g="2" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Dice: rolls 1-6. Coin: flips as 1 and 0."></textarea>
     <div id="coinHint" data-g="2" style="display:none; font-size:12px; margin-top:6px; color:var(--muted);">Pick which side is 1 and which is 0 (the usual choice: heads = 1, tails = 0) and keep it the same for every flip. Only the 1/0 string is used, so any consistent choice is fine, but you cannot get the mapping back from the words. Write down the exact string or your mapping with your backup.</div>
@@ -826,6 +847,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.19.5</b> &mdash; <b>Word draw</b>, for people who pick their words from physical word tiles (such as SeedSigner&rsquo;s SeedPills): type the 11 (or 23) words you drew and the 7 (or 3) coin flips, and VOIDFORGE works out the last word with the standard BIP39 checksum. Nothing is hashed, repeated words are accepted (every tile goes back in the bag), the flips are never filled in for you, and a seed made this way works in any BIP39 wallet. It shows every step of how the last word was made, then uses the same fingerprint, address, SeedQR, print and watch-only tools as the dice method. Seeds made by dice or coin are identical to v1.19.4.</li>
         <li><b>1.19.4</b> &mdash; Two friendly additions. (1) The logo is now <b>three rolling dice</b>: they are thrown in with a 3D tumble, bounce and settle with a soft glow and a shadow, and roll again when you tap them. They keep the same look, and stay still if your device asks for reduced motion. (2) <b>Watch the words change (demo only)</b>, an optional switch under the roll counter: as you add rolls it shows demo words that scramble completely with every roll, so you can see why one wrong roll gives a different wallet. The demo words are made with a demo tag, so they are never your real seed; they are labelled NOT YOUR SEED, wiped when you switch it off, clear or forge, and never printed or saved. Also fixed: the GUIDE ME and TEXT A+ buttons were hard to read in the light theme. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.3.</li>
         <li><b>1.19.3</b> &mdash; Easier for first-time users. <b>GUIDE ME</b> (top left) walks you through making a seed one screen at a time: choose the length and method, roll, optional passphrase, FORGE and write down, then check and back up. Each step explains why, and NEXT stays locked until the step is done. Underlined words (passphrase, fingerprint, zpub, descriptor, watch-only) show a plain-language explanation when you hover, tap or focus them. <b>TEXT A+</b> makes everything larger. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.2.</li>
         <li><b>1.19.2</b> &mdash; Two additions after FORGE. (1) <b>How your seed was made</b> (marked SECRET, closed by default): shows every step from your typed rolls to the words, in five plain-language steps with the real numbers (the SHA-256 result, the raw entropy, the checksum bits, and each 11-bit piece with its word number), and checks itself against the words above. It never shows your passphrase. (2) A redesigned <b>printed backup sheet</b>: numbered boxes for the words, the fingerprint and first address, the passphrase-used line, and fields to fill in, laid out for a clean paper copy. Printing still asks you to confirm first. Self-test is now 66 checks. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.1.</li>
@@ -867,7 +889,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.19.4 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.19.5 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -1894,9 +1916,13 @@ async function generate(){
   const an = analyzeRolls(rolls, getMode()==="coin");
   if(an.level==="bad" && !confirm("Your input looks non-random (" + an.problems.join("; ") + "). A seed made from it may be weak. Forge anyway?")) return;
   const mnemonic = await rollsToMnemonic(rolls, wc);
+  await finishSeed(mnemonic, {rolls, words: mnemonic.split(" "), coin: getMode()==="coin"});
+}
+// Everything that happens once the seed words exist (shared by dice/coin and Word draw): show them, fingerprint, addresses, watch-only.
+async function finishSeed(mnemonic, ctx){
   const pass = document.getElementById("passphrase").value;
   setResult(mnemonic + "\n\nPassphrase: " + (pass ? "used (" + Array.from(pass).length + " characters, not shown here)" : "none"), mnemonic.split(" "));
-  exCtx = {rolls, words: mnemonic.split(" "), coin: getMode()==="coin"};
+  exCtx = ctx;
   const fpEl = document.getElementById("fingerprint"), adEl = document.getElementById("address");
   fpEl.textContent = "Master fingerprint: computing..."; adEl.textContent = "";
   clearWatch(); clearFpIcons();
@@ -2283,7 +2309,7 @@ function updateAbbrNote(){
   document.getElementById("abbrNote").textContent = (abbrOn && hasSeed()) ? "Showing only the first 4 letters of each word. The full words are still your backup; write down full words unless your backup method uses 4-letter abbreviations." : "";
 }
 function setResult(text, words){
-  demoOff();
+  demoOff(); wdWipe();
   const g = document.getElementById("genResult"), grid = document.getElementById("wordGrid");
   g.textContent = text; grid.textContent = "";
   hideExplain(); { const eb = document.getElementById("explainBox"); eb.style.display = (words && [12,24].includes(words.length)) ? "" : "none"; eb.open = false; }
@@ -2374,6 +2400,7 @@ function clearAll(){
   document.getElementById("verifyStatus").textContent="";
   document.getElementById("testResults").textContent="";
   setResult("\u2014"); updateAdvSummary(); if(guideOn){ guideN = 1; guideRender(); }
+  wdClear();
   document.getElementById("fingerprint").textContent="";
   document.getElementById("address").textContent="";
   clearWatch(); clearFpIcons();
@@ -2479,6 +2506,7 @@ function setGate(state, text, cls){
   document.getElementById("verifyBtn").disabled = !on;
   document.getElementById("checkAddrBtn").disabled = !on;
   document.getElementById("childBtn").disabled = !on;
+  wdUpdate();
 }
 window.selfTestDone = (async function(){
   if(!CRYPTO_OK){
@@ -2636,6 +2664,90 @@ async function demoRefresh(){
   words.forEach((w, i) => { const c = document.createElement("div"), ch = !!prev && prev[i] !== w; if(ch) changed++; c.className = "dm-w" + (ch ? " dm-ch" : ""); c.textContent = (i + 1) + ". " + w; grid.appendChild(c); });
   demoPrev = words;
   info.textContent = prev ? changed + " of " + words.length + " words changed with your last roll." : "These words come from your " + rolls.length + " roll" + (rolls.length === 1 ? "" : "s") + " so far. Add another and watch.";
+}
+// ---- Word draw (v1.19.5): words drawn from physical tiles + a few coin flips -> standard BIP39 (no hashing). ----
+let wdPrefix = null;
+function wdResolve(tok){
+  tok = String(tok).toLowerCase();
+  if(Object.prototype.hasOwnProperty.call(WORD_MAP, tok)) return WORD_MAP[tok];
+  if(tok.length >= 4){
+    if(!wdPrefix){ wdPrefix = {}; WORDLIST.forEach((w, i) => { wdPrefix[w.slice(0, 4)] = i; }); }
+    const i = wdPrefix[tok.slice(0, 4)];
+    if(i !== undefined && WORDLIST[i].startsWith(tok)) return i;
+  }
+  return -1;
+}
+function wdParse(text){
+  const toks = String(text).toLowerCase().split(/[^a-z]+/).filter(Boolean), idx = [], bad = [];
+  toks.forEach((t, k) => { const n = wdResolve(t); if(n < 0) bad.push({n: k + 1, tok: t}); else idx.push(n); });
+  return {idx, bad, count: toks.length};
+}
+function wdNeeds(wc){ return wc === 24 ? {words: 23, flips: 3} : {words: 11, flips: 7}; }
+async function wdSteps(idx, flips, wc){
+  const need = wdNeeds(wc);
+  if(idx.length !== need.words || flips.length !== need.flips || /[^01]/.test(flips)) throw new Error("Wrong number of words or flips");
+  const wordBits = idx.map(n => n.toString(2).padStart(11, "0"));
+  const bits = wordBits.join("") + flips;
+  const bytes = new Uint8Array(bits.length / 8);
+  for(let i = 0; i < bytes.length; i++) bytes[i] = parseInt(bits.slice(i * 8, i * 8 + 8), 2);
+  const hash = await sha256bytes(bytes);
+  const check = bytesToBits(hash).slice(0, bits.length / 32);
+  const lastBits = flips + check, lastNum = parseInt(lastBits, 2);
+  const mnemonic = await entropyToMnemonic(bytes);
+  const words = mnemonic.split(" ");
+  if(words.length !== wc || words.slice(0, wc - 1).some((w, i) => WORD_MAP[w] !== idx[i]) || WORD_MAP[words[wc - 1]] !== lastNum) throw new Error("Internal check failed");
+  const hex = Array.from(bytes).map(x => x.toString(16).padStart(2, "0")).join("");
+  return {mnemonic, wordBits, flips, entropyHex: hex, entropyBits: bits.length, check, lastBits, lastNum, lastWord: words[wc - 1]};
+}
+function wdWipe(){ const o = document.getElementById("wdOut"); o.textContent = ""; o.style.display = "none"; }
+function wdClear(){
+  document.getElementById("wdWords").value = ""; document.getElementById("wdFlips").value = "";
+  wdWipe(); wdUpdate();
+}
+function wdUpdate(){
+  const wc = +document.getElementById("wdLen").value, need = wdNeeds(wc);
+  const flipsEl = document.getElementById("wdFlips"), cleaned = flipsEl.value.replace(/[^01]/g, "");
+  if(cleaned !== flipsEl.value) flipsEl.value = cleaned;
+  const pr = wdParse(document.getElementById("wdWords").value);
+  document.getElementById("wdCount").textContent = pr.count + " / " + need.words + " words, " + cleaned.length + " / " + need.flips + " flips";
+  let msg = "";
+  if(pr.bad.length) msg = "Word " + pr.bad[0].n + " (" + pr.bad[0].tok + ") is not a BIP39 word. Check the spelling or type more letters.";
+  else if(pr.count > need.words) msg = "Too many words: a " + wc + "-word seed needs " + need.words + " drawn words (the last word is worked out for you).";
+  else if(cleaned.length > need.flips) msg = "Too many flips: you need " + need.flips + ".";
+  document.getElementById("wdMsg").textContent = msg;
+  document.getElementById("wdBtn").disabled = !(selfTestState === "pass" && !pr.bad.length && pr.count === need.words && cleaned.length === need.flips);
+}
+async function wdGenerate(){
+  if(!gateOk()) return;
+  const wc = +document.getElementById("wdLen").value, need = wdNeeds(wc);
+  const pr = wdParse(document.getElementById("wdWords").value), flips = document.getElementById("wdFlips").value.replace(/[^01]/g, "");
+  if(pr.bad.length || pr.count !== need.words || flips.length !== need.flips){ wdUpdate(); return; }
+  if(document.getElementById("passphrase2").value !== document.getElementById("passphrase").value){
+    setResult("The two passphrase boxes do not match. A mistyped passphrase gives a different wallet, so fix them (or clear both) and try again.");
+    document.getElementById("advanced").open = true;
+    document.getElementById("fingerprint").textContent = ""; document.getElementById("address").textContent = "";
+    return;
+  }
+  const same = pr.idx.every(n => n === pr.idx[0]), sorted = pr.idx.every((n, i) => i === 0 || n > pr.idx[i - 1]);
+  if((same || sorted) && !confirm("Your words look " + (same ? "all the same" : "alphabetical") + ", which is extremely unlikely for random draws. A seed made from them may be weak. Make it anyway?")) return;
+  if(/^(0+|1+)$/.test(flips) && !confirm("All of your coin flips are the same (" + flips + "). That can happen by chance, but check that you really flipped a coin and typed them in order. Continue?")) return;
+  const st = await wdSteps(pr.idx, flips, wc);
+  await finishSeed(st.mnemonic, null);
+  document.getElementById("explainBox").style.display = "none";
+  wdShow(st, wc);
+  if(guideOn){ guideN = 4; guideRender(); }
+  jumpTo("genResult");
+}
+function wdShow(st, wc){
+  const o = document.getElementById("wdOut"); o.textContent = ""; o.style.display = "";
+  const add = (key, text) => { const r = document.createElement("div"); r.className = "wd-row"; const k = document.createElement("span"); k.className = "wd-key"; k.textContent = key; r.appendChild(k); r.appendChild(document.createTextNode(" " + text)); o.appendChild(r); };
+  const h = document.createElement("div"); h.className = "hint"; h.style.fontWeight = "700"; h.textContent = "How your last word was made (SECRET)"; o.appendChild(h);
+  st.wordBits.forEach((b, i) => add((1 + i) + ".", WORDLIST[parseInt(b, 2)] + "  =  number " + parseInt(b, 2) + "  =  " + b));
+  add("Flips", st.flips + "  (" + st.flips.length + " bits)");
+  add("Together", st.wordBits.length + " x 11 + " + st.flips.length + " = " + st.entropyBits + " bits of entropy: " + st.entropyHex);
+  add("Checksum", "first " + st.check.length + " bits of SHA-256 of those bytes = " + st.check);
+  add("Last word", st.flips + " + " + st.check + " = " + st.lastBits + "  =  number " + st.lastNum + "  =  " + st.lastWord);
+  const n = document.createElement("div"); n.className = "hint"; n.style.margin = "6px 0 0"; n.textContent = "No hashing is applied to your words: they are the seed. Only the checksum is calculated."; o.appendChild(n);
 }
 // Reached only if the whole script parsed and ran: hide the "script is not running" notice.
 document.getElementById("noJs").style.display = "none";

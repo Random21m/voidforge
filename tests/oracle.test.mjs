@@ -337,4 +337,22 @@ R.ok(bad === 0, `${n} last-word candidate lists (11 to 23 words) equal the indep
   R.ok(bad === 0, `${n} random dice and coin inputs: the explainer's digest, raw entropy, checksum bits, 11-bit pieces and words equal the independent code`);
 }
 
+// 2j. Word draw: random drawn words + coin flips. The page must give the same mnemonic as @scure's entropyToMnemonic
+// built from the same bits (no hashing), with the typed words as the first words and the last word from the flips + checksum.
+{
+  let n = 0, bad = 0;
+  for (const wc of [12, 24]) for (let i = 0; i < 50; i++) {
+    const nw = wc === 24 ? 23 : 11, nf = wc === 24 ? 3 : 7;
+    const idx = Array.from({ length: nw }, () => nc.randomInt(2048)), flips = Array.from({ length: nf }, () => String(nc.randomInt(2))).join('');
+    const bits = idx.map((k) => k.toString(2).padStart(11, '0')).join('') + flips;
+    const ent = Uint8Array.from(bits.match(/.{8}/g).map((b) => parseInt(b, 2)));
+    const want = entropyToMnemonic(ent, wordlist).split(' ');
+    const st = await w.wdSteps(idx, flips, wc);
+    // typed with only four letters per word, still the same indexes
+    const pr = w.wdParse(idx.map((k) => wordlist[k].slice(0, 4)).join(' '));
+    n++; if (st.mnemonic !== want.join(' ') || want.slice(0, nw).join() !== idx.map((k) => wordlist[k]).join() || st.lastWord !== want[wc - 1] || pr.idx.join() !== idx.join() || pr.bad.length) { bad++; console.log('word draw mismatch', wc, flips); }
+  }
+  R.ok(bad === 0, `${n} random word draws (12 and 24 words): the mnemonic, last word and four-letter typing equal the independent code`);
+}
+
 R.done('oracle');

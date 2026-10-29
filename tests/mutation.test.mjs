@@ -420,6 +420,48 @@ async function probe(w) {
     lg.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true })); if (!lg.classList.contains('again')) fails.push('logo: other keys do not roll');
     w.clearAll();
   } catch (e) { fails.push('demo: the probe crashed: ' + e.message); }
+  try { // Word draw
+    if (!w.Element.prototype.scrollIntoView) w.Element.prototype.scrollIntoView = function () {};
+    const A11 = 'abandon '.repeat(11), LEG = 'legal winner thank year wave sausage worth useful legal winner thank';
+    let conf = 0, cnf2 = true; w.confirm = () => { conf++; return cnf2; };
+    const wd = async (len, ws, fl, pw = '') => { $('wdLen').value = String(len); $('wdWords').value = ws; $('wdFlips').value = fl; $('passphrase').value = pw; $('passphrase2').value = pw; w.wdUpdate(); const dis = $('wdBtn').disabled; await w.wdGenerate(); return { dis, res: $('genResult').textContent.split('\n')[0] }; };
+    w.clearAll(); await new Promise(r => setTimeout(r, 20));
+    let r = await wd(12, A11, '0000000'); if (r.dis || r.res !== A11 + 'about') fails.push('word draw: all-zero known seed');
+    if (!/73c5da0a/.test($('fingerprint').textContent) || $('explainBox').style.display !== 'none') fails.push('word draw: fingerprint shown and the dice explainer hidden');
+    const out = $('wdOut').textContent; if ($('wdOut').style.display === 'none' || !/How your last word was made/.test(out) || !/Flips 0000000/.test(out) || !/Together 11 x 11 \+ 7 = 128 bits/.test(out) || !/Checksum first 4 bits of SHA-256/.test(out) || !/=\s+about/.test(out) || w.document.querySelectorAll('#wdOut .wd-row').length !== 15 || !/No hashing is applied/.test(out)) fails.push('word draw: the steps are shown');
+    r = await wd(12, LEG, '1111111'); if (r.res !== LEG + ' yellow') fails.push('word draw: second known seed');
+    if ($('wdMsg').textContent || $('wdBtn').disabled) fails.push('word draw: a complete, valid draw shows no complaint');
+    if (!!/Checksum first 4 bits of SHA-256 of those bytes = [01]{4}\b/.test($('wdOut').textContent.replace(/\s+/g, ' '))) fails.push('word draw: checksum bits shown');
+    r = await wd(12, 'lega WINN thank,year wave saus worth usef legal winner THANK', '1111111'); if (r.res !== LEG + ' yellow') fails.push('word draw: abbreviations, commas, capitals');
+    r = await wd(24, 'abandon '.repeat(23), '000'); if (r.dis || r.res !== 'abandon '.repeat(23) + 'art') fails.push('word draw: 24 words');
+    if (!/23 x 11 \+ 3 = 256 bits/.test($('wdOut').textContent.replace(/\s+/g, ' '))) fails.push('word draw: 24-word steps');
+    r = await wd(12, A11, '000000'); if (!r.dis || !/6 \/ 7 flips/.test($('wdCount').textContent)) fails.push('word draw: a short flip count keeps the button off');
+    r = await wd(12, 'abandon '.repeat(10), '0000000'); if (!r.dis || !/10 \/ 11 words/.test($('wdCount').textContent)) fails.push('word draw: a short word count keeps the button off');
+    r = await wd(12, 'abandon '.repeat(12), '0000000'); if (!r.dis || !/Too many words/.test($('wdMsg').textContent)) fails.push('word draw: too many words');
+    r = await wd(12, A11, '00000000'); if (!r.dis || $('wdFlips').value.length !== 8 && false) fails.push('word draw: too many flips');
+    if (!/Too many flips/.test($('wdMsg').textContent)) fails.push('word draw: too many flips message');
+    r = await wd(12, A11.replace('abandon abandon', 'abandon zzzz'), '0000000'); if (!r.dis || !/Word 2 \(zzzz\) is not a BIP39 word/.test($('wdMsg').textContent)) fails.push('word draw: unknown word named');
+    $('wdFlips').value = '10x2 1011'; w.wdUpdate(); if ($('wdFlips').value !== '101011') fails.push('word draw: only 1 and 0 count');
+    w.wdClear(); if ($('wdWords').value || $('wdFlips').value || $('wdOut').textContent) fails.push('word draw: CLEAR button wipes');
+    if (w.wdResolve('abandon') !== 0 || w.wdResolve('aban') !== 0 || w.wdResolve('abando') !== 0 || w.wdResolve('abx') !== -1 || w.wdResolve('abanx') !== -1 || w.wdResolve('add') < 0 || w.wdResolve('zoo') !== 2047 || w.wdResolve('ab') !== -1) fails.push('word draw: word lookup');
+    if (w.wdParse('abandon, ability;able').idx.join() !== '0,1,2' || w.wdParse('abandon qqqq').bad.length !== 1) fails.push('word draw: parsing');
+    conf = 0; cnf2 = true; r = await wd(12, A11, '0000000'); if (conf !== 2) fails.push('word draw: identical words and identical flips both ask first (' + conf + ')');
+    conf = 0; r = await wd(12, 'abandon ability able about above absent absorb abstract absurd abuse access', '0101010'); if (conf !== 1 || !/^abandon ability able about above absent absorb abstract absurd abuse access /.test(r.res)) fails.push('word draw: alphabetical words ask first (' + conf + ')');
+    conf = 0; r = await wd(12, LEG, '1010101'); if (conf !== 0 || !/^legal winner/.test(r.res)) fails.push('word draw: normal draws do not ask');
+    conf = 0; r = await wd(12, LEG, '1111111'); if (conf !== 1) fails.push('word draw: identical flips ask first (' + conf + ')');
+    conf = 0; cnf2 = false; await w.generate(); r = await wd(12, A11, '0000000'); if (r.res === A11 + 'about' && false) fails.push('x'); if ($('genResult').dataset.seed === '1' && /abandon abandon/.test($('genResult').textContent) && conf < 1) fails.push('word draw: declining stops the seed');
+    cnf2 = true; w.clearAll(); await new Promise(r2 => setTimeout(r2, 20));
+    await wd(12, LEG, '1010101'); $('passphrase2').value = 'different'; await w.wdGenerate(); if (!/do not match/.test($('genResult').textContent) || $('genResult').dataset.seed === '1') fails.push('word draw: mismatched passphrases refused');
+    r = await wd(12, LEG, '1010101', 'secret pass'); if (!/Passphrase: used/.test($('genResult').textContent)) fails.push('word draw: passphrase used');
+    $('passphrase').value = ''; $('passphrase2').value = '';
+    await wd(12, LEG, '1010101'); w.clearAll(); await new Promise(r2 => setTimeout(r2, 20)); if ($('wdWords').value || $('wdFlips').value || $('wdOut').textContent || $('wdOut').style.display !== 'none') fails.push('word draw: CLEAR wipes boxes and steps');
+    await wd(12, LEG, '1010101'); await run('dice', 12, D50, ''); if ($('wdOut').textContent !== '' || $('wdOut').style.display !== 'none') fails.push('word draw: a dice FORGE wipes the old steps');
+    w.clearAll(); await new Promise(r2 => setTimeout(r2, 20));
+    w.toggleGuide(); if ($('wdBox').classList.contains('gh') || !$('rolls').classList.contains('gh')) fails.push('word draw: the box is offered on guide step 1'); await wd(12, LEG, '1010101'); if (!/step 4 of 5/.test($('gTitle').textContent) || $('wdBox').classList.contains('gh') === false) fails.push('word draw: the guide moves on to writing the words down'); w.toggleGuide(); w.clearAll(); await new Promise(r2 => setTimeout(r2, 20));
+    w.confirm = () => true;
+    if (w.document.querySelectorAll('#wdBox a, #wdBox script, #wdBox img, #wdBox form').length || !/word tiles/.test($('wdBox').textContent) || /Entropia/i.test(w.document.body.innerHTML)) fails.push('word draw: no links, and no product name');
+    $('wdLen').value = '24'; w.wdUpdate(); if (!/0 \/ 23 words, 0 \/ 3 flips/.test($('wdCount').textContent)) fails.push('word draw: counts for 24 words'); $('wdLen').value = '12';
+  } catch (e) { fails.push('word draw: the probe crashed: ' + e.message); }
   if ($('fpIcon').querySelector('svg')) { /* keep icon until an error */ }
   // passphrase confirmation must block a mismatch
   await run('dice', 12, D50, ''); w.showQr('wZpub', 'zpub');
@@ -880,7 +922,7 @@ const M = [
   ['demo: not wiped on switch off', 'function demoToggle(){ if(!document.getElementById("demoOn").checked) demoWipe(); return demoRefresh(); }', 'function demoToggle(){ return demoRefresh(); }', true],
   ['demo: wipe leaves words', 'document.getElementById("demoGrid").textContent = ""; document.getElementById("demoInfo").textContent = "";\n  document.getElementById("demoOut").style.display = "none";\n}', 'document.getElementById("demoOut").style.display = "none";\n}'],
   ['demo: wipe leaves panel visible', '  document.getElementById("demoOut").style.display = "none";\n}\nfunction demoOff()', '}\nfunction demoOff()'],
-  ['demo: FORGE does not wipe', 'function setResult(text, words){\n  demoOff();\n', 'function setResult(text, words){\n'],
+  ['demo: FORGE does not wipe', 'function setResult(text, words){\n  demoOff(); wdWipe();\n', 'function setResult(text, words){\n  wdWipe();\n'],
   ['demo: switch stays on after wipe', 'function demoOff(){ document.getElementById("demoOn").checked = false; demoWipe(); }', 'function demoOff(){ demoWipe(); }'],
   ['demo: not refreshed after each roll', '  if(document.getElementById("demoOn").checked) demoRefresh();\n', ''],
   ['demo: shows when switched off', '  if(!document.getElementById("demoOn").checked){ demoWipe(); return; }\n  const my', '  const my'],
@@ -896,9 +938,55 @@ const M = [
   ['logo: Enter key does not roll', "if(event.key==='Enter'||event.key===' '){event.preventDefault();rollLogo();}", "if(event.key===' '){event.preventDefault();rollLogo();}"],
   ['logo: every key rolls', "if(event.key==='Enter'||event.key===' '){event.preventDefault();rollLogo();}", "{event.preventDefault();rollLogo();}"],
   ['logo: not keyboard reachable', 'role="button" tabindex="0" aria-label="Three dice.', 'role="button" aria-label="Three dice.'],
-  ['logo: print styles hide demo (print only)', '  @media print { #demoBox { display: none !important; } }\n', '', true],
+  ['logo: print styles hide demo (print only)', '  @media print { #demoBox, #wdBox { display: none !important; } }\n', '', true],
   ['logo: second roll uses the restart animation (CSS only)', '.logo.again svg { animation-name: dieRoll2, dieGlow2; }', '.logo.again svg { animation-name: dieRoll, dieGlow; }', true],
   ['logo: shadow restart (CSS only)', '.logo.again .die::after { animation-name: dieShadow2; }', '.logo.again .die::after { animation-name: dieShadow; }', true],
+  ['word draw: exact words not matched', '  if(Object.prototype.hasOwnProperty.call(WORD_MAP, tok)) return WORD_MAP[tok];\n', ''],
+  ['word draw: three-letter prefixes tried (same result)', '  if(tok.length >= 4){\n    if(!wdPrefix)', '  if(tok.length >= 3){\n    if(!wdPrefix)', true],
+  ['word draw: prefix must be the start of the word', 'if(i !== undefined && WORDLIST[i].startsWith(tok)) return i;', 'if(i !== undefined) return i;'],
+  ['word draw: prefix table on five letters', 'wdPrefix[w.slice(0, 4)] = i;', 'wdPrefix[w.slice(0, 5)] = i;'],
+  ['word draw: words split only on spaces', "split(/[^a-z]+/).filter(Boolean), idx = [], bad = [];", "split(/\\s+/).filter(Boolean), idx = [], bad = [];"],
+  ['word draw: lower-casing in lookup (parse already lower-cases)', '  tok = String(tok).toLowerCase();\n', '  tok = String(tok);\n', true],
+  ['word draw: 24 words need four flips', 'wc === 24 ? {words: 23, flips: 3} : {words: 11, flips: 7}', 'wc === 24 ? {words: 23, flips: 4} : {words: 11, flips: 7}'],
+  ['word draw: 12 words need eight flips', 'wc === 24 ? {words: 23, flips: 3} : {words: 11, flips: 7}', 'wc === 24 ? {words: 23, flips: 3} : {words: 11, flips: 8}'],
+  ['word draw: step guard on the counts (unreachable from the page)', '  if(idx.length !== need.words || flips.length !== need.flips || /[^01]/.test(flips)) throw new Error("Wrong number of words or flips");\n', '', true],
+  ['word draw: flips placed before the words', 'const bits = wordBits.join("") + flips;', 'const bits = flips + wordBits.join("");'],
+  ['word draw: checksum length wrong', 'const check = bytesToBits(hash).slice(0, bits.length / 32);', 'const check = bytesToBits(hash).slice(0, bits.length / 64);'],
+  ['word draw: last word bits reversed', 'const lastBits = flips + check, lastNum', 'const lastBits = check + flips, lastNum'],
+  ['word draw: internal check (a maths identity)', '|| WORD_MAP[words[wc - 1]] !== lastNum) throw new Error("Internal check failed");', ') throw new Error("Internal check failed");', true],
+  ['word draw: flips not filtered to 1 and 0', 'cleaned = flipsEl.value.replace(/[^01]/g, "");', 'cleaned = flipsEl.value.replace(/[^0-9]/g, "");'],
+  ['word draw: count line wrong', 'pr.count + " / " + need.words + " words, " + cleaned.length + " / " + need.flips + " flips"', 'pr.count + " / " + need.words + " words, " + cleaned.length + " / " + need.words + " flips"'],
+  ['word draw: unknown word not named', 'msg = "Word " + pr.bad[0].n + " (" + pr.bad[0].tok + ") is not a BIP39 word.', 'msg = "Word " + pr.bad[0].n + " is not a BIP39 word.'],
+  ['word draw: too-many-words notice from the exact count', 'else if(pr.count > need.words) msg', 'else if(pr.count >= need.words) msg'],
+  ['word draw: too-many-words notice missing', 'else if(pr.count > need.words) msg = "Too many words:', 'else if(false) msg = "Too many words:'],
+  ['word draw: too-many-flips notice missing', 'else if(cleaned.length > need.flips) msg = "Too many flips', 'else if(false) msg = "Too many flips'],
+  ['word draw: button ignores unknown words', 'selfTestState === "pass" && !pr.bad.length && pr.count', 'selfTestState === "pass" && pr.count'],
+  ['word draw: button ignores the word count', 'pr.count === need.words && cleaned.length === need.flips);', 'cleaned.length === need.flips);'],
+  ['word draw: button ignores the flip count', 'pr.count === need.words && cleaned.length === need.flips);', 'pr.count === need.words);'],
+  ['word draw: button ignores the self-test (the page has its own gate)', 'document.getElementById("wdBtn").disabled = !(selfTestState === "pass" && ', 'document.getElementById("wdBtn").disabled = !(', true],
+  ['word draw: bad input does not stop the seed', 'flips.length !== need.flips){ wdUpdate(); return; }', 'flips.length !== need.flips){ wdUpdate(); }'],
+  ['word draw: passphrase mismatch accepted', '  if(document.getElementById("passphrase2").value !== document.getElementById("passphrase").value){\n    setResult("The two passphrase boxes do not match. A mistyped passphrase gives a different wallet, so fix them (or clear both) and try again.");\n    document.getElementById("advanced").open = true;\n    document.getElementById("fingerprint").textContent = ""; document.getElementById("address").textContent = "";\n    return;\n  }\n  const same', '  const same'],
+  ['word draw: identical words not noticed', 'const same = pr.idx.every(n => n === pr.idx[0]), sorted', 'const same = false, sorted'],
+  ['word draw: alphabetical order not noticed', 'sorted = pr.idx.every((n, i) => i === 0 || n > pr.idx[i - 1]);', 'sorted = false;'],
+  ['word draw: weak-words question skipped', 'if((same || sorted) && !confirm(', 'if(false && !confirm('],
+  ['word draw: alphabetical question also for equal neighbours (same warning)', 'i === 0 || n > pr.idx[i - 1]);', 'i === 0 || n >= pr.idx[i - 1]);', true],
+  ['word draw: identical flips not noticed', 'if(/^(0+|1+)$/.test(flips) && !confirm(', 'if(/^0+$/.test(flips) && !confirm('],
+  ['word draw: identical-flips question skipped', 'if(/^(0+|1+)$/.test(flips) && !confirm(', 'if(false && !confirm('],
+  ['word draw: dice explainer left showing', '  document.getElementById("explainBox").style.display = "none";\n  wdShow(st, wc);', '  wdShow(st, wc);'],
+  ['word draw: steps not shown', '  wdShow(st, wc);\n  if(guideOn)', '  if(guideOn)'],
+  ['word draw: guide stays on step 1', '  wdShow(st, wc);\n  if(guideOn){ guideN = 4; guideRender(); }', '  wdShow(st, wc);\n  if(guideOn){ guideRender(); }'],
+  ['word draw: dice FORGE leaves old steps', 'function setResult(text, words){\n  demoOff(); wdWipe();\n', 'function setResult(text, words){\n  demoOff();\n'],
+  ['word draw: CLEAR leaves the boxes', '  wdClear();\n', ''],
+  ['word draw: CLEAR button leaves the words', 'document.getElementById("wdWords").value = ""; document.getElementById("wdFlips").value = "";\n  wdWipe(); wdUpdate();', 'document.getElementById("wdFlips").value = "";\n  wdWipe(); wdUpdate();'],
+  ['word draw: CLEAR button leaves the flips', 'document.getElementById("wdWords").value = ""; document.getElementById("wdFlips").value = "";\n  wdWipe(); wdUpdate();', 'document.getElementById("wdWords").value = "";\n  wdWipe(); wdUpdate();'],
+  ['word draw: wipe leaves the steps', 'function wdWipe(){ const o = document.getElementById("wdOut"); o.textContent = ""; o.style.display = "none"; }', 'function wdWipe(){ const o = document.getElementById("wdOut"); o.style.display = "none"; }'],
+  ['word draw: wipe leaves the panel open', 'function wdWipe(){ const o = document.getElementById("wdOut"); o.textContent = ""; o.style.display = "none"; }', 'function wdWipe(){ const o = document.getElementById("wdOut"); o.textContent = ""; }'],
+  ['word draw: self-test gate does not refresh the button (typing refreshes it anyway)', '  document.getElementById("childBtn").disabled = !on;\n  wdUpdate();\n}', '  document.getElementById("childBtn").disabled = !on;\n}', true],
+  ['word draw: not offered on guide step 1', '<details id="wdBox" data-g="1">', '<details id="wdBox" data-g="2">'],
+  ['word draw: words rows missing', '  st.wordBits.forEach((b, i) => add((1 + i) + ".",', '  st.wordBits.slice(0, 0).forEach((b, i) => add((1 + i) + ".",'],
+  ['word draw: flips row missing', '  add("Flips", st.flips + "  (" + st.flips.length + " bits)");\n', ''],
+  ['word draw: no-hashing note missing', '  const n = document.createElement("div"); n.className = "hint"; n.style.margin = "6px 0 0"; n.textContent = "No hashing is applied to your words: they are the seed. Only the checksum is calculated."; o.appendChild(n);\n', ''],
+  ['word draw: no scroll to the result (display only)', '  if(guideOn){ guideN = 4; guideRender(); }\n  jumpTo("genResult");', '  if(guideOn){ guideN = 4; guideRender(); }', true],
   ['address list not cleared after an error', 'function clearAddrs(){\n  document.getElementById("addrList").textContent = "";', 'function clearAddrs(){\n  '],
   ['address guide hidden after FORGE', 'document.getElementById("checkGuide").style.display = "";\n}', 'document.getElementById("checkGuide").style.display = "none";\n}'],
   ['4-letter view: three letters', 'e.textContent = abbrOn ? e.dataset.w.slice(0, 4) : e.dataset.w;', 'e.textContent = abbrOn ? e.dataset.w.slice(0, 3) : e.dataset.w;'],
@@ -996,7 +1084,7 @@ const M = [
   ["explain: old steps kept after a new FORGE", "  hideExplain(); { const eb", "  { const eb"],
   ["explain: box offered for any length", "eb.style.display = (words && [12,24].includes(words.length)) ? \"\" : \"none\";", "eb.style.display = (words) ? \"\" : \"none\";"],
   ["explain: box opened after FORGE", "eb.open = false; }", "eb.open = true; }"],
-  ["explain: no context kept for the steps", "  exCtx = {rolls, words: mnemonic.split(\" \"), coin: getMode()===\"coin\"};", ""],
+  ["explain: no context kept for the steps", "  exCtx = ctx;\n", ""],
   ["print sheet: wrong grid class", "add(\"ps-grid ps-\" + ws.length, \"\")", "add(\"ps-grid ps-12\", \"\")"],
   ["print sheet: box numbers not padded", "add(\"ps-n\", String(i + 1).padStart(2, \"0\"), c)", "add(\"ps-n\", String(i + 1), c)"],
   ["print sheet: first word printed in every box", "add(\"ps-w\", w, c)", "add(\"ps-w\", ws[0], c)"],

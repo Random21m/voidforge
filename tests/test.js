@@ -344,6 +344,23 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
   { ok(t.$('logo').querySelectorAll('svg').length===3&&t.$('logo').tabIndex===0,'logo is three dice and can be reached by keyboard'); t.w.rollLogo(); ok(t.$('logo').classList.contains('again'),'tapping the logo rolls the dice again'); t.w.rollLogo();
     t.$('demoOn').checked=true; t.$('rolls').value='3141'; await t.w.demoRefresh(); ok(t.d.querySelectorAll('#demoGrid .dm-w').length===12&&/NOT your seed/.test(t.$('demoOut').textContent),'demo shows 12 labelled demo words');
     t.w.demoOff(); ok(!t.d.querySelector('#demoGrid .dm-w')&&t.$('demoOut').style.display==='none','demo wipes when switched off'); t.$('rolls').value=''; }
+  { // Word draw: words drawn from physical tiles + coin flips -> standard BIP39, known answers
+    const wd=async(len,words,flips,pw='')=>{ t.$('wdLen').value=String(len); t.$('wdWords').value=words; t.$('wdFlips').value=flips; t.$('passphrase').value=pw; t.$('passphrase2').value=pw; t.w.wdUpdate(); const dis=t.$('wdBtn').disabled; await t.w.wdGenerate(); return {dis,res:t.$('genResult').textContent.split('\n')[0]}; };
+    const A11='abandon '.repeat(11);
+    let r=await wd(12,A11,'0000000'); ok(!r.dis&&r.res===A11+'about','word draw: eleven "abandon" + flips 0000000 gives the known all-zero seed');
+    ok(/73c5da0a/.test(t.$('fingerprint').textContent)&&t.$('explainBox').style.display==='none'&&/How your last word was made/.test(t.$('wdOut').textContent)&&/number 3 = {1,2}00000000011|about/.test(t.$('wdOut').textContent),'word draw: uses the usual fingerprint tools and shows how the last word was made');
+    r=await wd(12,'legal winner thank year wave sausage worth useful legal winner thank','1111111'); ok(r.res==='legal winner thank year wave sausage worth useful legal winner thank yellow','word draw: second known seed ends in "yellow"');
+    r=await wd(12,'lega WINN thank,year wave saus worth usef legal winner THANK','1111111'); ok(r.res==='legal winner thank year wave sausage worth useful legal winner thank yellow','word draw: four-letter abbreviations, commas and capitals are accepted');
+    r=await wd(24,'abandon '.repeat(23),'000'); ok(!r.dis&&r.res==='abandon '.repeat(23)+'art','word draw: 24 words, 23 drawn + 3 flips, known all-zero seed');
+    r=await wd(12,A11,'000000'); ok(r.dis&&/6 \/ 7 flips/.test(t.$('wdCount').textContent),'word draw: one flip short keeps the button off');
+    r=await wd(12,'abandon '.repeat(10),'0000000'); ok(r.dis&&/10 \/ 11 words/.test(t.$('wdCount').textContent),'word draw: one word short keeps the button off');
+    r=await wd(12,'abandon '.repeat(12),'0000000'); ok(r.dis&&/Too many words/.test(t.$('wdMsg').textContent),'word draw: too many words is explained');
+    r=await wd(12,A11.replace('abandon abandon','abandon zzzz'),'0000000'); ok(r.dis&&/Word 2 \(zzzz\) is not a BIP39 word/.test(t.$('wdMsg').textContent),'word draw: an unknown word is named');
+    t.$('wdFlips').value='10x1 011'; t.w.wdUpdate(); ok(t.$('wdFlips').value==='101011'&&/6 \/ 7 flips/.test(t.$('wdCount').textContent),'word draw: only 1 and 0 count as flips');
+    await wd(12,A11,'0000000'); t.$('passphrase2').value='different'; await t.w.wdGenerate(); ok(/do not match/.test(t.$('genResult').textContent),'word draw: mismatched passphrases are refused');
+    await wd(12,'legal winner thank year wave sausage worth useful legal winner thank','1111111','secret pass'); ok(/Passphrase: used/.test(t.$('genResult').textContent)&&!/73c5da0a/.test(t.$('fingerprint').textContent),'word draw: the passphrase makes a different wallet');
+    t.w.clearAll(); await new Promise(x=>setTimeout(x,30)); ok(t.$('wdWords').value===''&&t.$('wdFlips').value===''&&t.$('wdOut').textContent===''&&t.$('wdOut').style.display==='none','CLEAR wipes the word draw boxes and steps');
+    t.$('passphrase').value=''; t.$('passphrase2').value=''; }
   { let threw=false; try{ await t.w.rollsToMnemonic('1'.repeat(62),15);}catch(e){threw=true;} ok(threw,'15-word generation is rejected'); }
   ok(/Recovery notes/.test(html)&&/move the funds/.test(html),'changelog has recovery notes for removed modes');
   ok((await t.w.checkPhrase('abandon '.repeat(14)+'address')).ok,'VERIFY still accepts 15-word phrases from other tools');
