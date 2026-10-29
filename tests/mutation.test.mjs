@@ -402,6 +402,7 @@ async function probe(w) {
     setRolls(D50.slice(0, 8)); await w.demoRefresh();
     const e2 = demoOf(D50.slice(0, 8), 12), nch = e2.filter((x, i) => x !== e1[i]).length, marked = w.document.querySelectorAll('#demoGrid .dm-ch').length;
     if (cells().join('|') !== e2.map((x, i) => (i + 1) + '. ' + x).join('|') || $('demoInfo').textContent !== nch + ' of 12 words changed with your last roll.' || marked !== nch || nch < 8) fails.push('demo: a new roll re-makes every word and counts what changed');
+    setRolls(D50.slice(0, 9)); await new Promise(r => setTimeout(r, 60)); if (cells().join('|') !== demoOf(D50.slice(0, 9), 12).map((x, i) => (i + 1) + '. ' + x).join('|')) fails.push('demo: every roll updates the words by itself');
     setRolls('1'); await w.demoRefresh(); setRolls('11'); await w.demoRefresh(); if (!/from your 1 roll so far/.test($('demoInfo').textContent) && !/of 12 words changed/.test($('demoInfo').textContent)) fails.push('demo: singular roll wording');
     setRolls(D50); await w.demoRefresh(); const e50 = demoOf(D50, 12);
     if (cells().join('|') !== e50.map((x, i) => (i + 1) + '. ' + x).join('|') || e50.join(' ') === expect.d50) fails.push('demo: with all 50 rolls the demo words are still not the real seed');
@@ -896,7 +897,8 @@ const M = [
   ['logo: every key rolls', "if(event.key==='Enter'||event.key===' '){event.preventDefault();rollLogo();}", "{event.preventDefault();rollLogo();}"],
   ['logo: not keyboard reachable', 'role="button" tabindex="0" aria-label="Three dice.', 'role="button" aria-label="Three dice.'],
   ['logo: print styles hide demo (print only)', '  @media print { #demoBox { display: none !important; } }\n', '', true],
-  ['logo: reduced-motion handled globally (CSS only)', '.logo.again svg { animation-name: dieRoll2; }', '.logo.again svg { animation-name: dieRoll2; animation-delay: var(--dl, 0s); }', true],
+  ['logo: second roll uses the restart animation (CSS only)', '.logo.again svg { animation-name: dieRoll2, dieGlow2; }', '.logo.again svg { animation-name: dieRoll, dieGlow; }', true],
+  ['logo: shadow restart (CSS only)', '.logo.again .die::after { animation-name: dieShadow2; }', '.logo.again .die::after { animation-name: dieShadow; }', true],
   ['address list not cleared after an error', 'function clearAddrs(){\n  document.getElementById("addrList").textContent = "";', 'function clearAddrs(){\n  '],
   ['address guide hidden after FORGE', 'document.getElementById("checkGuide").style.display = "";\n}', 'document.getElementById("checkGuide").style.display = "none";\n}'],
   ['4-letter view: three letters', 'e.textContent = abbrOn ? e.dataset.w.slice(0, 4) : e.dataset.w;', 'e.textContent = abbrOn ? e.dataset.w.slice(0, 3) : e.dataset.w;'],

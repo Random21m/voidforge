@@ -347,12 +347,64 @@
   body.guided .gh { display: none !important; }
   @media print { body.big { zoom: 1; } .guide-btn, .size-btn, #guidePanel, #guideNew, #tipBox { display: none !important; } }
 
-  .logo { display: inline-flex; align-items: center; justify-content: center; gap: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
-  .logo svg { width: 58px; height: 58px; display: block; margin: 0 -2px; transform: rotate(var(--tilt, 0deg)); animation: dieRoll 1.4s cubic-bezier(.2,.8,.3,1) both; animation-delay: var(--dl, 0s); }
-  .logo.again svg { animation-name: dieRoll2; }
+  .logo { display: inline-flex; align-items: flex-end; justify-content: center; gap: 6px; cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; padding: 8px 10px 14px; perspective: 560px; }
+  .logo .die { position: relative; display: block; width: 58px; height: 58px; animation: dieFloat 6s ease-in-out calc(var(--dl, 0s) + 2.6s) infinite; }
+  .logo .die::after { content: ""; position: absolute; left: 8%; right: 8%; bottom: -10px; height: 9px; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(0,240,255,.5), rgba(255,0,170,.2) 62%, transparent 74%); opacity: 0; animation: dieShadow 2s linear both; animation-delay: var(--dl, 0s); }
+  .logo svg { width: 58px; height: 58px; display: block; overflow: visible; transform: rotate(var(--tilt, 0deg)); animation: dieRoll 2s linear both, dieGlow 2s linear both; animation-delay: var(--dl, 0s); }
+  .logo.again svg { animation-name: dieRoll2, dieGlow2; }
+  .logo.again .die::after { animation-name: dieShadow2; }
   .logo:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 12px; }
-  @keyframes dieRoll { 0% { transform: translateY(-38px) rotate(calc(var(--tilt, 0deg) - 540deg)) scale(.6); opacity: 0; } 40% { opacity: 1; } 68% { transform: translateY(0) rotate(calc(var(--tilt, 0deg) + 26deg)) scale(1.07); } 84% { transform: translateY(-7px) rotate(calc(var(--tilt, 0deg) - 9deg)) scale(1); } 100% { transform: translateY(0) rotate(var(--tilt, 0deg)) scale(1); opacity: 1; } }
-  @keyframes dieRoll2 { 0% { transform: translateY(-38px) rotate(calc(var(--tilt, 0deg) - 540deg)) scale(.6); opacity: 0; } 40% { opacity: 1; } 68% { transform: translateY(0) rotate(calc(var(--tilt, 0deg) + 26deg)) scale(1.07); } 84% { transform: translateY(-7px) rotate(calc(var(--tilt, 0deg) - 9deg)) scale(1); } 100% { transform: translateY(0) rotate(var(--tilt, 0deg)) scale(1); opacity: 1; } }
+  @keyframes dieFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+  @keyframes dieRoll {
+    0% { transform: translate(var(--fx, 0px), -96px) rotateZ(calc(var(--tilt, 0deg) - 720deg)) rotateX(260deg) rotateY(-200deg) scale(.55, .55); opacity: 0; animation-timing-function: cubic-bezier(.5, 0, .9, .6); }
+    10% { opacity: 1; }
+    42% { transform: translate(0px, 0px) rotateZ(calc(var(--tilt, 0deg) + 28deg)) rotateX(0deg) rotateY(0deg) scale(1.1, .84); animation-timing-function: ease-out; }
+    56% { transform: translate(0px, -26px) rotateZ(calc(var(--tilt, 0deg) - 12deg)) rotateX(0deg) rotateY(0deg) scale(.98, 1.05); animation-timing-function: ease-in; }
+    70% { transform: translate(0px, 0px) rotateZ(calc(var(--tilt, 0deg) + 6deg)) rotateX(0deg) rotateY(0deg) scale(1.05, .92); animation-timing-function: ease-out; }
+    80% { transform: translate(0px, -8px) rotateZ(calc(var(--tilt, 0deg) - 3deg)) rotateX(0deg) rotateY(0deg) scale(1, 1); animation-timing-function: ease-in; }
+    90% { transform: translate(0px, 0px) rotateZ(var(--tilt, 0deg)) rotateX(0deg) rotateY(0deg) scale(1.02, .97); animation-timing-function: ease-out; }
+    100% { transform: translate(0px, 0px) rotateZ(var(--tilt, 0deg)) rotateX(0deg) rotateY(0deg) scale(1, 1); opacity: 1; }
+  }
+  @keyframes dieGlow {
+    0% { filter: drop-shadow(0 0 0 rgba(0,240,255,0)) drop-shadow(0 0 0 rgba(255,0,170,0)); }
+    42%, 70% { filter: drop-shadow(0 0 10px rgba(0,240,255,.95)) drop-shadow(0 0 22px rgba(255,0,170,.5)); }
+    56%, 80% { filter: drop-shadow(0 0 4px rgba(0,240,255,.4)) drop-shadow(0 0 8px rgba(255,0,170,.2)); }
+    100% { filter: drop-shadow(0 0 6px rgba(0,240,255,.35)) drop-shadow(0 0 12px rgba(255,0,170,.15)); }
+  }
+  @keyframes dieShadow {
+    0% { opacity: 0; transform: scale(.3); }
+    42% { opacity: .9; transform: scale(1); }
+    56% { opacity: .3; transform: scale(.6); }
+    70% { opacity: .8; transform: scale(.95); }
+    80% { opacity: .4; transform: scale(.75); }
+    90% { opacity: .7; transform: scale(.95); }
+    100% { opacity: .6; transform: scale(1); }
+  }
+  @keyframes dieRoll2 {
+    0% { transform: translate(var(--fx, 0px), -96px) rotateZ(calc(var(--tilt, 0deg) - 720deg)) rotateX(260deg) rotateY(-200deg) scale(.55, .55); opacity: 0; animation-timing-function: cubic-bezier(.5, 0, .9, .6); }
+    10% { opacity: 1; }
+    42% { transform: translate(0px, 0px) rotateZ(calc(var(--tilt, 0deg) + 28deg)) rotateX(0deg) rotateY(0deg) scale(1.1, .84); animation-timing-function: ease-out; }
+    56% { transform: translate(0px, -26px) rotateZ(calc(var(--tilt, 0deg) - 12deg)) rotateX(0deg) rotateY(0deg) scale(.98, 1.05); animation-timing-function: ease-in; }
+    70% { transform: translate(0px, 0px) rotateZ(calc(var(--tilt, 0deg) + 6deg)) rotateX(0deg) rotateY(0deg) scale(1.05, .92); animation-timing-function: ease-out; }
+    80% { transform: translate(0px, -8px) rotateZ(calc(var(--tilt, 0deg) - 3deg)) rotateX(0deg) rotateY(0deg) scale(1, 1); animation-timing-function: ease-in; }
+    90% { transform: translate(0px, 0px) rotateZ(var(--tilt, 0deg)) rotateX(0deg) rotateY(0deg) scale(1.02, .97); animation-timing-function: ease-out; }
+    100% { transform: translate(0px, 0px) rotateZ(var(--tilt, 0deg)) rotateX(0deg) rotateY(0deg) scale(1, 1); opacity: 1; }
+  }
+  @keyframes dieGlow2 {
+    0% { filter: drop-shadow(0 0 0 rgba(0,240,255,0)) drop-shadow(0 0 0 rgba(255,0,170,0)); }
+    42%, 70% { filter: drop-shadow(0 0 10px rgba(0,240,255,.95)) drop-shadow(0 0 22px rgba(255,0,170,.5)); }
+    56%, 80% { filter: drop-shadow(0 0 4px rgba(0,240,255,.4)) drop-shadow(0 0 8px rgba(255,0,170,.2)); }
+    100% { filter: drop-shadow(0 0 6px rgba(0,240,255,.35)) drop-shadow(0 0 12px rgba(255,0,170,.15)); }
+  }
+  @keyframes dieShadow2 {
+    0% { opacity: 0; transform: scale(.3); }
+    42% { opacity: .9; transform: scale(1); }
+    56% { opacity: .3; transform: scale(.6); }
+    70% { opacity: .8; transform: scale(.95); }
+    80% { opacity: .4; transform: scale(.75); }
+    90% { opacity: .7; transform: scale(.95); }
+    100% { opacity: .6; transform: scale(1); }
+  }
   #demoBox { margin-top: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
   #demoBox summary { cursor: pointer; font-weight: 600; }
   #demoBox summary small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
@@ -382,15 +434,17 @@
   </div>
   <header>
     <div class="logo" id="logo" role="button" tabindex="0" aria-label="Three dice. Press to roll them again." title="Roll the dice" onclick="rollLogo()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();rollLogo();}">
-      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true" style="--tilt:-12deg; --dl:0.12s">
+      <span class="die" style="--dl:0.14s; --fx:-46px">
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true" style="--tilt:-12deg">
         <rect x="8" y="8" width="56" height="56" rx="10" fill="url(#face)" stroke="url(#grad)" stroke-width="2.5"/>
         <rect x="8" y="8" width="56" height="8" rx="10" fill="#00f0ff" opacity="0.15"/>
         <circle cx="22" cy="22" r="4.5" fill="#00f0ff"/>
         <circle cx="36" cy="36" r="5" fill="#ff00aa"/>
         <circle cx="50" cy="50" r="4.5" fill="#00f0ff"/>
         <rect x="12" y="12" width="48" height="48" rx="6" stroke="url(#grad)" stroke-width="0.5" opacity="0.3" fill="none"/>
-      </svg>
-      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true" style="--tilt:3deg; --dl:0s">
+      </svg></span>
+      <span class="die" style="--dl:0s; --fx:0px">
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true" style="--tilt:3deg">
         <defs>
           <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="#00f0ff"/>
@@ -409,8 +463,9 @@
         <circle cx="22" cy="50" r="4.5" fill="#00f0ff"/>
         <circle cx="50" cy="50" r="4.5" fill="#00f0ff"/>
         <rect x="12" y="12" width="48" height="48" rx="6" stroke="url(#grad)" stroke-width="0.5" opacity="0.3" fill="none"/>
-      </svg>
-      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true" style="--tilt:11deg; --dl:0.24s">
+      </svg></span>
+      <span class="die" style="--dl:0.28s; --fx:46px">
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true" style="--tilt:11deg">
         <rect x="8" y="8" width="56" height="56" rx="10" fill="url(#face)" stroke="url(#grad)" stroke-width="2.5"/>
         <rect x="8" y="8" width="56" height="8" rx="10" fill="#00f0ff" opacity="0.15"/>
         <circle cx="24" cy="22" r="4.5" fill="#00f0ff"/>
@@ -420,7 +475,7 @@
         <circle cx="24" cy="50" r="4.5" fill="#00f0ff"/>
         <circle cx="48" cy="50" r="4.5" fill="#00f0ff"/>
         <rect x="12" y="12" width="48" height="48" rx="6" stroke="url(#grad)" stroke-width="0.5" opacity="0.3" fill="none"/>
-      </svg>
+      </svg></span>
     </div>
     <h1>VOIDFORGE</h1>
     <div class="subtitle">DICE / COIN ENTROPY → BIP39 SEED</div>
@@ -771,7 +826,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
-        <li><b>1.19.4</b> &mdash; Two friendly additions. (1) The logo is now <b>three rolling dice</b> that tumble in and roll again when you tap them (still on the same look, and still when your device asks for reduced motion). (2) <b>Watch the words change (demo only)</b>, an optional switch under the roll counter: as you add rolls it shows demo words that scramble completely with every roll, so you can see why one wrong roll gives a different wallet. The demo words are made with a demo tag, so they are never your real seed; they are labelled NOT YOUR SEED, wiped when you switch it off, clear or forge, and never printed or saved. Also fixed: the GUIDE ME and TEXT A+ buttons were hard to read in the light theme. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.3.</li>
+        <li><b>1.19.4</b> &mdash; Two friendly additions. (1) The logo is now <b>three rolling dice</b>: they are thrown in with a 3D tumble, bounce and settle with a soft glow and a shadow, and roll again when you tap them. They keep the same look, and stay still if your device asks for reduced motion. (2) <b>Watch the words change (demo only)</b>, an optional switch under the roll counter: as you add rolls it shows demo words that scramble completely with every roll, so you can see why one wrong roll gives a different wallet. The demo words are made with a demo tag, so they are never your real seed; they are labelled NOT YOUR SEED, wiped when you switch it off, clear or forge, and never printed or saved. Also fixed: the GUIDE ME and TEXT A+ buttons were hard to read in the light theme. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.3.</li>
         <li><b>1.19.3</b> &mdash; Easier for first-time users. <b>GUIDE ME</b> (top left) walks you through making a seed one screen at a time: choose the length and method, roll, optional passphrase, FORGE and write down, then check and back up. Each step explains why, and NEXT stays locked until the step is done. Underlined words (passphrase, fingerprint, zpub, descriptor, watch-only) show a plain-language explanation when you hover, tap or focus them. <b>TEXT A+</b> makes everything larger. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.2.</li>
         <li><b>1.19.2</b> &mdash; Two additions after FORGE. (1) <b>How your seed was made</b> (marked SECRET, closed by default): shows every step from your typed rolls to the words, in five plain-language steps with the real numbers (the SHA-256 result, the raw entropy, the checksum bits, and each 11-bit piece with its word number), and checks itself against the words above. It never shows your passphrase. (2) A redesigned <b>printed backup sheet</b>: numbered boxes for the words, the fingerprint and first address, the passphrase-used line, and fields to fill in, laid out for a clean paper copy. Printing still asks you to confirm first. Self-test is now 66 checks. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.1.</li>
         <li><b>1.19.1</b> &mdash; A new <b>Browser safety checklist</b> in About &amp; docs: eight short habits (go offline first, a clean browser window, translation, clipboard history, print and PDF copies, downloads, and restarting afterwards), each with the reason. Releases now also carry a <code>CID.txt</code>, a second way to check that your download is the right file. Seeds, fingerprints, addresses, keys, descriptors and every check are identical to v1.19.0.</li>
