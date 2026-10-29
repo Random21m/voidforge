@@ -14,7 +14,7 @@ function load(opts={}){
       w.alert=m=>st.alerts.push(m); w.confirm=()=>{st.confirms++;return opts.confirm!==false;};
       w.addEventListener('error',e=>errors.push(e.message));
       w.URL.createObjectURL=b=>{st.blob=b;return 'blob:x';}; w.URL.revokeObjectURL=()=>{};
-      w.HTMLAnchorElement.prototype.click=function(){};
+      w.HTMLAnchorElement.prototype.click=function(){}; w.Element.prototype.scrollIntoView=function(){};
       w.print=()=>{ st.printed++; st.printHTML=w.document.getElementById('printOnly').textContent; st.printCells=[...w.document.querySelectorAll('#printOnly .ps-cell')].map(c=>c.textContent); st.printClass=w.document.body.className; st.printQrText=w.document.getElementById('printQr').textContent; st.printQrHTML=w.document.getElementById('printQr').innerHTML; };
       Object.defineProperty(w.navigator,'clipboard',{value:{writeText:async t=>{st.clip.push(t);}}});
     }});
@@ -370,6 +370,54 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     ok(ts.$('phrase').value===w0&&/Valid 12-word/.test(ts.$('verifyStatus').textContent),'SEND TO VERIFY fills the VERIFY box and validates the seed');
     ok(ts.st.clip.length===0,'SEND TO VERIFY does not touch the clipboard');
     const te=load(); await te.ready(); await te.w.sendToVerify(); ok(te.st.alerts.length===1&&te.$('phrase').value==='','SEND TO VERIFY with no seed alerts and does nothing'); }
+  { // Multisig wizard: three known seeds -> known descriptor and addresses (made with @scure/bip32 + btc-signer), wipes, refusals
+    const tm=load(); await tm.ready(); const $=tm.$, A11='abandon '.repeat(11);
+    const mk=async(words,flips)=>{ $('wdLen').value='12'; $('wdWords').value=words; $('wdFlips').value=flips; tm.w.wdUpdate(); await tm.w.wdGenerate(); await new Promise(r=>setTimeout(r,1200)); };
+    const seeds=[[A11,'0000000'],['legal winner thank year wave sausage worth useful legal winner thank','1111111'],['zoo '.repeat(11).trim(),'1111111']];
+    ok($('msBanner').style.display==='none'&&$('msBox').open===false,'multisig: no banner until setup is started');
+    $('msN').value='3'; tm.w.msUpdateM(); eq($('msM').value,'2','multisig: 3 keys default to 2-of-3');
+    $('msM').value='1'; tm.w.msMNote(); ok(/not real multisig protection/.test($('msMNote').textContent),'multisig: 1-of-N is called out as weak');
+    $('msM').value='3'; tm.w.msMNote(); ok(/lose even one/.test($('msMNote').textContent),'multisig: N-of-N warns that one lost key loses the money');
+    $('msM').value='1'; tm.w.msStart(); ok(tm.w.eval('ms')===null&&/at least 2/.test($('msErr').textContent),'multisig: 1-of-N is refused at start');
+    $('msM').value='2'; $('msAcct').value='x'; tm.w.msStart(); ok(tm.w.eval('ms')===null&&/whole number/.test($('msErr').textContent),'multisig: bad account is refused');
+    $('msAcct').value='0'; tm.w.msStart();
+    ok($('msBanner').style.display===''&&/KEY 1 OF 3/.test($('msBanTitle').textContent)&&$('msAddBtn').disabled===true,'multisig: banner shows "Key 1 of 3", button off until a seed exists');
+    await tm.w.msAddMade(); ok(/Make the seed first/.test($('msBanErr').textContent),'multisig: adding with no seed is explained');
+    await mk(...seeds[0]); ok($('msAddBtn').disabled===false,'multisig: button turns on once the seed is made');
+    $('rolls').value='1234'; await tm.w.msAddMade();
+    ok(tm.w.eval('ms.keys.length')===1&&!tm.w.hasSeed()&&$('rolls').value===''&&$('genResult').textContent==='—'&&$('watchBox').style.display==='none','multisig: ADD keeps only the public key and wipes seed, rolls, results and watch-only box');
+    ok(/KEY 2 OF 3/.test($('msBanTitle').textContent)&&tm.d.querySelectorAll('.ms-slot.done').length===1,'multisig: moves on to key 2');
+    await mk(...seeds[0]); await tm.w.msAddMade();
+    ok(tm.w.eval('ms.keys.length')===1&&/same key as key 1/.test($('msBanErr').textContent)&&tm.w.hasSeed(),'multisig: the same seed twice is refused and the seed stays on screen');
+    await mk(...seeds[1]); await tm.w.msAddMade();
+    // outside keys: refusals
+    tm.w.msUsePaste(); const paste=async(t,fp)=>{ $('msPaste').value=t; $('msPasteFp').value=fp||''; await tm.w.msAddPasted(); return $('msRunErr').textContent; };
+    const goodX='xpub6FHZCoNb3tg3o1GAJQxSwgFNF8mLRtTk2GgkF7n5rwzoxBhUEdFWa8cyZRHqytAzKZWsKz8627cQEMCCfR5GDSv6yXegqirpgDUX41Pxybr';
+    ok(/fingerprint is 8 characters/.test(await paste(goodX,'')),'multisig paste: a missing fingerprint is explained');
+    ok(/seed words/.test(await paste('abandon '.repeat(11)+'about','aaaaaaaa')),'multisig paste: seed words are refused');
+    ok(/PRIVATE key/.test(await paste('xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi','aaaaaaaa')),'multisig paste: private keys are refused');
+    ok(/typo|checksum/.test(await paste(goodX.slice(0,-1)+(goodX.endsWith('r')?'s':'r'),'aaaaaaaa')),'multisig paste: a typo is caught by the checksum');
+    ok(/not at the expected place/.test(await paste('xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8','aaaaaaaa')),'multisig paste: a master key is not accepted as a cosigner key');
+    ok(/not the one this wallet uses/.test(await paste('[aaaaaaaa/48h/0h/1h/2h]'+goodX,'')),'multisig paste: a different account in the path is refused');
+    ok(tm.w.eval('ms.keys.length')===2,'multisig paste: nothing was added by the refused keys');
+    ok(await paste('['+'3f635a63/48\'/0\'/0\'/2\']'+goodX+'/0/*','')==='','multisig paste: a normal [fingerprint/path]xpub/0/* line is accepted');
+    ok(tm.w.eval('ms.keys.length')===3&&tm.w.eval('ms.done')===true,'multisig: third key completes the wallet');
+    // the seed from key 2 is still on screen (never added twice); wallet result
+    const d=$('msDescR').textContent, K=['[3f635a63/48h/0h/0h/2h]xpub6FHZCoNb3tg3o1GAJQxSwgFNF8mLRtTk2GgkF7n5rwzoxBhUEdFWa8cyZRHqytAzKZWsKz8627cQEMCCfR5GDSv6yXegqirpgDUX41Pxybr/0/*','[73c5da0a/48h/0h/0h/2h]xpub6DkFAXWQ2dHxq2vatrt9qyA3bXYU4ToWQwCHbf5XB2mSTexcHZCeKS1VZYcPoBd5X8yVcbXFHJR9R8UCVpt82VX1VhR28mCyxUFL4r6KFrf/0/*'];
+    ok(d.startsWith('wsh(sortedmulti(2,'+K[0]+','+K[1]+',')&&/\/0\/\*\)\)#[a-z0-9]{8}$/.test(d),'multisig: descriptor has the known keys in sorted order and a checksum');
+    eq($('msAddrs').textContent,'bc1qea2gkgeszr7wm66x2ejkgdxm9nhg9462sszn75zmkhazev0t02vs70kkll'+'bc1qa0sj5tjwunnxyhmkgd85548gwqv2r0tc6vjs9c3yy2j7gjea72hs9dvptd'+'bc1qmes7qgkj4fedgj86er5z2yx2hyfjwaw9rmhsap30ul42xl4eayrsx3qsm0','multisig: first 3 addresses equal the independent library');
+    ok($('msOneDev').style.display==='none','multisig: one-device warning is hidden when a key came from elsewhere');
+    ok($('msBanner').style.display==='none','multisig: banner goes away when finished');
+    tm.w.msShowQr(); ok($('msQrBox').style.display===''&&/81 x 81/.test($('msQrCaption').textContent),'multisig: descriptor QR shows');
+    tm.w.msPrint(); ok(tm.st.printed===1&&/NO seed words/.test(tm.d.getElementById('printQr').textContent)&&tm.d.getElementById('printQr').textContent.includes(d)&&!/abandon|legal winner/.test(tm.d.getElementById('printQr').textContent),'multisig: recovery sheet prints the descriptor and no seed words');
+    tm.w.clearAll(); ok(tm.w.eval('ms')===null&&$('msDescR').textContent===''&&$('msRun').style.display==='none','multisig: CLEAR ALL forgets the whole setup');
+    // all made here -> one-device warning; testnet banner
+    const t2=load(); await t2.ready(); t2.$('msN').value='2'; t2.w.msUpdateM(); t2.$('msNet').value='test'; t2.$('msType').value='ms-sh-wsh'; t2.w.msStart();
+    ok(t2.$('msTestBan').style.display===''&&/TESTNET/.test(t2.$('msBanTitle').textContent),'multisig: testnet is shown loudly');
+    for(const [w0,f0] of [seeds[0],seeds[1]]){ t2.$('wdLen').value='12'; t2.$('wdWords').value=w0; t2.$('wdFlips').value=f0; t2.w.wdUpdate(); await t2.w.wdGenerate(); await new Promise(r=>setTimeout(r,1200)); await t2.w.msAddMade(); }
+    ok(t2.w.eval('ms.done')&&t2.$('msOneDev').style.display===''&&/^sh\(wsh\(sortedmulti\(2,/.test(t2.$('msDescR').textContent)&&/^2/.test(t2.$('msAddrs').textContent)&&/tpub/.test(t2.$('msDescR').textContent),'multisig: 2-of-2 testnet nested: sh(wsh()), 2... addresses, tpub keys, one-device warning');
+    const t3=load(); await t3.ready(); t3.w.msStart(); t3.w.msCancel(); ok(t3.w.eval('ms')===null,'multisig: START OVER with nothing collected just resets');
+  }
   // item 8: changelog
   ok(/Changelog/.test(html)&&/Breaking/.test(html),'changelog documents the H/T breaking change');
 

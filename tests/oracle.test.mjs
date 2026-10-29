@@ -90,7 +90,7 @@ R.ok(bad === 0, `${n} random phrases: watch-only zpub/xpub/fingerprint match @sc
     const a = w.qrMatrix(c.text), ha = nc.createHash('sha256').update(a.rows.map(r => r.map(x => x ? '1' : '0').join('')).join('')).digest('hex');
     if (ha !== c.hashes[a.mask]) { b++; console.log('QR AUTO MISMATCH', c.text.slice(0, 20)); }
   }
-  R.ok(b === 0, `${fx.length} texts (versions 1-12, UTF-8 included) x 8 masks, plus automatic mask: QR matrices match the independent library (${b} mismatches of ${tot + fx.length})`);
+  R.ok(b === 0, `${fx.length} texts (versions 1-30, UTF-8 included) x 8 masks, plus automatic mask: QR matrices match the independent library (${b} mismatches of ${tot + fx.length})`);
 }
 
 // 2e. fingerprint picture (LifeHash version 2): random fingerprints vs the independent `lifehash` package, plus the

@@ -234,7 +234,7 @@
   @media print {
     body.print-qr * { visibility: hidden !important; }
     body.print-qr #printQr, body.print-qr #printQr * { visibility: visible !important; }
-    body.print-qr #printQr { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 24px; font-family: monospace; font-size: 14px; line-height: 1.5; color: #000; background: #fff; white-space: pre-wrap; }
+    body.print-qr #printQr { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 24px; font-family: monospace; font-size: 14px; line-height: 1.5; color: #000; background: #fff; white-space: pre-wrap; overflow-wrap: anywhere; }
     body.print-qr #printQr .pq-img { width: 11cm; height: 11cm; margin: 14px 0; line-height: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body.print-qr #printQr .pq-img svg { width: 100%; height: 100%; }
     body.print-qr #printQr .pq-wide { width: 17cm; height: 17cm; }
@@ -405,6 +405,30 @@
     90% { opacity: .7; transform: scale(.95); }
     100% { opacity: .6; transform: scale(1); }
   }
+  .ms-ban { background: var(--surface2); border: 2px solid var(--accent); border-radius: 10px; padding: 10px 12px; margin: 8px 0 12px; }
+  .ms-t { font-weight: 800; letter-spacing: .6px; color: var(--accent); font-size: 14px; }
+  .ms-dots { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+  .ms-dots i { width: 22px; height: 8px; border-radius: 4px; background: var(--border); display: block; }
+  .ms-dots i.done { background: var(--ok-text); }
+  .ms-dots i.cur { background: var(--accent); }
+  .ms-ban p { font-size: 13px; line-height: 1.5; margin: 6px 0; }
+  #msBox { margin-top: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+  #msBox summary { cursor: pointer; font-weight: 600; }
+  #msBox summary small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+  #msBox select, #msBox input[type=text] { min-width: 0; }
+  .ms-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+  .ms-row label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
+  .ms-slot { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin: 6px 0; flex-wrap: wrap; }
+  .ms-slot.cur { border-color: var(--accent); }
+  .ms-slot.done { border-color: var(--ok-text); }
+  .ms-slot .ms-icon { width: 44px; height: 44px; flex: none; line-height: 0; border-radius: 6px; overflow: hidden; }
+  .ms-slot .ms-icon svg { width: 100%; height: 100%; }
+  .ms-slot .ms-txt { flex: 1; min-width: 140px; font-size: 13px; }
+  .ms-slot .ms-mono { font-family: monospace; font-size: 11px; color: var(--muted); word-break: break-all; }
+  .ms-bad { color: var(--danger); font-size: 12.5px; margin: 6px 0; }
+  .ms-warn { border: 1px solid var(--danger); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; line-height: 1.5; margin: 8px 0; }
+  .ms-test { background: var(--danger); color: #000; font-weight: 700; font-size: 12px; text-align: center; padding: 6px 8px; border-radius: 8px; margin: 8px 0; }
+  @media print { #msBanner { display: none !important; } }
   #demoBox { margin-top: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
   #demoBox summary { cursor: pointer; font-weight: 600; }
   #demoBox summary small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
@@ -509,6 +533,13 @@
     <h2>MAKE A SEED</h2>
     <p class="sub">Pick 12 or 24 words, enter your dice rolls or coin flips, then press FORGE SEED and write the words on paper.</p>
 
+    <div class="ms-ban" id="msBanner" style="display:none" aria-live="polite">
+      <div class="ms-t" id="msBanTitle"></div>
+      <div class="ms-dots" id="msBanDots"></div>
+      <p id="msBanText"></p>
+      <div class="btn-row"><button type="button" id="msAddBtn" onclick="msAddMade()" disabled>ADD THIS KEY &amp; WIPE THE SEED</button><button type="button" class="secondary small" onclick="msUsePaste()">USE A KEY FROM ELSEWHERE</button></div>
+      <div class="ms-bad" id="msBanErr"></div>
+    </div>
     <div id="guidePanel" aria-live="polite">
       <div class="gtitle" id="gTitle">Step 1 of 5</div>
       <div class="gdots" id="gDots"><i></i><i></i><i></i><i></i><i></i></div>
@@ -706,6 +737,61 @@
     
   </div>
 
+  <div class="card" id="cardMulti">
+    <h2>MULTISIG WALLET<span class="tag tag-ro">NEW</span></h2>
+    <p class="sub">Share control of your coins between several keys, so that no single lost or stolen key can empty the wallet.</p>
+    <details id="msBox">
+      <summary>Set up a multisig wallet<small>Guided, one key at a time. Seeds are wiped from this page after each key.</small></summary>
+      <div id="msIntro">
+        <p class="hint" style="margin:8px 0;">A <span class="term" tabindex="0" data-tip="A wallet that needs several keys to approve a payment, for example any 2 out of 3. Each key is its own seed with its own backup.">multisig</span> wallet is made of <b>N keys</b> and needs <b>M of them</b> to spend. With 2-of-3, losing one key loses nothing, and a thief with one key gets nothing. The price: more things to back up, and setup takes longer. Every key is a separate seed with its own paper backup, kept in a different place.</p>
+        <div class="ms-row">
+          <label>Keys needed to spend (M)<select id="msM" aria-label="Keys needed to spend"></select></label>
+          <label>Total keys (N)<select id="msN" aria-label="Total keys" onchange="msUpdateM()"><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></label>
+        </div>
+        <div class="hint" id="msMNote" style="margin:0 0 6px;"></div>
+        <div class="ms-row">
+          <label>Address type<select id="msType" aria-label="Multisig address type"><option value="ms-wsh">Native SegWit (bc1q...), recommended</option><option value="ms-sh-wsh">Nested SegWit (3...), older wallets</option></select></label>
+          <label>Network<select id="msNet" aria-label="Network"><option value="main">Mainnet</option><option value="test">Testnet (practice)</option></select></label>
+          <label>Account<input type="text" id="msAcct" value="0" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="Account number" style="width:64px;"></label>
+        </div>
+        <div class="ms-bad" id="msErr"></div>
+        <div class="btn-row"><button type="button" onclick="msStart()">START MULTISIG SETUP</button></div>
+      </div>
+      <div id="msRun" style="display:none">
+        <div class="ms-t" id="msRunTitle" style="font-weight:800; color:var(--accent);"></div>
+        <div class="ms-test" id="msTestBan" style="display:none">TESTNET: PRACTICE COINS ONLY. Not real money.</div>
+        <div id="msSlots"></div>
+        <div id="msPasteBox" style="display:none">
+          <p class="hint" style="margin:8px 0;">Paste the <b>public</b> key of another signer: a Zpub/xpub, or the whole <code>[fingerprint/48h/...]xpub...</code> line from their device. Never paste a private key or seed words here.</p>
+          <textarea id="msPaste" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="[a1b2c3d4/48h/0h/0h/2h]Zpub..."></textarea>
+          <div class="ms-row"><label>Fingerprint (8 characters, only if not in the line above)<input type="text" id="msPasteFp" spellcheck="false" autocomplete="off" maxlength="8" placeholder="a1b2c3d4" style="width:120px; font-family:monospace;"></label></div>
+          <div class="btn-row"><button type="button" class="secondary small" onclick="msAddPasted()">ADD THIS KEY</button><button type="button" class="secondary small" onclick="msUseMake()">MAKE IT HERE INSTEAD</button></div>
+        </div>
+        <div class="ms-bad" id="msRunErr"></div>
+        <div id="msDone" style="display:none">
+          <h3 style="margin:14px 0 6px; font-size:15px;">Your multisig wallet is ready</h3>
+          <div class="ms-warn" id="msOneDev" style="display:none"><b>All keys were made on this one device.</b> That is convenient, but it puts every key in one place for a while: anyone who could read this device&rsquo;s memory during setup could get all of them. For real protection, make each key on a different device (or at least after a restart), store each backup in a different place, and use the paste option above to combine only the public keys.</div>
+          <div class="wlabel" id="msDescLabel">Descriptor (public, safe to keep): import it in Sparrow, Nunchuk or Bitcoin Core</div>
+          <div class="wval" id="msDescR"></div>
+          <div class="btn-row"><button type="button" class="secondary small" onclick="msCopy(this,'msDescR')">COPY DESCRIPTOR</button><button type="button" class="secondary small" onclick="msShowQr()">SHOW QR</button><button type="button" class="secondary small" onclick="msPrint()">PRINT RECOVERY SHEET</button></div>
+          <div id="msQrBox" style="display:none; margin-top:10px; text-align:center;">
+            <div id="msQrCaption" class="hint"></div>
+            <div id="msQrImg" style="width:min(100%,340px); margin:8px auto; background:#fff; line-height:0;"></div>
+            <button type="button" class="secondary small" onclick="msHideQr()">HIDE QR</button>
+          </div>
+          <div class="wlabel">Change descriptor (only if your app asks for it separately)</div>
+          <div class="wval" id="msDescC"></div>
+          <button type="button" class="secondary small" onclick="msCopy(this,'msDescC')">COPY CHANGE DESCRIPTOR</button>
+          <div class="wlabel">First receiving addresses: after importing, your app must show exactly these</div>
+          <ol class="wval" id="msAddrs" style="padding-left:22px;"></ol>
+          <p class="hint" style="margin:8px 0;">The descriptor contains only public keys. It lets a wallet app watch the balance and make receiving addresses; it cannot spend. To spend you need M of the seeds, so keep every seed backup safe, and keep a copy of this descriptor (the recovery sheet) with them: without it, the seeds alone are not enough to find the funds.</p>
+        </div>
+        <div class="btn-row" style="margin-top:10px;"><button type="button" class="secondary small" onclick="msCancel()">START OVER</button></div>
+        <p class="hint" style="margin:8px 0 0;">Honest note: after you press ADD, the seed is erased from the page, but a browser cannot promise it also erased every trace from memory. For the strictest safety, reload or restart before the next key, or make the next key on another device and paste its public key.</p>
+      </div>
+    </details>
+  </div>
+
   <div class="card" id="cardCheck">
     <h2>CHECK A BACKUP</h2>
     <p class="sub">Type the words from your backup to see that they are valid and match your wallet. Nothing is saved or sent.</p>
@@ -894,7 +980,7 @@
 </div>
 
 <script>
-let guideOn = false, guideN = 1;
+let guideOn = false, guideN = 1, ms = null;
 const WORDLIST = ["abandon","ability","able","about","above","absent","absorb","abstract","absurd","abuse","access","accident","account","accuse","achieve","acid","acoustic","acquire","across","act","action","actor","actress","actual","adapt","add","addict","address","adjust","admit","adult","advance","advice","aerobic","affair","afford","afraid","again","age","agent","agree","ahead","aim","air","airport","aisle","alarm","album","alcohol","alert","alien","all","alley","allow","almost","alone","alpha","already","also","alter","always","amateur","amazing","among","amount","amused","analyst","anchor","ancient","anger","angle","angry","animal","ankle","announce","annual","another","answer","antenna","antique","anxiety","any","apart","apology","appear","apple","approve","april","arch","arctic","area","arena","argue","arm","armed","armor","army","around","arrange","arrest","arrive","arrow","art","artefact","artist","artwork","ask","aspect","assault","asset","assist","assume","asthma","athlete","atom","attack","attend","attitude","attract","auction","audit","august","aunt","author","auto","autumn","average","avocado","avoid","awake","aware","away","awesome","awful","awkward","axis","baby","bachelor","bacon","badge","bag","balance","balcony","ball","bamboo","banana","banner","bar","barely","bargain","barrel","base","basic","basket","battle","beach","bean","beauty","because","become","beef","before","begin","behave","behind","believe","below","belt","bench","benefit","best","betray","better","between","beyond","bicycle","bid","bike","bind","biology","bird","birth","bitter","black","blade","blame","blanket","blast","bleak","bless","blind","blood","blossom","blouse","blue","blur","blush","board","boat","body","boil","bomb","bone","bonus","book","boost","border","boring","borrow","boss","bottom","bounce","box","boy","bracket","brain","brand","brass","brave","bread","breeze","brick","bridge","brief","bright","bring","brisk","broccoli","broken","bronze","broom","brother","brown","brush","bubble","buddy","budget","buffalo","build","bulb","bulk","bullet","bundle","bunker","burden","burger","burst","bus","business","busy","butter","buyer","buzz","cabbage","cabin","cable","cactus","cage","cake","call","calm","camera","camp","can","canal","cancel","candy","cannon","canoe","canvas","canyon","capable","capital","captain","car","carbon","card","cargo","carpet","carry","cart","case","cash","casino","castle","casual","cat","catalog","catch","category","cattle","caught","cause","caution","cave","ceiling","celery","cement","census","century","cereal","certain","chair","chalk","champion","change","chaos","chapter","charge","chase","chat","cheap","check","cheese","chef","cherry","chest","chicken","chief","child","chimney","choice","choose","chronic","chuckle","chunk","churn","cigar","cinnamon","circle","citizen","city","civil","claim","clap","clarify","claw","clay","clean","clerk","clever","click","client","cliff","climb","clinic","clip","clock","clog","close","cloth","cloud","clown","club","clump","cluster","clutch","coach","coast","coconut","code","coffee","coil","coin","collect","color","column","combine","come","comfort","comic","common","company","concert","conduct","confirm","congress","connect","consider","control","convince","cook","cool","copper","copy","coral","core","corn","correct","cost","cotton","couch","country","couple","course","cousin","cover","coyote","crack","cradle","craft","cram","crane","crash","crater","crawl","crazy","cream","credit","creek","crew","cricket","crime","crisp","critic","crop","cross","crouch","crowd","crucial","cruel","cruise","crumble","crunch","crush","cry","crystal","cube","culture","cup","cupboard","curious","current","curtain","curve","cushion","custom","cute","cycle","dad","damage","damp","dance","danger","daring","dash","daughter","dawn","day","deal","debate","debris","decade","december","decide","decline","decorate","decrease","deer","defense","define","defy","degree","delay","deliver","demand","demise","denial","dentist","deny","depart","depend","deposit","depth","deputy","derive","describe","desert","design","desk","despair","destroy","detail","detect","develop","device","devote","diagram","dial","diamond","diary","dice","diesel","diet","differ","digital","dignity","dilemma","dinner","dinosaur","direct","dirt","disagree","discover","disease","dish","dismiss","disorder","display","distance","divert","divide","divorce","dizzy","doctor","document","dog","doll","dolphin","domain","donate","donkey","donor","door","dose","double","dove","draft","dragon","drama","drastic","draw","dream","dress","drift","drill","drink","drip","drive","drop","drum","dry","duck","dumb","dune","during","dust","dutch","duty","dwarf","dynamic","eager","eagle","early","earn","earth","easily","east","easy","echo","ecology","economy","edge","edit","educate","effort","egg","eight","either","elbow","elder","electric","elegant","element","elephant","elevator","elite","else","embark","embody","embrace","emerge","emotion","employ","empower","empty","enable","enact","end","endless","endorse","enemy","energy","enforce","engage","engine","enhance","enjoy","enlist","enough","enrich","enroll","ensure","enter","entire","entry","envelope","episode","equal","equip","era","erase","erode","erosion","error","erupt","escape","essay","essence","estate","eternal","ethics","evidence","evil","evoke","evolve","exact","example","excess","exchange","excite","exclude","excuse","execute","exercise","exhaust","exhibit","exile","exist","exit","exotic","expand","expect","expire","explain","expose","express","extend","extra","eye","eyebrow","fabric","face","faculty","fade","faint","faith","fall","false","fame","family","famous","fan","fancy","fantasy","farm","fashion","fat","fatal","father","fatigue","fault","favorite","feature","february","federal","fee","feed","feel","female","fence","festival","fetch","fever","few","fiber","fiction","field","figure","file","film","filter","final","find","fine","finger","finish","fire","firm","first","fiscal","fish","fit","fitness","fix","flag","flame","flash","flat","flavor","flee","flight","flip","float","flock","floor","flower","fluid","flush","fly","foam","focus","fog","foil","fold","follow","food","foot","force","forest","forget","fork","fortune","forum","forward","fossil","foster","found","fox","fragile","frame","frequent","fresh","friend","fringe","frog","front","frost","frown","frozen","fruit","fuel","fun","funny","furnace","fury","future","gadget","gain","galaxy","gallery","game","gap","garage","garbage","garden","garlic","garment","gas","gasp","gate","gather","gauge","gaze","general","genius","genre","gentle","genuine","gesture","ghost","giant","gift","giggle","ginger","giraffe","girl","give","glad","glance","glare","glass","glide","glimpse","globe","gloom","glory","glove","glow","glue","goat","goddess","gold","good","goose","gorilla","gospel","gossip","govern","gown","grab","grace","grain","grant","grape","grass","gravity","great","green","grid","grief","grit","grocery","group","grow","grunt","guard","guess","guide","guilt","guitar","gun","gym","habit","hair","half","hammer","hamster","hand","happy","harbor","hard","harsh","harvest","hat","have","hawk","hazard","head","health","heart","heavy","hedgehog","height","hello","helmet","help","hen","hero","hidden","high","hill","hint","hip","hire","history","hobby","hockey","hold","hole","holiday","hollow","home","honey","hood","hope","horn","horror","horse","hospital","host","hotel","hour","hover","hub","huge","human","humble","humor","hundred","hungry","hunt","hurdle","hurry","hurt","husband","hybrid","ice","icon","idea","identify","idle","ignore","ill","illegal","illness","image","imitate","immense","immune","impact","impose","improve","impulse","inch","include","income","increase","index","indicate","indoor","industry","infant","inflict","inform","inhale","inherit","initial","inject","injury","inmate","inner","innocent","input","inquiry","insane","insect","inside","inspire","install","intact","interest","into","invest","invite","involve","iron","island","isolate","issue","item","ivory","jacket","jaguar","jar","jazz","jealous","jeans","jelly","jewel","job","join","joke","journey","joy","judge","juice","jump","jungle","junior","junk","just","kangaroo","keen","keep","ketchup","key","kick","kid","kidney","kind","kingdom","kiss","kit","kitchen","kite","kitten","kiwi","knee","knife","knock","know","lab","label","labor","ladder","lady","lake","lamp","language","laptop","large","later","latin","laugh","laundry","lava","law","lawn","lawsuit","layer","lazy","leader","leaf","learn","leave","lecture","left","leg","legal","legend","leisure","lemon","lend","length","lens","leopard","lesson","letter","level","liar","liberty","library","license","life","lift","light","like","limb","limit","link","lion","liquid","list","little","live","lizard","load","loan","lobster","local","lock","logic","lonely","long","loop","lottery","loud","lounge","love","loyal","lucky","luggage","lumber","lunar","lunch","luxury","lyrics","machine","mad","magic","magnet","maid","mail","main","major","make","mammal","man","manage","mandate","mango","mansion","manual","maple","marble","march","margin","marine","market","marriage","mask","mass","master","match","material","math","matrix","matter","maximum","maze","meadow","mean","measure","meat","mechanic","medal","media","melody","melt","member","memory","mention","menu","mercy","merge","merit","merry","mesh","message","metal","method","middle","midnight","milk","million","mimic","mind","minimum","minor","minute","miracle","mirror","misery","miss","mistake","mix","mixed","mixture","mobile","model","modify","mom","moment","monitor","monkey","monster","month","moon","moral","more","morning","mosquito","mother","motion","motor","mountain","mouse","move","movie","much","muffin","mule","multiply","muscle","museum","mushroom","music","must","mutual","myself","mystery","myth","naive","name","napkin","narrow","nasty","nation","nature","near","neck","need","negative","neglect","neither","nephew","nerve","nest","net","network","neutral","never","news","next","nice","night","noble","noise","nominee","noodle","normal","north","nose","notable","note","nothing","notice","novel","now","nuclear","number","nurse","nut","oak","obey","object","oblige","obscure","observe","obtain","obvious","occur","ocean","october","odor","off","offer","office","often","oil","okay","old","olive","olympic","omit","once","one","onion","online","only","open","opera","opinion","oppose","option","orange","orbit","orchard","order","ordinary","organ","orient","original","orphan","ostrich","other","outdoor","outer","output","outside","oval","oven","over","own","owner","oxygen","oyster","ozone","pact","paddle","page","pair","palace","palm","panda","panel","panic","panther","paper","parade","parent","park","parrot","party","pass","patch","path","patient","patrol","pattern","pause","pave","payment","peace","peanut","pear","peasant","pelican","pen","penalty","pencil","people","pepper","perfect","permit","person","pet","phone","photo","phrase","physical","piano","picnic","picture","piece","pig","pigeon","pill","pilot","pink","pioneer","pipe","pistol","pitch","pizza","place","planet","plastic","plate","play","please","pledge","pluck","plug","plunge","poem","poet","point","polar","pole","police","pond","pony","pool","popular","portion","position","possible","post","potato","pottery","poverty","powder","power","practice","praise","predict","prefer","prepare","present","pretty","prevent","price","pride","primary","print","priority","prison","private","prize","problem","process","produce","profit","program","project","promote","proof","property","prosper","protect","proud","provide","public","pudding","pull","pulp","pulse","pumpkin","punch","pupil","puppy","purchase","purity","purpose","purse","push","put","puzzle","pyramid","quality","quantum","quarter","question","quick","quit","quiz","quote","rabbit","raccoon","race","rack","radar","radio","rail","rain","raise","rally","ramp","ranch","random","range","rapid","rare","rate","rather","raven","raw","razor","ready","real","reason","rebel","rebuild","recall","receive","recipe","record","recycle","reduce","reflect","reform","refuse","region","regret","regular","reject","relax","release","relief","rely","remain","remember","remind","remove","render","renew","rent","reopen","repair","repeat","replace","report","require","rescue","resemble","resist","resource","response","result","retire","retreat","return","reunion","reveal","review","reward","rhythm","rib","ribbon","rice","rich","ride","ridge","rifle","right","rigid","ring","riot","ripple","risk","ritual","rival","river","road","roast","robot","robust","rocket","romance","roof","rookie","room","rose","rotate","rough","round","route","royal","rubber","rude","rug","rule","run","runway","rural","sad","saddle","sadness","safe","sail","salad","salmon","salon","salt","salute","same","sample","sand","satisfy","satoshi","sauce","sausage","save","say","scale","scan","scare","scatter","scene","scheme","school","science","scissors","scorpion","scout","scrap","screen","script","scrub","sea","search","season","seat","second","secret","section","security","seed","seek","segment","select","sell","seminar","senior","sense","sentence","series","service","session","settle","setup","seven","shadow","shaft","shallow","share","shed","shell","sheriff","shield","shift","shine","ship","shiver","shock","shoe","shoot","shop","short","shoulder","shove","shrimp","shrug","shuffle","shy","sibling","sick","side","siege","sight","sign","silent","silk","silly","silver","similar","simple","since","sing","siren","sister","situate","six","size","skate","sketch","ski","skill","skin","skirt","skull","slab","slam","sleep","slender","slice","slide","slight","slim","slogan","slot","slow","slush","small","smart","smile","smoke","smooth","snack","snake","snap","sniff","snow","soap","soccer","social","sock","soda","soft","solar","soldier","solid","solution","solve","someone","song","soon","sorry","sort","soul","sound","soup","source","south","space","spare","spatial","spawn","speak","special","speed","spell","spend","sphere","spice","spider","spike","spin","spirit","split","spoil","sponsor","spoon","sport","spot","spray","spread","spring","spy","square","squeeze","squirrel","stable","stadium","staff","stage","stairs","stamp","stand","start","state","stay","steak","steel","stem","step","stereo","stick","still","sting","stock","stomach","stone","stool","story","stove","strategy","street","strike","strong","struggle","student","stuff","stumble","style","subject","submit","subway","success","such","sudden","suffer","sugar","suggest","suit","summer","sun","sunny","sunset","super","supply","supreme","sure","surface","surge","surprise","surround","survey","suspect","sustain","swallow","swamp","swap","swarm","swear","sweet","swift","swim","swing","switch","sword","symbol","symptom","syrup","system","table","tackle","tag","tail","talent","talk","tank","tape","target","task","taste","tattoo","taxi","teach","team","tell","ten","tenant","tennis","tent","term","test","text","thank","that","theme","then","theory","there","they","thing","this","thought","three","thrive","throw","thumb","thunder","ticket","tide","tiger","tilt","timber","time","tiny","tip","tired","tissue","title","toast","tobacco","today","toddler","toe","together","toilet","token","tomato","tomorrow","tone","tongue","tonight","tool","tooth","top","topic","topple","torch","tornado","tortoise","toss","total","tourist","toward","tower","town","toy","track","trade","traffic","tragic","train","transfer","trap","trash","travel","tray","treat","tree","trend","trial","tribe","trick","trigger","trim","trip","trophy","trouble","truck","true","truly","trumpet","trust","truth","try","tube","tuition","tumble","tuna","tunnel","turkey","turn","turtle","twelve","twenty","twice","twin","twist","two","type","typical","ugly","umbrella","unable","unaware","uncle","uncover","under","undo","unfair","unfold","unhappy","uniform","unique","unit","universe","unknown","unlock","until","unusual","unveil","update","upgrade","uphold","upon","upper","upset","urban","urge","usage","use","used","useful","useless","usual","utility","vacant","vacuum","vague","valid","valley","valve","van","vanish","vapor","various","vast","vault","vehicle","velvet","vendor","venture","venue","verb","verify","version","very","vessel","veteran","viable","vibrant","vicious","victory","video","view","village","vintage","violin","virtual","virus","visa","visit","visual","vital","vivid","vocal","voice","void","volcano","volume","vote","voyage","wage","wagon","wait","walk","wall","walnut","want","warfare","warm","warrior","wash","wasp","waste","water","wave","way","wealth","weapon","wear","weasel","weather","web","wedding","weekend","weird","welcome","west","wet","whale","what","wheat","wheel","when","where","whip","whisper","wide","width","wife","wild","will","win","window","wine","wing","wink","winner","winter","wire","wisdom","wise","wish","witness","wolf","woman","wonder","wood","wool","word","work","world","worry","worth","wrap","wreck","wrestle","wrist","write","wrong","yard","year","yellow","you","young","youth","zebra","zero","zone","zoo"];
 const WORD_MAP = Object.fromEntries(WORDLIST.map((w,i)=>[w,i]));
 function getNeeded(wc){
@@ -1421,10 +1507,10 @@ async function multisigDescriptor(type, m, cosigners, branch){
   return descriptorChecksum(type==="ms-sh-wsh" ? "sh(wsh(" + inner + "))" : "wsh(" + inner + ")");
 }
 async function mnemonicWatchOnly(mnemonic, passphrase){ return watchOnlyFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
-// QR code encoder: byte mode with error correction level M (versions 1-12) for watch-only keys, and, for SeedQR, numeric or byte mode with level L (versions 1-3).
-const QR_M={1:[10,[[1,16]]],2:[16,[[1,28]]],3:[26,[[1,44]]],4:[18,[[2,32]]],5:[24,[[2,43]]],6:[16,[[4,27]]],7:[18,[[4,31]]],8:[22,[[2,38],[2,39]]],9:[22,[[3,36],[2,37]]],10:[26,[[4,43],[1,44]]],11:[30,[[1,50],[4,51]]],12:[22,[[6,36],[2,37]]]};
+// QR code encoder: byte mode with error correction level M (versions 1-30) for watch-only keys, and, for SeedQR, numeric or byte mode with level L (versions 1-3).
+const QR_M={1:[10,[[1,16]]],2:[16,[[1,28]]],3:[26,[[1,44]]],4:[18,[[2,32]]],5:[24,[[2,43]]],6:[16,[[4,27]]],7:[18,[[4,31]]],8:[22,[[2,38],[2,39]]],9:[22,[[3,36],[2,37]]],10:[26,[[4,43],[1,44]]],11:[30,[[1,50],[4,51]]],12:[22,[[6,36],[2,37]]],13:[22,[[8,37],[1,38]]],14:[24,[[4,40],[5,41]]],15:[24,[[5,41],[5,42]]],16:[28,[[7,45],[3,46]]],17:[28,[[10,46],[1,47]]],18:[26,[[9,43],[4,44]]],19:[26,[[3,44],[11,45]]],20:[26,[[3,41],[13,42]]],21:[26,[[17,42]]],22:[28,[[17,46]]],23:[28,[[4,47],[14,48]]],24:[28,[[6,45],[14,46]]],25:[28,[[8,47],[13,48]]],26:[28,[[19,46],[4,47]]],27:[28,[[22,45],[3,46]]],28:[28,[[3,45],[23,46]]],29:[28,[[21,45],[7,46]]],30:[28,[[19,47],[10,48]]]};
 const QR_L={1:[7,[[1,19]]],2:[10,[[1,34]]],3:[15,[[1,55]]]};
-const QR_ALIGN={1:[],2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],7:[6,22,38],8:[6,24,42],9:[6,26,46],10:[6,28,50],11:[6,30,54],12:[6,32,58]};
+const QR_ALIGN={1:[],2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],7:[6,22,38],8:[6,24,42],9:[6,26,46],10:[6,28,50],11:[6,30,54],12:[6,32,58],13:[6,34,62],14:[6,26,46,66],15:[6,26,48,70],16:[6,26,50,74],17:[6,30,54,78],18:[6,30,56,82],19:[6,30,58,86],20:[6,34,62,90],21:[6,28,50,72,94],22:[6,26,50,74,98],23:[6,30,54,78,102],24:[6,28,54,80,106],25:[6,32,58,84,110],26:[6,30,58,86,114],27:[6,34,62,90,118],28:[6,26,50,74,98,122],29:[6,30,54,78,102,126],30:[6,26,52,78,104,130]};
 function qrGfMul(a,b){ let r=0; for(let i=7;i>=0;i--){ r=(r<<1)^((r>>>7)*0x11d); r^=((b>>>i)&1)*a; } return r; }
 function qrRs(data,deg){
   const g=new Array(deg).fill(0); g[deg-1]=1; let root=1;
@@ -2032,6 +2118,7 @@ async function finishSeed(mnemonic, ctx){
     await refreshWatch();
     document.getElementById("watchBox").style.display = "";
   } catch(e) { clearWatch(); }
+  if(ms) msBanner();
 }
 function showQr(id, label){
   const t = document.getElementById(id).textContent;
@@ -2411,6 +2498,7 @@ function setResult(text, words){
     clearFpIcons();
     if(guideOn) guideRender();
   }
+  if(ms) msBanner();
 }
 function hasSeed(){ return document.getElementById("genResult").dataset.seed === "1"; }
 function togglePassphrase(btn){
@@ -2468,6 +2556,10 @@ function updateRollHistory(rolls){
 
 function clearAll(){
   if(!confirm("Clear all rolls, results, the verify box and (if the browser allows) the clipboard?")) return;
+  msReset(); wipeSeed();
+}
+// Wipes the seed, rolls, passphrase and everything derived from them from the page (no question asked). Used by CLEAR ALL and by the multisig flow.
+function wipeSeed(){
   document.getElementById("rolls").value="";
   document.getElementById("passphrase").value="";
   document.getElementById("passphrase2").value="";
@@ -2491,6 +2583,170 @@ function clearAll(){
   document.getElementById("diceVisual").textContent="";
   safeCopy("").catch(()=>{});
   updateCount();
+}
+
+// ---- Multisig wizard: collect M-of-N public keys one at a time, wiping each seed after its key is saved ----
+const msEl = (id) => document.getElementById(id);
+const msTypeName = (t) => t === "ms-sh-wsh" ? "Nested SegWit (3...)" : "Native SegWit (bc1q...)";
+function msUpdateM(){
+  const sel = msEl("msM"), n = parseInt(msEl("msN").value, 10), old = parseInt(sel.value, 10);
+  sel.textContent = "";
+  for(let i = 1; i <= n; i++){ const o = document.createElement("option"); o.value = o.textContent = String(i); sel.appendChild(o); }
+  sel.value = String(old >= 1 && old <= n ? old : Math.max(2, Math.ceil((n + 1) / 2)));
+  sel.onchange = msMNote; msMNote();
+}
+function msMNote(){
+  const m = parseInt(msEl("msM").value, 10), n = parseInt(msEl("msN").value, 10);
+  let t = "Any " + m + " of the " + n + " keys can spend. You can lose " + (n - m) + " key" + (n - m === 1 ? "" : "s") + " and still get your money; a thief needs " + m + ".";
+  if(m === 1) t = "1-of-" + n + " means any single key can spend, so one stolen key loses everything. That is not real multisig protection. Pick 2 or more.";
+  else if(m === n) t = "All " + n + " keys are needed to spend. If you lose even one, the money is gone for good. Most people choose fewer, such as 2-of-3.";
+  msEl("msMNote").textContent = t;
+}
+function msStart(){
+  const err = msEl("msErr"); err.textContent = "";
+  const m = parseInt(msEl("msM").value, 10), n = parseInt(msEl("msN").value, 10), raw = msEl("msAcct").value.trim();
+  if(m < 2){ err.textContent = "1-of-" + n + " gives no multisig protection (any one key can spend). Choose at least 2 keys needed."; return; }
+  if(!/^[0-9]{1,10}$/.test(raw) || parseInt(raw, 10) > 2147483647){ err.textContent = "The account must be a whole number from 0 to 2147483647 (almost always 0)."; return; }
+  ms = {m, n, type: msEl("msType").value, net: msEl("msNet").value, account: parseInt(raw, 10), keys: [], mode: "make", busy: false, done: false};
+  msEl("msBox").open = true; msRender();
+  try { msEl("msBanner").scrollIntoView({behavior: "smooth", block: "center"}); } catch(e) {}
+}
+function msPathOf(){ return "48h/" + NETS[ms.net].coin + "h/" + ms.account + "h/" + MULTISIG[ms.type].script + "h"; }
+function msCosigner(k){ return "[" + k.fp + "/" + k.path + "]" + k.xpub; }
+function msUsePaste(){ if(!ms || ms.keys.length >= ms.n) return; ms.mode = "paste"; msRender(); msEl("msBox").open = true; try { msEl("msPaste").focus(); } catch(e) {} }
+function msUseMake(){ if(!ms) return; ms.mode = "make"; msRender(); }
+function msReset(){
+  ms = null; msHideQr();
+  for(const id of ["msDescR","msDescC","msAddrs","msSlots","msRunErr","msBanErr","msErr"]) msEl(id).textContent = "";
+  msEl("msPaste").value = ""; msEl("msPasteFp").value = "";
+  msEl("msIntro").style.display = ""; msEl("msRun").style.display = "none"; msEl("msDone").style.display = "none"; msEl("msPasteBox").style.display = "none";
+  msEl("msBanner").style.display = "none"; msEl("msBox").open = false;
+}
+function msCancel(){
+  if(ms && ms.keys.length && !confirm("Start over? The public keys collected so far will be forgotten here (your seed backups are not affected).")) return;
+  msReset();
+}
+function msBanner(){
+  const b = msEl("msBanner");
+  if(!ms || ms.done || ms.mode !== "make" || ms.keys.length >= ms.n){ b.style.display = "none"; return; }
+  const k = ms.keys.length + 1;
+  msEl("msBanTitle").textContent = "MULTISIG: KEY " + k + " OF " + ms.n + (ms.net === "test" ? "  (TESTNET)" : "");
+  const dots = msEl("msBanDots"); dots.textContent = "";
+  for(let i = 0; i < ms.n; i++){ const d = document.createElement("i"); d.className = i < ms.keys.length ? "done" : i === ms.keys.length ? "cur" : ""; dots.appendChild(d); }
+  msEl("msBanText").textContent = "Make seed number " + k + " below, as usual (dice or coins). Write its words on paper and make any backup you want (SeedQR, print). Then press the button: the page keeps only the public part of this key and wipes the seed, so you can start the next one. Each key needs its own paper backup, kept in a different place.";
+  msEl("msAddBtn").disabled = !(hasSeed() && watchCtx && !ms.busy);
+  b.style.display = "";
+}
+function msHasKey(fp, key){
+  const pk = hex(key.pub);
+  return ms.keys.findIndex(k => k.fp === fp || hex(k.key.pub) === pk);
+}
+async function msAddMade(){
+  if(!ms || ms.busy || ms.mode !== "make" || ms.keys.length >= ms.n) return;
+  const eb = msEl("msBanErr"); eb.textContent = "";
+  if(!hasSeed() || !watchCtx){ eb.textContent = "Make the seed first (enter your rolls and press FORGE SEED)."; return; }
+  ms.busy = true; msEl("msAddBtn").disabled = true;
+  try {
+    const w = await watchOnlyFromSeed(await mnemonicToSeed(watchCtx.mnemonic, watchCtx.pass), ms.type, ms.account, ms.net);
+    const key = await parseExtendedKey(w.key), dup = msHasKey(w.fp, key);
+    if(dup >= 0){ eb.textContent = "This is the same key as key " + (dup + 1) + " (fingerprint " + w.fp + "). Using one key twice would make the wallet weaker than it looks. Make a new seed with new rolls instead."; return; }
+    ms.keys.push({fp: w.fp, path: msPathOf(), key, xpub: w.xpub, src: "made"});
+    ms.mode = "make";
+    wipeSeed();
+  } catch(e) { eb.textContent = "Could not add this key: " + e.message; }
+  finally { ms.busy = false; }
+  await msRender();
+}
+async function msAddPasted(){
+  if(!ms || ms.busy || ms.keys.length >= ms.n) return;
+  const eb = msEl("msRunErr"); eb.textContent = "";
+  try {
+    let t = msEl("msPaste").value.trim(), fp = msEl("msPasteFp").value.trim().toLowerCase(), path = null;
+    const o = t.match(/^\[([0-9a-fA-F]{8})((?:\/[0-9]+[h'H])*)\]\s*(\S+)$/);
+    if(o){ fp = o[1].toLowerCase(); path = o[2].replace(/^\//, "").replace(/['H]/g, "h"); t = o[3]; }
+    t = t.replace(/\/(?:<0;1>|[01])\/\*$/, "");
+    if(!/^[0-9a-f]{8}$/.test(fp)) throw new Error("The fingerprint is 8 characters (0-9, a-f). Paste the whole [fingerprint/path]key line, or type the fingerprint in the box.");
+    if(/^(\s*[a-z]+){12,}\s*$/i.test(t)) throw new Error("That looks like seed words. Never type seed words here: paste a PUBLIC key (Zpub/xpub) instead.");
+    const key = await parseExtendedKey(t), want = msPathOf(), script = MULTISIG[ms.type].script;
+    if(key.net !== ms.net) throw new Error("This key is for " + (key.net === "test" ? "Testnet" : "Mainnet") + ", but this wallet is on " + (ms.net === "test" ? "Testnet" : "Mainnet") + ".");
+    if(key.type !== "other" && key.type !== ms.type) throw new Error("This key type does not fit this wallet. It looks like a " + (MULTISIG[key.type] ? "different multisig script type" : "single-signature (zpub/ypub/vpub) key") + ". A multisig wallet needs the cosigner key for " + msTypeName(ms.type) + ", path m/48'/" + NETS[ms.net].coin + "'/" + ms.account + "'/" + script + "'.");
+    if(key.depth !== 4 || key.childNum !== ((script + 0x80000000) >>> 0)) throw new Error("This key is not at the expected place in the key tree (m/48'/" + NETS[ms.net].coin + "'/" + ms.account + "'/" + script + "'). Ask the other signer to export the multisig cosigner key for " + msTypeName(ms.type) + ", account " + ms.account + ".");
+    if(path && path !== want) throw new Error("The path in your line (" + path + ") is not the one this wallet uses (" + want + "). All signers must use the same type and account.");
+    const xpub = await base58check(Uint8Array.from([...NETS[key.net].ver.other, ...(await base58decode(key.str)).slice(4)]));
+    const dup = msHasKey(fp, key);
+    if(dup >= 0) throw new Error("This is the same key as key " + (dup + 1) + ". Every signer must use a different key.");
+    ms.keys.push({fp, path: want, key, xpub, src: "pasted"});
+    msEl("msPaste").value = ""; msEl("msPasteFp").value = ""; ms.mode = "make";
+  } catch(e) { eb.textContent = e.message; return; }
+  await msRender();
+}
+async function msRender(){
+  if(!ms) return;
+  msEl("msIntro").style.display = "none"; msEl("msRun").style.display = "";
+  const full = ms.keys.length >= ms.n, N = NETS[ms.net];
+  msEl("msRunTitle").textContent = ms.m + "-of-" + ms.n + " multisig, " + msTypeName(ms.type) + ", account " + ms.account + (ms.net === "test" ? ", TESTNET" : "");
+  msEl("msTestBan").style.display = ms.net === "test" ? "" : "none";
+  const slots = msEl("msSlots"); slots.textContent = "";
+  for(let i = 0; i < ms.n; i++){
+    const row = document.createElement("div"), k = ms.keys[i], cur = i === ms.keys.length;
+    row.className = "ms-slot" + (k ? " done" : cur ? " cur" : "");
+    const ic = document.createElement("div"); ic.className = "ms-icon"; ic.id = "msIcon" + i; if(k) row.appendChild(ic);
+    const tx = document.createElement("div"); tx.className = "ms-txt";
+    const b = document.createElement("b"); b.textContent = "Key " + (i + 1); tx.appendChild(b);
+    const st = document.createElement("div");
+    if(k){
+      st.textContent = k.src === "made" ? "Made here. Fingerprint " + k.fp + ". The seed was wiped; only the public key is kept." : "Pasted from elsewhere. Fingerprint " + k.fp + ".";
+      const mono = document.createElement("div"); mono.className = "ms-mono"; mono.textContent = msCosigner(k); tx.appendChild(st); tx.appendChild(mono);
+      const cb = document.createElement("button"); cb.type = "button"; cb.className = "secondary small"; cb.textContent = "COPY";
+      cb.onclick = () => safeCopy(msCosigner(k)).then(() => showCopied(cb)).catch(() => alert("Copy failed. Select the text and copy it manually."));
+      row.appendChild(tx); row.appendChild(cb);
+    } else {
+      st.textContent = cur ? (ms.mode === "paste" ? "Next: paste its public key below." : "Next: make this seed in the MAKE A SEED card above.") : "Waiting.";
+      tx.appendChild(st); row.appendChild(tx);
+    }
+    slots.appendChild(row);
+    if(k) showFpIcon(ic.id, k.fp);
+  }
+  msEl("msPasteBox").style.display = (!full && ms.mode === "paste") ? "" : "none";
+  msBanner();
+  if(full && !ms.done) await msFinish();
+}
+async function msFinish(){
+  const cos = ms.keys.map(k => ({fp: k.fp, path: k.path, key: k.key}));
+  const dr = await multisigDescriptor(ms.type, ms.m, cos, 0), dc = await multisigDescriptor(ms.type, ms.m, cos, 1), addrs = [];
+  for(let i = 0; i < 3; i++) addrs.push(await multisigAddress(ms.type, ms.m, cos, 0, i, ms.net));
+  ms.done = true; ms.descR = dr; ms.descC = dc; ms.addrs = addrs;
+  msEl("msDescR").textContent = dr; msEl("msDescC").textContent = dc;
+  const ol = msEl("msAddrs"); ol.textContent = "";
+  addrs.forEach(a => { const li = document.createElement("li"); li.textContent = a; ol.appendChild(li); });
+  msEl("msOneDev").style.display = ms.keys.every(k => k.src === "made") ? "" : "none";
+  msEl("msDone").style.display = "";
+  msBanner();
+}
+function msCopy(btn, id){
+  const t = msEl(id).textContent; if(!t) return;
+  safeCopy(t).then(() => showCopied(btn)).catch(() => alert("Copy failed. Select the text and copy it manually."));
+}
+function msShowQr(){
+  if(!ms || !ms.done) return;
+  let q; try { q = qrMatrix(ms.descR); } catch(e) { msEl("msRunErr").textContent = "This descriptor is too long for one QR code (" + e.message + "). Use COPY DESCRIPTOR instead."; return; }
+  msEl("msQrImg").innerHTML = qrSvg(q.rows);
+  msEl("msQrCaption").textContent = "QR code of the " + ms.m + "-of-" + ms.n + " descriptor (" + q.rows.length + " x " + q.rows.length + " squares, public keys only). Big QR codes are hard to scan on a small screen: if your app cannot read it, use COPY.";
+  msEl("msQrBox").style.display = "";
+}
+function msHideQr(){ msEl("msQrImg").textContent = ""; msEl("msQrCaption").textContent = ""; msEl("msQrBox").style.display = "none"; }
+function msSheetText(){
+  const lines = [ms.m + "-of-" + ms.n + " multisig, " + msTypeName(ms.type) + ", account " + ms.account + (ms.net === "test" ? ", TESTNET (practice coins only)" : ", mainnet"), "", "KEYS (any " + ms.m + " of these " + ms.n + " seeds can spend):"];
+  ms.keys.forEach((k, i) => lines.push((i + 1) + ". fingerprint " + k.fp + "   path m/" + k.path.replace(/h/g, "'")));
+  lines.push("", "DESCRIPTOR (public keys only):", ms.descR, "", "FIRST RECEIVING ADDRESSES:", ...ms.addrs, "",
+    "This sheet holds NO seed words. It cannot spend. Keep it with your seed backups: without the descriptor (or all public keys), the seeds alone are not enough to find a multisig wallet's funds.",
+    "Each seed backup should be kept in a different place.");
+  return lines.join("\n");
+}
+function msPrint(){
+  if(!ms || !ms.done) return;
+  let q; try { q = qrMatrix(ms.descR); } catch(e) { return printSqSheet("VOIDFORGE MULTISIG RECOVERY SHEET", "", false, msSheetText(), ""); }
+  printSqSheet("VOIDFORGE MULTISIG RECOVERY SHEET" + (ms.net === "test" ? " (TESTNET)" : ""), qrSvg(q.rows), q.version > 15, msSheetText(), "");
 }
 
 async function verify(){
@@ -2652,7 +2908,7 @@ function updateLabels(){
   });
   updateCount();
 }
-updateLabels();
+updateLabels(); msUpdateM();
 
 // ---- Guide me, plain-word term tips, larger text (v1.19.3) ----
 const GUIDE_STEPS = 5;
