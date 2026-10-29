@@ -322,4 +322,19 @@ R.ok(bad === 0, `${n} last-word candidate lists (11 to 23 words) equal the indep
   R.ok(bad === 0, `${n} hand-copy checks over all codes: the row lists rebuild each code exactly, the whole grid and the 7 x 7 blocks draw every dark square once, grey squares are exactly those outside the code, the blank grid has none (${bad} mismatches)`);
 }
 
+// 2i. "How your seed was made": for random dice and coin inputs, explainSteps must give the same words as @scure's
+// entropyToMnemonic, the same raw entropy, and the same SHA-256 digest, with the checksum bits and 11-bit pieces rebuilding the words.
+{
+  let n = 0, bad = 0;
+  for (const [wc, len, coin] of [[12, 50, false], [24, 99, false], [12, 128, true], [24, 256, true]]) for (let i = 0; i < 25; i++) {
+    const rolls = Array.from({ length: len }, () => coin ? String(nc.randomInt(2)) : String(1 + nc.randomInt(6))).join('');
+    const bytes = wc * 4 / 3, dg = sha(rolls), ent = dg.slice(0, bytes), want = entropyToMnemonic(ent, wordlist);
+    const s = await w.explainSteps(rolls, wc), bits = (b) => Array.from(b).map((x) => x.toString(2).padStart(8, '0')).join('');
+    const cs = bits(sha(Buffer.from(ent))).slice(0, wc / 3), all = bits(ent) + cs;
+    n++; if (s.words.join(' ') !== want || s.digestHex !== Buffer.from(dg).toString('hex') || s.entropyHex !== Buffer.from(ent).toString('hex') || s.checkBits !== cs
+      || s.groups.length !== wc || s.groups.some((g, k) => g.bits !== all.slice(k * 11, k * 11 + 11) || g.num !== parseInt(g.bits, 2) || wordlist[g.num] !== g.word) || s.count !== len || s.entropyBits !== bytes * 8) { bad++; console.log('EXPLAINER MISMATCH', wc, len); }
+  }
+  R.ok(bad === 0, `${n} random dice and coin inputs: the explainer's digest, raw entropy, checksum bits, 11-bit pieces and words equal the independent code`);
+}
+
 R.done('oracle');

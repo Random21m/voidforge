@@ -315,6 +315,43 @@ async function probe(w) {
     { const q = w.qrMatrix('a'), mm2 = w.qrMiniMapSvg(q.rows, 18, 18, 25, 25).match(/<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)" fill="rgba/); if (!mm2 || mm2.slice(3).join() !== '3,3') fails.push('seedqr: the mini-map outline is cut at the bottom and right edges'); }
     w.print = () => {}; w.confirm = () => true; w.alert = () => {};
   } catch (e) { fails.push('seedqr: the probe crashed: ' + e.message); }
+  // explainer and backup sheet
+  try {
+    const shaB = (b) => nc.createHash('sha256').update(b).digest(), bitsOf = (b) => Array.from(b).map(x => x.toString(2).padStart(8, '0')).join('');
+    const pc = { n: 0, cells: [], cls: '', txt: '' }; let cnf = true;
+    w.print = () => { pc.n++; pc.cells = [...w.document.querySelectorAll('#printOnly .ps-cell')].map(c => c.textContent); pc.cls = w.document.body.className; pc.txt = $('printOnly').textContent; pc.grid = (w.document.querySelector('#printOnly .ps-grid') || {}).className; };
+    w.confirm = () => cnf; w.alert = () => {};
+    for (const [n, R] of [[12, D50], [24, D99]]) {
+      await run('dice', n, R, 'SECRETPASS'); const wd = $('genResult').textContent.split('\n')[0].split(' '), eo = $('exOut');
+      const dg = shaB(Buffer.from(R)), ent = dg.subarray(0, n * 4 / 3), cs = bitsOf(shaB(ent)).slice(0, n / 3), all = bitsOf(ent) + cs;
+      if ($('explainBox').style.display !== '' || $('explainBox').open || eo.style.display !== 'none' || eo.textContent !== '') fails.push('explain: box closed with nothing shown after FORGE (' + n + ')');
+      await w.showExplain();
+      const cells = [...eo.querySelectorAll('.ex-cell')];
+      if (cells.length !== n || cells.some((c, i) => c.querySelector('b').textContent !== (i + 1) + '. ' + wd[i] || c.querySelector('code').textContent !== all.slice(i * 11, i * 11 + 11) || !c.textContent.endsWith('number ' + parseInt(all.slice(i * 11, i * 11 + 11), 2)))) fails.push('explain: every piece shows its word, its 11 bits and its number (' + n + ')');
+      const mono = [...eo.querySelectorAll('.ex-mono')].map(e => e.textContent);
+      if (mono[1] !== dg.toString('hex') || mono[2] !== ent.toString('hex') || mono[3] !== '…' + cs + '  ← checksum') fails.push('explain: hash, entropy and checksum shown correctly (' + n + ')');
+      if (eo.querySelector('.ex-cs') && [...eo.querySelectorAll('.ex-cs')].map(e => e.textContent).join() !== cs + ',' + cs.slice(0) ) fails.push('explain: checksum bits marked (' + n + ')');
+      const last = cells[n - 1].querySelectorAll('span'); if (last[0].textContent !== all.slice(n * 11 - 11, n * 11 - cs.length) || last[1].textContent !== cs) fails.push('explain: last piece splits entropy bits from checksum bits (' + n + ')');
+      if (eo.querySelectorAll('.ex-step').length !== 5 || !eo.querySelector('.ex-ok') || eo.querySelector('.ex-bad') || eo.style.display !== '') fails.push('explain: five steps and a match message (' + n + ')');
+      if (eo.textContent.includes('SECRETPASS') || eo.querySelector('a,script,img,form,input,svg')) fails.push('explain: no passphrase, links or inputs (' + n + ')');
+      const first = eo.querySelector('.ex-body .ex-text').textContent, bits = n === 12 ? 129 : 257;
+      if (!first.includes(R.length + ' dice rolls') || !first.includes('roughly ' + Math.floor(R.length * Math.log2(6)) + ' bits') || !/^[1-6]( [1-6])*$/.test(mono[0]) || mono[0].replace(/ /g, '') !== R) fails.push('explain: step 1 shows the rolls and their bits (' + n + ')');
+      if (!eo.textContent.includes('first ' + n * 4 / 3 + ' bytes') || !eo.textContent.includes('first ' + cs.length + ' bits') || !eo.textContent.includes('All ' + (n * 11) + ' bits are cut into ' + n + ' pieces')) fails.push('explain: step texts name the right sizes (' + n + ')');
+      w.hideExplain(); if (eo.textContent !== '' || eo.style.display !== 'none') fails.push('explain: HIDE removes the steps (' + n + ')');
+      await w.showExplain(); if (eo.textContent !== '') fails.push('explain: nothing shown after HIDE until a new FORGE (' + n + ')');
+      // backup sheet
+      pc.n = 0; cnf = false; w.printSeed(); if (pc.n !== 0) fails.push('print sheet: declining the question prints nothing (' + n + ')');
+      cnf = true; w.printSeed();
+      if (pc.n !== 1 || pc.cells.length !== n || pc.cells.some((c, i) => c !== String(i + 1).padStart(2, '0') + wd[i]) || pc.grid !== 'ps-grid ps-' + n || !/print-seed/.test(pc.cls) || pc.txt.includes('SECRETPASS') || !/Passphrase used: YES/.test(pc.txt) || !pc.txt.includes($('fingerprint').textContent)) fails.push('print sheet: numbered boxes, fingerprint, passphrase line only (' + n + ')');
+      w.dispatchEvent(new w.Event('afterprint')); if ($('printOnly').textContent !== '' || w.document.body.classList.contains('print-seed')) fails.push('print sheet: cleaned up after printing (' + n + ')');
+    }
+    w.setResult('x', Array(15).fill('abandon')); if ($('explainBox').style.display !== 'none') fails.push('explain: no box for a 15-word phrase');
+    w.setResult('x', null); if ($('explainBox').style.display !== 'none') fails.push('explain: no box without words');
+    await run('dice', 12, D50, ''); await w.showExplain(); w.clearAll(); if ($('exOut').textContent !== '' || $('explainBox').style.display !== 'none') fails.push('explain: CLEAR removes the steps and hides the box');
+    { await run('coin', 12, C128, ''); await w.showExplain(); const eo = $('exOut'), t0 = eo.querySelector('.ex-body .ex-text').textContent;
+      if (!t0.includes('128 coin flips') || !t0.includes('exactly 1 bit') || !t0.includes('roughly 128 bits') || !/^[01]( [01])*$/.test(eo.querySelector('.ex-mono').textContent)) fails.push('explain: coin flips are counted as 1 bit each'); }
+    w.print = () => {}; w.confirm = () => true;
+  } catch (e) { fails.push('explain: the probe crashed: ' + e.message); }
   if ($('fpIcon').querySelector('svg')) { /* keep icon until an error */ }
   // passphrase confirmation must block a mismatch
   await run('dice', 12, D50, ''); w.showQr('wZpub', 'zpub');
@@ -472,10 +509,10 @@ async function detect(mutated) {
 // [name, find (must occur exactly once), replace, equivalent?]
 const M = [
   ['wordlist: one word altered',            '"abandon","ability"', '"abandon","abilitx"'],
-  ['entropy truncation 16 -> 15 bytes',     'const entLen = {12:16,24:32}[wc];', 'const entLen = {12:15,24:32}[wc];'],
-  ['entropy truncation 32 -> 31 bytes',     'const entLen = {12:16,24:32}[wc];', 'const entLen = {12:16,24:31}[wc];'],
+  ['entropy truncation 16 -> 15 bytes',     'async function rollsToMnemonic(rolls, wc){\n  const entLen = {12:16,24:32}[wc];', 'async function rollsToMnemonic(rolls, wc){\n  const entLen = {12:15,24:32}[wc];'],
+  ['entropy truncation 32 -> 31 bytes',     'async function rollsToMnemonic(rolls, wc){\n  const entLen = {12:16,24:32}[wc];', 'async function rollsToMnemonic(rolls, wc){\n  const entLen = {12:16,24:31}[wc];'],
   ['checksum length wrong',                 'const cbits = bits/32;', 'const cbits = bits/16;'],
-  ['rolls hashed with extra byte',          'const digest = await sha256(rolls);', 'const digest = await sha256(rolls+"0");'],
+  ['rolls hashed with extra byte',          'const digest = await sha256(rolls);\n  return entropyToMnemonic', 'const digest = await sha256(rolls+"0");\n  return entropyToMnemonic'],
   ['PBKDF2 iterations 2048 -> 2047',        'iterations:2048', 'iterations:2047'],
   ['PBKDF2 salt prefix case',               '"mnemonic"+(passphrase||"")', '"Mnemonic"+(passphrase||"")'],
   ['passphrase NFKD normalisation removed', '(passphrase||"").normalize("NFKD")', '(passphrase||"")'],
@@ -770,7 +807,7 @@ const M = [
   ["seedqr: compact bytes read in 7 bits", "parseInt(bits.slice(i,i+8),2)", "parseInt(bits.slice(i,i+7),2)"],
   ["seedqr: compact and standard swapped", "kind===\"compact\" ? {mode:\"byte\"", "kind!==\"compact\" ? {mode:\"byte\""],
   ["seedqr: short phrase not refused", "if(!d) throw new Error(\"SeedQR exists", "if(false) throw new Error(\"SeedQR exists"],
-  ["seedqr: show button box offered for any length", "(words && [12,24].includes(words.length)) ? \"\" : \"none\"", "(words) ? \"\" : \"none\""],
+  ["seedqr: show button box offered for any length", "sq.style.display = (words && [12,24].includes(words.length)) ? \"\" : \"none\"", "sq.style.display = (words) ? \"\" : \"none\""],
   ["seedqr: box opened after FORGE", "sq.open = false;", "sq.open = true;"],
   ["seedqr: old code kept after a new FORGE", "hideSeedQr(); { const sq", "{ const sq"],
   ["seedqr: old code kept after hide", "sqKind = null; sqRows = null; closeSqGuide();", "sqKind = null; closeSqGuide();"],
@@ -809,6 +846,44 @@ const M = [
   ["seedqr: print area not cleaned", "document.body.classList.remove(\"print-qr\"); po.textContent = \"\"; };", "po.textContent = \"\"; };"],
   ["seedqr: print class not removed", "document.body.classList.remove(\"print-qr\"); po.textContent = \"\"; };", "document.body.classList.remove(\"print-qr\"); };"],
   ["seedqr: print sheet passphrase line missing", "document.getElementById(\"fingerprint\").textContent + \"\\n\" + passLine(\"printed\") + \"\\n\\nScan with an offline", "document.getElementById(\"fingerprint\").textContent + \"\\n\\nScan with an offline"],
+  ["explain: entropy taken from the wrong bytes", "const entropy = digest.slice(0, entLen);", "const entropy = digest.slice(1, entLen + 1);"],
+  ["explain: checksum made from the wrong bytes", "const hash2 = await sha256bytes(entropy);", "const hash2 = await sha256bytes(digest);"],
+  ["explain: checksum too short", "bytesToBits(hash2).slice(0, entLen * 8 / 32)", "bytesToBits(hash2).slice(0, entLen * 8 / 33)"],
+  ["explain: checksum too long", "bytesToBits(hash2).slice(0, entLen * 8 / 32)", "bytesToBits(hash2).slice(0, entLen * 8 / 16)"],
+  ["explain: pieces of 10 bits", "const bits = all.slice(i, i + 11), num = parseInt(bits, 2);", "const bits = all.slice(i, i + 10), num = parseInt(bits, 2);"],
+  ["explain: number read in the wrong base", "const bits = all.slice(i, i + 11), num = parseInt(bits, 2);", "const bits = all.slice(i, i + 11), num = parseInt(bits, 8);"],
+  ["explain: word looked up one off", "word: WORDLIST[num]}", "word: WORDLIST[num + 1]}"],
+  ["explain: roll count off by one", "count: rolls.length,", "count: rolls.length + 1,"],
+  ["explain: entropy size wrong", "entropyBits: entLen * 8,", "entropyBits: entLen * 4,"],
+  ["explain: hex without leading zeros", "x.toString(16).padStart(2, \"0\")).join(\"\");\n  return {count", "x.toString(16).padStart(1, \"0\")).join(\"\");\n  return {count"],
+  ["explain: steps shown without a seed", "if(!exCtx) return alert(\"Forge a seed first.\");", "if(false) return alert(\"Forge a seed first.\");"],
+  ["explain: coin shown as dice", "const coin = exCtx.coin,", "const coin = false,"],
+  ["explain: dice shown as coin", "const coin = exCtx.coin,", "const coin = true,"],
+  ["explain: dice bits worth 2 each", "Math.floor(coin ? s.count : s.count * Math.log2(6))", "Math.floor(coin ? s.count : s.count * 2)"],
+  ["explain: coin bits worth 2 each", "Math.floor(coin ? s.count : s.count * Math.log2(6))", "Math.floor(coin ? s.count * 2 : s.count * Math.log2(6))"],
+  ["explain: checksum split in the wrong piece", "i === s.groups.length - 1", "i === s.groups.length - 2"],
+  ["explain: checksum split in the wrong place", "const keep = 11 - s.checkBits.length;", "const keep = 10 - s.checkBits.length;"],
+  ["explain: mismatch not noticed", "const same = s.words.join(\" \") === exCtx.words.join(\" \");", "const same = true;"],
+  ["explain: match claimed wrongly", "const same = s.words.join(\" \") === exCtx.words.join(\" \");", "const same = s.words.join(\" \") !== exCtx.words.join(\" \");"],
+  ["explain: steps not shown at the end", "  o.style.display = \"\";\n}\n// SeedSigner formats", "\n}\n// SeedSigner formats"],
+  ["explain: hide keeps the secret context", "exCtx = null;\n  const o = document.getElementById(\"exOut\"); o.textContent = \"\"; o.style.display = \"none\";", "const o = document.getElementById(\"exOut\"); o.textContent = \"\"; o.style.display = \"none\";"],
+  ["explain: hide keeps the steps text", "o.textContent = \"\"; o.style.display = \"none\";\n}\nasync function showExplain", "o.style.display = \"none\";\n}\nasync function showExplain"],
+  ["explain: hide keeps the steps shown", "o.textContent = \"\"; o.style.display = \"none\";\n}\nasync function showExplain", "o.textContent = \"\";\n}\nasync function showExplain"],
+  ["explain: old steps kept after a new FORGE", "  hideExplain(); { const eb", "  { const eb"],
+  ["explain: box offered for any length", "eb.style.display = (words && [12,24].includes(words.length)) ? \"\" : \"none\";", "eb.style.display = (words) ? \"\" : \"none\";"],
+  ["explain: box opened after FORGE", "eb.open = false; }", "eb.open = true; }"],
+  ["explain: no context kept for the steps", "  exCtx = {rolls, words: mnemonic.split(\" \"), coin: getMode()===\"coin\"};", ""],
+  ["print sheet: wrong grid class", "add(\"ps-grid ps-\" + ws.length, \"\")", "add(\"ps-grid ps-12\", \"\")"],
+  ["print sheet: box numbers not padded", "add(\"ps-n\", String(i + 1).padStart(2, \"0\"), c)", "add(\"ps-n\", String(i + 1), c)"],
+  ["print sheet: first word printed in every box", "add(\"ps-w\", w, c)", "add(\"ps-w\", ws[0], c)"],
+  ["print sheet: printed without asking", "if(!confirm(\"Printing sends your seed to a printer and its spooler.", "if(false && !confirm(\"Printing sends your seed to a printer and its spooler."],
+  ["print sheet: passphrase line missing", "document.getElementById(\"address\").textContent + \"\\n\" + passLine(\"printed\"));\n  add(\"ps-fields\"", "document.getElementById(\"address\").textContent);\n  add(\"ps-fields\""],
+  ["print sheet: fingerprint missing", "add(\"ps-info\", document.getElementById(\"fingerprint\").textContent + \"\\n\" + document.getElementById(\"address\").textContent", "add(\"ps-info\", document.getElementById(\"address\").textContent"],
+  ["print sheet: area not cleaned", "document.body.classList.remove(\"print-seed\"); po.textContent = \"\"; };", "po.textContent = \"\"; };"],
+  ["print sheet: print class not removed", "document.body.classList.remove(\"print-seed\"); po.textContent = \"\"; };", "document.body.classList.remove(\"print-seed\"); };"],
+  ["explain: entropy size 16 -> 15 bytes", "async function explainSteps(rolls, wc){\n  const entLen = {12:16,24:32}[wc];", "async function explainSteps(rolls, wc){\n  const entLen = {12:15,24:32}[wc];"],
+  ["explain: entropy size 32 -> 31 bytes", "async function explainSteps(rolls, wc){\n  const entLen = {12:16,24:32}[wc];", "async function explainSteps(rolls, wc){\n  const entLen = {12:16,24:31}[wc];"],
+  ["explain: rolls hashed with extra byte", "const digest = await sha256(rolls);\n  const entropy = digest.slice(0, entLen);", "const digest = await sha256(rolls+\"0\");\n  const entropy = digest.slice(0, entLen);"],
 ];
 
 if (process.env.MUT_CHECK_TARGETS) { // quick mode: only check that every mutation target occurs exactly once in the page

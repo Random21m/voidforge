@@ -215,6 +215,18 @@
     body.print-seed * { visibility: hidden !important; }
     body.print-seed #printOnly, body.print-seed #printOnly * { visibility: visible !important; }
     body.print-seed #printOnly { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 24px; font-family: monospace; font-size: 14px; line-height: 1.5; color: #000; background: #fff; white-space: pre-wrap; }
+    body.print-seed #printOnly .ps-title { font-size: 22px; font-weight: 700; letter-spacing: 2px; border-bottom: 3px solid #000; padding-bottom: 6px; }
+    body.print-seed #printOnly .ps-sub { font-size: 13px; margin: 8px 0 14px; }
+    body.print-seed #printOnly .ps-grid { display: grid; gap: 8px; }
+    body.print-seed #printOnly .ps-grid.ps-12 { grid-template-columns: repeat(3, 1fr); }
+    body.print-seed #printOnly .ps-grid.ps-24 { grid-template-columns: repeat(4, 1fr); }
+    body.print-seed #printOnly .ps-cell { border: 1.5px solid #000; border-radius: 6px; padding: 6px 8px; min-height: 52px; }
+    body.print-seed #printOnly .ps-n { font-size: 11px; color: #444; }
+    body.print-seed #printOnly .ps-w { font-size: 20px; font-weight: 700; letter-spacing: .5px; }
+    body.print-seed #printOnly .ps-rule { border-top: 1px solid #000; margin: 14px 0; }
+    body.print-seed #printOnly .ps-info, body.print-seed #printOnly .ps-fields, body.print-seed #printOnly .ps-warn { white-space: pre-wrap; font-size: 13px; }
+    body.print-seed #printOnly .ps-warn { font-weight: 700; }
+    body.print-seed #printOnly .ps-info { margin-bottom: 8px; }
   }
   #printOnly { display: none; }
   #printQr { display: none; }
@@ -272,6 +284,19 @@
   .sub { font-size: 12.5px; color: var(--muted); margin: -4px 0 12px; line-height: 1.5; }
   .tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .8px; padding: 2px 7px; border-radius: 99px; border: 1px solid; margin-left: 6px; vertical-align: middle; white-space: nowrap; }
   .tag-secret { color: var(--bad-text); border-color: var(--bad-text); }
+  .ex-step { display: flex; gap: 10px; margin-top: 14px; }
+  .ex-num { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--bg); font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .ex-body { min-width: 0; flex: 1; }
+  .ex-title { font-weight: 700; font-size: 14px; }
+  .ex-text { color: var(--muted); font-size: 13px; margin: 3px 0 6px; }
+  .ex-mono { font-family: 'Courier New', monospace; font-size: 12px; word-break: break-all; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+  .ex-cs { color: var(--accent2); font-weight: 700; }
+  .ex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-top: 6px; }
+  .ex-cell { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 12px; }
+  .ex-cell b { display: block; font-size: 14px; }
+  .ex-cell code { display: block; word-break: break-all; }
+  .ex-ok { color: var(--success); font-weight: 600; font-size: 13px; margin-top: 12px; }
+  .ex-bad { color: var(--bad-text); font-weight: 600; font-size: 13px; margin-top: 12px; }
   .tag-public { color: var(--ok-text); border-color: var(--ok-text); }
   .tag-ro { color: var(--accent); border-color: var(--accent); }
   .tools details { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-top: 10px !important; }
@@ -438,6 +463,15 @@
         <li>If anything differs, <b>do not use this wallet</b>. Start again, and check your words against a second offline tool.</li>
       </ol>
       <p class="hint" style="margin:6px 0 0;">This checks the public side only. It cannot prove your dice were fair, or that the words you wrote down are right: check those with the VERIFY box below.</p>
+    </details>
+    <details id="explainBox" style="display:none; margin-top:10px;">
+      <summary>How your seed was made<span class="tag tag-secret">SECRET</span><small>Optional: watch your dice rolls turn into these words, one step at a time.</small></summary>
+      <p class="hint" style="margin:8px 0 0;">This shows every step from the rolls you typed to the words above, using the same math as FORGE. It prints the secret numbers in between, so only open it where nobody can see your screen. It never shows your passphrase.</p>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="secondary small" onclick="showExplain()">SHOW THE STEPS</button>
+        <button class="secondary small" onclick="hideExplain()">HIDE</button>
+      </div>
+      <div id="exOut" style="display:none;"></div>
     </details>
     <details id="seedQrBox" style="display:none; margin-top:10px;">
       <summary>Paper backup as a SeedQR<span class="tag tag-secret">SECRET</span><small>For SeedSigner and similar offline devices. Print it or copy it by hand.</small></summary>
@@ -653,6 +687,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.19.2</b> &mdash; Two additions after FORGE. (1) <b>How your seed was made</b> (marked SECRET, closed by default): shows every step from your typed rolls to the words, in five plain-language steps with the real numbers (the SHA-256 result, the raw entropy, the checksum bits, and each 11-bit piece with its word number), and checks itself against the words above. It never shows your passphrase. (2) A redesigned <b>printed backup sheet</b>: numbered boxes for the words, the fingerprint and first address, the passphrase-used line, and fields to fill in, laid out for a clean paper copy. Printing still asks you to confirm first. Self-test is now 66 checks. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.1.</li>
         <li><b>1.19.1</b> &mdash; A new <b>Browser safety checklist</b> in About &amp; docs: eight short habits (go offline first, a clean browser window, translation, clipboard history, print and PDF copies, downloads, and restarting afterwards), each with the reason. Releases now also carry a <code>CID.txt</code>, a second way to check that your download is the right file. Seeds, fingerprints, addresses, keys, descriptors and every check are identical to v1.19.0.</li>
         <li><b>1.19.0</b> &mdash; Paper backup as a SeedQR. After FORGE you can show your seed as a SeedQR or CompactSeedQR (the formats SeedSigner uses) directly on screen, copy it onto a printed grid with a pen or pencil one 7x7 block at a time (with row and column numbers and a small map, like SeedSigner's transcribe screen), or print the QR, the hand-copy guide or a blank grid. Printing asks you to confirm first because it sends your seed to a printer. Nothing is stored or sent anywhere.</li>
         <li><b>1.18.0</b> &mdash; Visual polish only. A subtle forge-style background, a small identity badge in the header, numbered word cards, short animations when you tap a dice or coin button and when FORGE finishes, and a brief flash when something is copied. Every animation is switched off if your device is set to reduce motion. Seed words, fingerprints, addresses, keys, descriptors and every check are exactly the same as 1.17.0.</li>
@@ -691,7 +726,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.19.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.19.2 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -1340,6 +1375,50 @@ async function rollsToMnemonic(rolls, wc){
   const digest = await sha256(rolls);
   return entropyToMnemonic(digest.slice(0, entLen));
 }
+// "How your seed was made": every step from the typed rolls to the words, with the same functions FORGE uses.
+// explainSteps returns plain data (no display); showExplain draws it with textContent only and checks it against the real words.
+async function explainSteps(rolls, wc){
+  const entLen = {12:16,24:32}[wc];
+  if(!entLen) throw new Error("Only 12 and 24 words are supported");
+  const digest = await sha256(rolls);
+  const entropy = digest.slice(0, entLen);
+  const hash2 = await sha256bytes(entropy);
+  const checkBits = bytesToBits(hash2).slice(0, entLen * 8 / 32);
+  const all = bytesToBits(entropy) + checkBits, groups = [];
+  for(let i = 0; i < all.length; i += 11){ const bits = all.slice(i, i + 11), num = parseInt(bits, 2); groups.push({bits, num, word: WORDLIST[num]}); }
+  const hex = (b) => Array.from(b).map(x => x.toString(16).padStart(2, "0")).join("");
+  return {count: rolls.length, digestHex: hex(digest), entropyHex: hex(entropy), entropyBits: entLen * 8, checkBits, groups, words: groups.map(g => g.word)};
+}
+let exCtx = null;
+function hideExplain(){
+  exCtx = null;
+  const o = document.getElementById("exOut"); o.textContent = ""; o.style.display = "none";
+}
+async function showExplain(){
+  if(!exCtx) return alert("Forge a seed first.");
+  const o = document.getElementById("exOut"); o.textContent = "";
+  const coin = exCtx.coin, s = await explainSteps(exCtx.rolls, exCtx.words.length);
+  const mk = (tag, cls, text, parent) => { const e = document.createElement(tag); if(cls) e.className = cls; if(text !== undefined) e.textContent = text; (parent || o).appendChild(e); return e; };
+  const step = (n, title, text) => { const r = mk("div", "ex-step"); mk("div", "ex-num", String(n), r); const b = mk("div", "ex-body", undefined, r); mk("div", "ex-title", title, b); mk("div", "ex-text", text, b); return b; };
+  const unit = coin ? "coin flips" : "dice rolls";
+  const b1 = step(1, "Your " + unit, "You entered " + s.count + " " + unit + ". Each one adds randomness: a die roll is worth about 2.6 bits and a coin flip exactly 1 bit, so " + s.count + " of them are worth roughly " + Math.floor(coin ? s.count : s.count * Math.log2(6)) + " bits (if they were fair).");
+  mk("div", "ex-mono", exCtx.rolls.split("").join(" "), b1);
+  const b2 = step(2, "Mixed into one number", "Your rolls are typed out as plain text and run through SHA-256, a scrambling function. It always gives 256 bits, and changing even one roll changes every bit. That is why the same rolls always give the same seed.");
+  mk("div", "ex-mono", s.digestHex, b2);
+  const b3 = step(3, "Keep the first " + s.entropyBits + " bits", "A " + exCtx.words.length + "-word seed needs " + s.entropyBits + " bits, so we keep the first " + s.entropyBits / 8 + " bytes. This is the seed's raw entropy: the same thing a CompactSeedQR holds.");
+  mk("div", "ex-mono", s.entropyHex, b3);
+  const b4 = step(4, "Add a safety checksum", "SHA-256 is run once more on those bytes, and its first " + s.checkBits.length + " bits are added to the end. They let a wallet notice most typing mistakes in your backup.");
+  const m4 = mk("div", "ex-mono", "", b4); mk("span", "", "…", m4); mk("span", "ex-cs", s.checkBits, m4); mk("span", "", "  \u2190 checksum", m4);
+  const b5 = step(5, "Cut into pieces of 11 bits", "All " + (s.entropyBits + s.checkBits.length) + " bits are cut into " + s.groups.length + " pieces of 11 bits. Each piece is a number from 0 to 2047, which is the position of a word in the BIP39 list of 2048 words.");
+  const g = mk("div", "ex-grid", undefined, b5);
+  s.groups.forEach((x, i) => { const c = mk("div", "ex-cell", undefined, g); mk("b", "", (i + 1) + ". " + x.word, c); const cd = mk("code", "", "", c);
+    if(i === s.groups.length - 1){ const keep = 11 - s.checkBits.length; mk("span", "", x.bits.slice(0, keep), cd); mk("span", "ex-cs", x.bits.slice(keep), cd); } else cd.textContent = x.bits;
+    mk("span", "", "number " + x.num, c); });
+  const same = s.words.join(" ") === exCtx.words.join(" ");
+  mk("div", same ? "ex-ok" : "ex-bad", same ? "These words match the seed above, step for step." : "These steps do NOT match the seed above. Do not rely on this view; check your backup with VERIFY.");
+  mk("div", "ex-text", "Your passphrase, if you used one, is not part of any of this. It is mixed in afterwards, together with these words, to make the wallet.");
+  o.style.display = "";
+}
 // SeedSigner formats typed into VERIFY. A standard SeedQR is each word's number (0000 to 2047) as 4 digits, in order (48 digits for
 // 12 words, 96 for 24). A CompactSeedQR is the raw entropy, which scanner apps show as hex (32 or 64 characters for 12 or 24 words).
 async function phraseFromCode(raw){
@@ -1570,6 +1649,8 @@ async function runSelfTests(auto){
   const C256="0010011101010101011101001000110011000010110100001011001010001001011000101011000011010000011101001000101010001011110010010101001010010100001011011010100011011111111111000001101000101101111100100101011101011101111001111011000001110101000001011010110001011000";
   eq("coin flips 128 (1/0) -> 12 words", ()=>rollsToMnemonic(C128,12),"trigger soccer priority image feature romance whisper jar crush sleep super potato");
   eq("coin flips 256 (1/0) -> 24 words", ()=>rollsToMnemonic(C256,24),"supply kitten pigeon wealth myth execute add huge mention during defense universe fresh absurd possible hen social glad capital early narrow erode december fall");
+  eq("explainer steps, 50 dice rolls: same 12 words as FORGE", async()=>(await explainSteps(R50,12)).words.join(" "),"hole luggage safe present express tragic orbit shed switch metal identify path");
+  eq("explainer steps, 256 coin flips: same 24 words as FORGE, 8 checksum bits", async()=>{ const s=await explainSteps(C256,24); return s.words.join(" ")+"|"+s.checkBits.length; },"supply kitten pigeon wealth myth execute add huge mention during defense universe fresh absurd possible hen social glad capital early narrow erode december fall|8");
   // fingerprints
   eq("SeedSigner 50-roll master fingerprint", async()=>mnemonicFingerprint(await rollsToMnemonic(R50,12),""),"8d9cced8");
   eq("'abandon..about' master fingerprint", ()=>mnemonicFingerprint("abandon ".repeat(11)+"about",""),"73c5da0a");
@@ -1671,6 +1752,7 @@ async function generate(){
   const mnemonic = await rollsToMnemonic(rolls, wc);
   const pass = document.getElementById("passphrase").value;
   setResult(mnemonic + "\n\nPassphrase: " + (pass ? "used (" + Array.from(pass).length + " characters, not shown here)" : "none"), mnemonic.split(" "));
+  exCtx = {rolls, words: mnemonic.split(" "), coin: getMode()==="coin"};
   const fpEl = document.getElementById("fingerprint"), adEl = document.getElementById("address");
   fpEl.textContent = "Master fingerprint: computing..."; adEl.textContent = "";
   clearWatch(); clearFpIcons();
@@ -2059,6 +2141,7 @@ function updateAbbrNote(){
 function setResult(text, words){
   const g = document.getElementById("genResult"), grid = document.getElementById("wordGrid");
   g.textContent = text; grid.textContent = "";
+  hideExplain(); { const eb = document.getElementById("explainBox"); eb.style.display = (words && [12,24].includes(words.length)) ? "" : "none"; eb.open = false; }
   hideSeedQr(); { const sq = document.getElementById("seedQrBox"); sq.style.display = (words && [12,24].includes(words.length)) ? "" : "none"; sq.open = false; }
   if(words){
     g.dataset.seed = "1"; g.classList.add("sr");
@@ -2084,15 +2167,18 @@ function printSeed(){
   if(!hasSeed()) return alert("Generate a seed first");
   const phrase = document.getElementById("genResult").textContent.split("\n")[0];
   if(!confirm("Printing sends your seed to a printer and its spooler. Only print on a trusted offline computer with a directly connected printer. The passphrase is never printed. Continue?")) return;
-  const po = document.getElementById("printOnly");
-  const ws = phrase.split(" "), half = Math.ceil(ws.length / 2), cell = i => String(i + 1).padStart(2, " ") + ". " + ws[i];
-  const rows = [];
-  for(let i = 0; i < half; i++) rows.push(cell(i).padEnd(18, " ") + (i + half < ws.length ? cell(i + half) : ""));
-  const line = "------------------------------------------";
-  po.textContent = "VOIDFORGE BACKUP SHEET\n" + line + "\n\n" + rows.join("\n") + "\n\n" + line + "\n" +
-    document.getElementById("fingerprint").textContent + "\n" + document.getElementById("address").textContent + "\n" + passLine("printed") + "\n\n" +
-    "Words checked against the screen:  ____\nDate made:                         ____________\nCoin: 1 means ______, 0 means ______ (coin only)\nRolls / flips string stored:       ____________\nPassphrase stored separately:      ____________\nBackup location:                   ____________\n\n" + line + "\n" +
-    "Anyone who has these words controls the funds.\nNever photograph them or type them on a connected device.\nLost words cannot be recovered. Check this backup with VERIFY.\n";
+  const po = document.getElementById("printOnly"); po.textContent = "";
+  const add = (cls, text, parent) => { const d = document.createElement("div"); if(cls) d.className = cls; d.textContent = text; (parent || po).appendChild(d); return d; };
+  const ws = phrase.split(" ");
+  add("ps-title", "VOIDFORGE BACKUP SHEET");
+  add("ps-sub", ws.length + " words, in order. Write one word in each box, clearly, in pen.");
+  const g = add("ps-grid ps-" + ws.length, "");
+  ws.forEach((w, i) => { const c = add("ps-cell", "", g); add("ps-n", String(i + 1).padStart(2, "0"), c); add("ps-w", w, c); });
+  add("ps-rule", "");
+  add("ps-info", document.getElementById("fingerprint").textContent + "\n" + document.getElementById("address").textContent + "\n" + passLine("printed"));
+  add("ps-fields", "Words checked against the screen:  ____\nDate made:                         ____________\nCoin: 1 means ______, 0 means ______ (coin only)\nRolls / flips string stored:       ____________\nPassphrase stored separately:      ____________\nBackup location:                   ____________");
+  add("ps-rule", "");
+  add("ps-warn", "Anyone who has these words controls the funds.\nNever photograph them or type them on a connected device.\nLost words cannot be recovered. Check this backup with VERIFY.");
   document.body.classList.add("print-seed");
   let done = false;
   const cleanup = () => { if(done) return; done = true; document.body.classList.remove("print-seed"); po.textContent = ""; };

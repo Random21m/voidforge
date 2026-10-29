@@ -15,7 +15,7 @@ function load(opts={}){
       w.addEventListener('error',e=>errors.push(e.message));
       w.URL.createObjectURL=b=>{st.blob=b;return 'blob:x';}; w.URL.revokeObjectURL=()=>{};
       w.HTMLAnchorElement.prototype.click=function(){};
-      w.print=()=>{ st.printed++; st.printHTML=w.document.getElementById('printOnly').textContent; st.printClass=w.document.body.className; st.printQrText=w.document.getElementById('printQr').textContent; st.printQrHTML=w.document.getElementById('printQr').innerHTML; };
+      w.print=()=>{ st.printed++; st.printHTML=w.document.getElementById('printOnly').textContent; st.printCells=[...w.document.querySelectorAll('#printOnly .ps-cell')].map(c=>c.textContent); st.printClass=w.document.body.className; st.printQrText=w.document.getElementById('printQr').textContent; st.printQrHTML=w.document.getElementById('printQr').innerHTML; };
       Object.defineProperty(w.navigator,'clipboard',{value:{writeText:async t=>{st.clip.push(t);}}});
     }});
   const w=dom.window; return {w,ready:()=>w.selfTestDone,d:w.document,$:id=>w.document.getElementById(id),st,errors,
@@ -102,7 +102,7 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
   t=load(); await t.ready(); t.set(rnd(50)); t.$('passphrase').value='SECRETPASS'; t.$('passphrase2').value='SECRETPASS'; await t.w.generate();
   const words=t.$('genResult').textContent.split('\n')[0];
   t.w.printSeed();
-  ok(t.st.printed===1&&words.split(' ').every((w,i)=>t.st.printHTML.includes(String(i+1).padStart(2,' ')+'. '+w))&&!t.st.printHTML.includes('SECRETPASS')&&/print-seed/.test(t.st.printClass),'PRINT SEED prints numbered words + fingerprint only, no passphrase');
+  ok(t.st.printed===1&&t.st.printCells.length===12&&words.split(' ').every((w,i)=>t.st.printCells[i]===String(i+1).padStart(2,'0')+w)&&!t.st.printHTML.includes('SECRETPASS')&&/print-seed/.test(t.st.printClass),'PRINT SEED prints numbered words + fingerprint only, no passphrase');
   t.w.dispatchEvent(new t.w.Event('afterprint')); ok(t.$('printOnly').textContent===''&&!t.d.body.classList.contains('print-seed'),'print area cleaned up after printing');
   // --- SeedQR / CompactSeedQR on screen, by hand and on paper ---
   { const keepT=t; t=load(); await t.ready(); t.set(rnd(50)); t.$('passphrase').value='SECRETPASS'; t.$('passphrase2').value='SECRETPASS'; await t.w.generate(); const sw=t.$('genResult').textContent.split('\n')[0];
@@ -140,6 +140,25 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     t.w.showSeedQr('seedqr'); t.w.openSqGuide(); t.w.clearAll(); ok(t.$('sqImg').innerHTML===''&&t.$('sqGuideImg').innerHTML===''&&t.$('sqMini').innerHTML===''&&t.$('seedQrBox').style.display==='none','CLEAR removes the SeedQR and the guide and hides the box');
     t.st.alerts.length=0; t.w.showSeedQr('seedqr'); ok(t.$('sqImg').innerHTML===''&&/Generate a seed first/.test(t.st.alerts.join('|')),'SHOW SEEDQR needs a seed first');
     t.words(24); t.set(rnd(99)); await t.w.generate(); t.w.showSeedQr('seedqr'); ok(sz()===29&&/24 words, 29 x 29/.test(t.$('sqCaption').textContent),'SEEDQR is 29 x 29 for 24 words'); t.w.openSqGuide(); ok(/^Block 1 of 25: rows 1 to 7, columns 1 to 7 of the 29 x 29/.test(gc()),'29 x 29 has 25 blocks'); for(let i=0;i<4;i++) t.w.sqGuideBlock(1); ok(/^Block 5 of 25: rows 1 to 7, columns 29 to 29/.test(gc()),'the last block column of a 29 x 29 code is one square wide'); t.w.showSeedQr('compact'); ok(sz()===25,'COMPACTSEEDQR is 25 x 25 for 24 words'); t.words(12);  t=keepT; }
+  // --- "How your seed was made" explainer ---
+  { const keepT=t; t=load(); await t.ready(); t.set(rnd(50)); t.$('passphrase').value='SECRETPASS'; t.$('passphrase2').value='SECRETPASS'; await t.w.generate();
+    const wd=t.$('genResult').textContent.split('\n')[0].split(' '), ex=()=>t.$('exOut');
+    ok(t.$('explainBox').style.display===''&&!t.$('explainBox').open&&ex().style.display==='none'&&ex().textContent==='','explainer box appears closed after FORGE, with nothing shown');
+    await t.w.showExplain();
+    const cells=[...ex().querySelectorAll('.ex-cell b')].map(e=>e.textContent);
+    ok(cells.length===12&&cells.every((c,i)=>c===(i+1)+'. '+wd[i]),'explainer lists the 12 words in order');
+    ok(ex().querySelectorAll('.ex-step').length===5&&!!ex().querySelector('.ex-ok')&&!ex().querySelector('.ex-bad'),'explainer shows five steps and says the words match');
+    ok(!ex().textContent.includes('SECRETPASS')&&!ex().querySelector('a,script,img,form,input'),'explainer never shows the passphrase and has no links or inputs');
+    ok(/50 dice rolls/.test(ex().textContent)&&/roughly 129 bits/.test(ex().textContent),'explainer counts the rolls and the bits');
+    ok([...ex().querySelectorAll('.ex-cell')].every(c=>{ const m=c.textContent.match(/number (\d+)/); return m&&parseInt(c.querySelector('code').textContent,2)===+m[1]; }),'explainer numbers match the word list');
+    ok(ex().querySelectorAll('.ex-cs').length>=2&&[...ex().querySelectorAll('.ex-cs')].some(e=>/^[01]{4}$/.test(e.textContent)),'explainer marks the 4 checksum bits');
+    t.w.hideExplain(); ok(ex().style.display==='none'&&ex().textContent==='','HIDE removes the explainer steps');
+    t.st.alerts.length=0; await t.w.showExplain(); ok(ex().textContent===''&&/Forge a seed first/.test(t.st.alerts.join('|')),'SHOW THE STEPS needs a seed first (after HIDE the steps are gone)');
+    await t.w.generate(); ok(ex().textContent===''&&t.$('explainBox').style.display==='','a new FORGE clears the old steps');
+    await t.w.showExplain(); t.w.clearAll(); await new Promise(r=>setTimeout(r,20)); ok(ex().textContent===''&&t.$('explainBox').style.display==='none','CLEAR removes the explainer and hides its box');
+    t.words(24); t.set(rnd(99)); await t.w.generate(); await t.w.showExplain();
+    const c24=[...ex().querySelectorAll('.ex-cell')]; ok(c24.length===24&&/99 dice rolls/.test(ex().textContent)&&/^[01]{8}$/.test(c24[23].querySelector('.ex-cs').textContent)&&!!ex().querySelector('.ex-ok'),'explainer for 24 words: 24 pieces, 8 checksum bits, words match');
+    t=keepT; }
   // --- download seed: confirm, no passphrase ---
   t.w.downloadSeed(); const txt=await blobText(t.w,t.st.blob);
   ok(t.st.confirms>=2&&txt.includes(words)&&!txt.includes('SECRETPASS'),'DOWNLOAD seed asks first and omits passphrase');
