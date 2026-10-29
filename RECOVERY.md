@@ -48,3 +48,13 @@ Afterwards check that the app's first receiving address equals the **First recei
 ## Child seeds (BIP85)
 
 A child seed made with the Child seed (BIP85) tool is not stored anywhere. To get it back you need the parent words, the parent passphrase if one was used, the word count and the index. Write the word count and index down with the parent backup. Anyone who has the parent can recreate every child, and losing the parent loses every child.
+
+## Multisig wallets (v1.20.0)
+
+A multisig wallet made with VOIDFORGE needs two things to be recovered: **M of the N seeds**, and the **descriptor** (or the printed recovery sheet, or all N public keys with their fingerprints and `48h/0h/0h/2h` paths). The descriptor holds no secrets.
+
+1. In Sparrow choose *File > New Wallet > Multi Signature*, or import the descriptor text directly (*New Wallet > Descriptor*). In Nunchuk or Bitcoin Core use *import descriptor*.
+2. Check that the first receiving addresses match the ones on your recovery sheet before you send anything.
+3. To spend, each signer uses its own seed in a signing device or wallet; VOIDFORGE does not sign.
+
+Key origin used: `m/48'/0'/<account>'/2'` for native SegWit (P2WSH) or `.../1'` for nested SegWit (P2SH-P2WSH); testnet uses `1'` instead of `0'`.

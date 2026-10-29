@@ -462,6 +462,88 @@ async function probe(w) {
     if (w.document.querySelectorAll('#wdBox a, #wdBox script, #wdBox img, #wdBox form').length || !/word tiles/.test($('wdBox').textContent) || /Entropia/i.test(w.document.body.innerHTML)) fails.push('word draw: no links, and no product name');
     $('wdLen').value = '24'; w.wdUpdate(); if (!/0 \/ 23 words, 0 \/ 3 flips/.test($('wdCount').textContent)) fails.push('word draw: counts for 24 words'); $('wdLen').value = '12';
   } catch (e) { fails.push('word draw: the probe crashed: ' + e.message); }
+  try { // Multisig
+    if (!w.Element.prototype.scrollIntoView) w.Element.prototype.scrollIntoView = function () {};
+    const slp = (t) => new Promise((r2) => setTimeout(r2, t));
+    w.confirm = () => true; w.clearAll(); await slp(20);
+    const A11 = 'abandon '.repeat(11), LEG = 'legal winner thank year wave sausage worth useful legal winner thank', ZOO = 'zoo '.repeat(11).trim();
+    const mk = async (ws, fl) => { $('wdLen').value = '12'; $('wdWords').value = ws; $('wdFlips').value = fl; w.wdUpdate(); await w.wdGenerate(); for (let i = 0; i < 200 && !w.eval('watchCtx'); i++) await slp(25); };
+    const sd = [[A11, '0000000'], [LEG, '1111111'], [ZOO, '1111111']];
+    const accKey = (mn, path, ver) => HDKey.fromMasterSeed(mnemonicToSeedSync(mn, ''), ver ? { private: 0x0488ade4, public: ver } : undefined).derive(path);
+    const mns = [A11 + 'about', LEG + ' yellow', ZOO + ' wrong'];
+    $('msN').value = '3'; w.msUpdateM(); if ($('msM').value !== '2') fails.push('multisig: 3 keys default to 2-of-3');
+    $('msM').value = '1'; w.msMNote(); if (!/not real multisig protection/.test($('msMNote').textContent)) fails.push('multisig: 1-of-N note');
+    $('msM').value = '3'; w.msMNote(); if (!/lose even one/.test($('msMNote').textContent)) fails.push('multisig: N-of-N note');
+    $('msM').value = '1'; w.msStart(); if (w.eval('ms') !== null || !/at least 2/.test($('msErr').textContent)) fails.push('multisig: 1-of-N refused at start');
+    $('msM').value = '2'; $('msAcct').value = '12x'; w.msStart(); if (w.eval('ms') !== null) fails.push('multisig: bad account refused');
+    $('msAcct').value = '2147483648'; w.msStart(); if (w.eval('ms') !== null) fails.push('multisig: account above 2147483647 refused');
+    $('msAcct').value = '0'; w.msStart();
+    if ($('msBanner').style.display !== '' || !/KEY 1 OF 3/.test($('msBanTitle').textContent) || !$('msAddBtn').disabled) fails.push('multisig: banner and disabled button at start');
+    await w.msAddMade(); if (!/Make the seed first/.test($('msBanErr').textContent) || w.eval('ms.keys.length') !== 0) fails.push('multisig: adding without a seed');
+    await mk(...sd[0]); if ($('msAddBtn').disabled) fails.push('multisig: button enabled once a seed exists');
+    await w.msAddMade();
+    if (w.eval('ms.keys.length') !== 1 || w.hasSeed() || $('rolls').value !== '' || $('wdWords').value !== '' || $('watchBox').style.display !== 'none' || w.eval('watchCtx') !== null || /abandon/.test($('genResult').textContent)) fails.push('multisig: ADD wipes the seed and keeps one public key');
+    if (!/KEY 2 OF 3/.test($('msBanTitle').textContent) || w.document.querySelectorAll('.ms-slot.done').length !== 1) fails.push('multisig: moves on to key 2');
+    await slp(200); if (!w.document.querySelector('#msIcon0 svg')) fails.push('multisig: fingerprint picture beside a saved key');
+    await mk(...sd[0]); await w.msAddMade();
+    if (w.eval('ms.keys.length') !== 1 || !/same key as key 1/.test($('msBanErr').textContent) || !w.hasSeed()) fails.push('multisig: same seed twice refused, seed kept');
+    await mk(...sd[1]); await w.msAddMade();
+    if (w.eval('ms.keys.length') !== 2) fails.push('multisig: second key added');
+    w.msUsePaste();
+    const paste = async (t, f) => { $('msPaste').value = t; $('msPasteFp').value = f || ''; await w.msAddPasted(); return $('msRunErr').textContent; };
+    const k3 = accKey(mns[2], "m/48'/0'/0'/2'"), k3x = k3.publicExtendedKey, fp3 = fp(mns[2], ''), k1 = accKey(mns[0], "m/48'/0'/0'/2'").publicExtendedKey, k2 = accKey(mns[1], "m/48'/0'/0'/2'");
+    const enc = (b) => createBase58check(nsha).encode(b);
+    const ser = (ver, depth, pub) => { const b = new Uint8Array(78); b.set([ver >>> 24, (ver >>> 16) & 255, (ver >>> 8) & 255, ver & 255], 0); b[4] = depth; b.set(pub, 45); b[12] = 0x80; b[13 - 1] = 2; b.set(new Uint8Array(32).fill(7), 13); return b; };
+    if (!/fingerprint is 8 characters/.test(await paste(k3x, ''))) fails.push('multisig paste: missing fingerprint explained');
+    if (!/seed words/.test(await paste(A11 + 'about', 'aaaaaaaa'))) fails.push('multisig paste: seed words refused');
+    if (!/PRIVATE key/.test(await paste(HDKey.fromMasterSeed(new Uint8Array(32).fill(7)).privateExtendedKey, 'aaaaaaaa'))) fails.push('multisig paste: xprv refused as private');
+    if (!/typo|checksum/.test(await paste(k3x.slice(0, -1) + (k3x.endsWith('a') ? 'b' : 'a'), 'aaaaaaaa'))) fails.push('multisig paste: typo caught');
+    if (!/not at the expected place/.test(await paste(HDKey.fromMasterSeed(new Uint8Array(32).fill(7)).publicExtendedKey, 'aaaaaaaa'))) fails.push('multisig paste: master key refused');
+    if (!/not at the expected place/.test(await paste(accKey(mns[2], "m/0'/0'/2'").publicExtendedKey, 'aaaaaaaa'))) fails.push('multisig paste: depth-3 key with the right last step refused');
+    if (!/not at the expected place/.test(await paste(accKey(mns[2], "m/48'/0'/0'/1'").publicExtendedKey, 'aaaaaaaa'))) fails.push('multisig paste: depth-4 key with the wrong last step refused');
+    if (!/Testnet/.test(await paste(accKey(mns[2], "m/48'/1'/0'/2'", 0x043587cf).publicExtendedKey, 'aaaaaaaa'))) fails.push('multisig paste: testnet key refused on mainnet');
+    if (!/single-signature/.test(await paste(accKey(mns[2], "m/48'/0'/0'/2'", 0x04b24746).publicExtendedKey, 'aaaaaaaa'))) fails.push('multisig paste: zpub refused');
+    { const raw = createBase58check(nsha).decode(k3x); if (!/different multisig script type/.test(await paste(enc(Uint8Array.from([0x02, 0x95, 0xb4, 0x3f, ...raw.slice(4)])), 'aaaaaaaa'))) fails.push('multisig paste: Ypub refused on a Zpub wallet'); }
+    if (!/not the one this wallet uses/.test(await paste('[aaaaaaaa/48h/0h/1h/2h]' + k3x, ''))) fails.push('multisig paste: other account in the path refused');
+    if (!/same key as key 1/.test(await paste(k1, 'aaaaaaaa'))) fails.push('multisig paste: same public key under another fingerprint refused');
+    if (!/same key as key 2/.test(await paste(k3x, fp(mns[1], '')))) fails.push('multisig paste: same fingerprint with another key refused');
+    { const off = (() => { for (let x = 5n; ; x++) { try { secp256k1.ProjectivePoint.fromHex('02' + x.toString(16).padStart(64, '0')); } catch { return x; } } })();
+      const bad = enc(ser(0x0488b21e, 4, Uint8Array.from([2, ...Buffer.from(off.toString(16).padStart(64, '0'), 'hex')])));
+      if (!/not on the curve/.test(await paste(bad, 'aaaaaaaa'))) fails.push('multisig paste: key not on the curve refused');
+      const long = enc(new Uint8Array(79).fill(1)); if (!/wrong length/.test(await paste(long, 'aaaaaaaa'))) fails.push('multisig paste: wrong length refused');
+      const pre = ser(0x0488b21e, 4, Uint8Array.from([4, ...new Uint8Array(32).fill(9)])); if (!/not a valid public key/.test(await paste(enc(pre), 'aaaaaaaa'))) fails.push('multisig paste: bad key prefix refused'); }
+    if (w.eval('ms.keys.length') !== 2) fails.push('multisig paste: refused keys add nothing');
+    if (await paste('[' + fp3 + "/48'/0'/0'/2']" + k3x + '/0/*', '') !== '') fails.push('multisig paste: a normal [fp/path]xpub/0/* line is accepted');
+    if (!w.eval('ms.done') || w.eval('ms.keys.length') !== 3) fails.push('multisig: third key completes the wallet');
+    { const cos = [[fp(mns[0], ''), k1], [fp(mns[1], ''), k2.publicExtendedKey], [fp3, k3x]].map(([f, x]) => `[${f}/48h/0h/0h/2h]${x}/0/*`).sort();
+      const d = $('msDescR').textContent, dc = $('msDescC').textContent;
+      if (!d.startsWith('wsh(sortedmulti(2,' + cos.join(',') + '))#') || !/#[02-9ac-hj-np-z]{8}$/.test(d)) fails.push('multisig: descriptor');
+      if (!dc.startsWith('wsh(sortedmulti(2,' + cos.map((c) => c.replace(/\/0\/\*$/, '/1/*')).join(',') + '))#') || d.split('#')[1] === dc.split('#')[1]) fails.push('multisig: change descriptor');
+      const ks = mns.map((m) => accKey(m, "m/48'/0'/0'/2'")), want = [0, 1, 2].map((i) => btc.p2wsh(btc.p2ms(2, ks.map((k) => k.derive('m/0/' + i).publicKey).sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)))), btc.NETWORK).address);
+      if ([...w.document.querySelectorAll('#msAddrs li')].map((l) => l.textContent).join() !== want.join()) fails.push('multisig: first three addresses'); }
+    if ($('msOneDev').style.display !== 'none' || $('msBanner').style.display !== 'none' || $('msDone').style.display === 'none') fails.push('multisig: finished state (banner gone, mixed sources hide the one-device warning)');
+    w.msShowQr(); if ($('msQrBox').style.display !== '' || !/81 x 81/.test($('msQrCaption').textContent)) fails.push('multisig: QR');
+    w.msHideQr(); if ($('msQrBox').style.display !== 'none' || $('msQrImg').textContent !== '') fails.push('multisig: hide QR');
+    { let pr = 0; w.print = () => { pr++; }; w.msPrint(); const pq = w.document.getElementById('printQr').textContent; if (pr !== 1 || !/NO seed words/.test(pq) || !pq.includes($('msDescR').textContent) || !/2-of-3 multisig/.test(pq) || /abandon|legal winner|\bzoo\b/.test(pq)) fails.push('multisig: recovery sheet'); }
+    // refused key check pieces of the library
+    for (const [m, n, label] of [[0, 3, 'M of 0'], [4, 3, 'M above N'], [1, 1, 'one key'], [2, 16, 'sixteen keys']]) {
+      const cs = []; const key = await w.parseExtendedKey(k3x); for (let i = 0; i < n; i++) cs.push({ fp: fp3, path: '48h/0h/0h/2h', key });
+      let threw = false; try { await w.multisigScript(m, cs, 0, 0); } catch { threw = true; } if (!threw) fails.push('multisig: ' + label + ' refused');
+    }
+    { const key = await w.parseExtendedKey(k3x); let threw = false; try { await w.ckdPub(key.pub, key.chain, 0x80000000); } catch { threw = true; } if (!threw) fails.push('multisig: hardened public derivation refused');
+      threw = false; try { await w.ckdPub(key.pub, key.chain, -1); } catch { threw = true; } if (!threw) fails.push('multisig: negative index refused'); }
+    w.clearAll(); await slp(20); if (w.eval('ms') !== null || $('msDescR').textContent !== '' || $('msRun').style.display !== 'none') fails.push('multisig: CLEAR ALL forgets the setup');
+    // 2-of-2 nested, testnet, all made here
+    $('msN').value = '2'; w.msUpdateM(); $('msNet').value = 'test'; $('msType').value = 'ms-sh-wsh'; w.msStart();
+    if ($('msTestBan').style.display !== '' || !/TESTNET/.test($('msBanTitle').textContent)) fails.push('multisig: testnet banner');
+    for (const s of [sd[0], sd[1]]) { await mk(...s); await w.msAddMade(); }
+    { const ks = [mns[0], mns[1]].map((m) => accKey(m, "m/48'/1'/0'/1'")), want = [0, 1, 2].map((i) => btc.p2sh(btc.p2wsh(btc.p2ms(2, ks.map((k) => k.derive('m/0/' + i).publicKey).sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)))), btc.TEST_NETWORK), btc.TEST_NETWORK).address);
+      if (!w.eval('ms.done') || [...w.document.querySelectorAll('#msAddrs li')].map((l) => l.textContent).join() !== want.join()) fails.push('multisig: nested testnet addresses');
+      if (!/^sh\(wsh\(sortedmulti\(2,/.test($('msDescR').textContent) || !/\)\)\)#/.test($('msDescR').textContent) || !/tpub/.test($('msDescR').textContent) || $('msOneDev').style.display !== '') fails.push('multisig: nested testnet descriptor and one-device warning');
+      let pr = 0; w.print = () => { pr++; }; w.msPrint(); if (!/TESTNET/.test(w.document.getElementById('printQr').textContent)) fails.push('multisig: testnet sheet says so'); }
+    w.msCancel(); if (w.eval('ms') !== null) fails.push('multisig: START OVER resets');
+    w.clearAll(); await slp(20);
+  } catch (e) { fails.push('multisig: the probe crashed: ' + e.message); }
   if ($('fpIcon').querySelector('svg')) { /* keep icon until an error */ }
   // passphrase confirmation must block a mismatch
   await run('dice', 12, D50, ''); w.showQr('wZpub', 'zpub');
@@ -613,6 +695,7 @@ async function detect(mutated) {
   const badge = w.document.getElementById('selfTestBadge').textContent;
   if (!/PASSED/.test(badge)) return { by: 'self-test gate' };
   let f; try { f = await probe(w); } catch (e) { return { by: 'end-to-end probe (page error: ' + String(e && e.message).slice(0, 60) + ')' }; }
+  if (process.env.MUT_DEBUG && f.length) console.log('PROBE FAILS:', f);
   return f.length ? { by: 'end-to-end probe (' + f[0] + ')' } : { by: null };
 }
 
@@ -788,7 +871,7 @@ const M = [
   ['lifehash: luminance weight wrong', 'Math.pow(0.299*c[0],2)', 'Math.pow(0.3*c[0],2)'],
   ['lifehash: spectrum colour wrong', '[217,63,53]', '[217,63,54]'],
   ['lifehash: byte rounding wrong', 'Math.floor(lhClamp(c[1])*255)', 'Math.round(lhClamp(c[1])*255)'],
-  ['lifehash: icon not cleared on errors', '    clearWatch();\n    clearFpIcons();\n    if(guideOn) guideRender();\n  }\n}', '    clearWatch();\n    if(guideOn) guideRender();\n  }\n}'],
+  ['lifehash: icon not cleared on errors', '    clearWatch();\n    clearFpIcons();\n    if(guideOn) guideRender();\n  }\n  if(ms) msBanner();\n}', '    clearWatch();\n    if(guideOn) guideRender();\n  }\n  if(ms) msBanner();\n}'],
   ['VERIFY ignores the typed passphrase (address)', 'a1 = await mnemonicFirstAddress(r.mnemonic, vp)', 'a1 = await mnemonicFirstAddress(r.mnemonic, "")'],
   ['VERIFY without-passphrase line uses the typed passphrase', 'fp0 = await mnemonicFingerprint(r.mnemonic, "");', 'fp0 = await mnemonicFingerprint(r.mnemonic, vp);'],
   ['match: with-passphrase check compares the wrong values', 'if(hasPass && test(fp1, a1, ids1))', 'if(hasPass && test(fp0, a0, ids0))'],
@@ -1096,6 +1179,102 @@ const M = [
   ["explain: entropy size 16 -> 15 bytes", "async function explainSteps(rolls, wc){\n  const entLen = {12:16,24:32}[wc];", "async function explainSteps(rolls, wc){\n  const entLen = {12:15,24:32}[wc];"],
   ["explain: entropy size 32 -> 31 bytes", "async function explainSteps(rolls, wc){\n  const entLen = {12:16,24:32}[wc];", "async function explainSteps(rolls, wc){\n  const entLen = {12:16,24:31}[wc];"],
   ["explain: rolls hashed with extra byte", "const digest = await sha256(rolls);\n  const entropy = digest.slice(0, entLen);", "const digest = await sha256(rolls+\"0\");\n  const entropy = digest.slice(0, entLen);"],
+  // ---- multisig (v1.20.0) ----
+  ['multisig: Base58 radix wrong', 'n=n*58n+BigInt(v)', 'n=n*57n+BigInt(v)'],
+  ['multisig: Base58 checksum not checked', 'if(sum[i]!==all[all.length-4+i]) throw new Error("not a valid key: checksum', 'if(false) throw new Error("not a valid key: checksum'],
+  ['multisig: Base58 leading 1s not counted', 'for(const ch of str){ if(ch==="1") zeros++; else break; }', 'for(const ch of str){ break; }', true],
+  ['multisig: square root exponent', 'e=(SP+1n)/4n', 'e=(SP+3n)/4n'],
+  ['multisig: y parity flipped', '(y&1n)===(odd?1n:0n) ? y : SP-y', '(y&1n)===(odd?0n:1n) ? y : SP-y'],
+  ['multisig: off-curve x accepted', 'if(y*y%SP!==y2) return null;', ''],
+  ['multisig: x above the field accepted', 'if(x>=SP) return null;', ''],
+  ['multisig: key prefix 03 not accepted', 'pub[0]!==2 && pub[0]!==3', 'pub[0]!==2'],
+  ['multisig: key prefix not checked', '(pub.length!==33 || (pub[0]!==2 && pub[0]!==3))', '(pub.length!==33)'],
+  ['multisig: key length not exact', 'if(raw.length!==78) throw', 'if(raw.length<78) throw'],
+  ['multisig: private keys not recognised', 'if(EXT_PRIVATE.includes(ver)) throw', 'if(false) throw'],
+  ['multisig: unknown version accepted', 'if(!known) throw new Error("unknown key type', 'if(false) throw new Error("unknown key type'],
+  ['multisig: key point not validated', 'const pub=raw.slice(45,78); pointFromPub(pub);', 'const pub=raw.slice(45,78);'],
+  ['multisig: network read from the wrong place', 'return {str, net:known.net,', 'return {str, net:"main",'],
+  ['multisig: depth ignored', 'depth:raw[4],', 'depth:0,'],
+  ['multisig: child number read wrong', 'childNum:(raw[9]<<24|raw[10]<<16|raw[11]<<8|raw[12])>>>0', 'childNum:(raw[9]<<24|raw[10]<<16|raw[11]<<8|raw[11])>>>0'],
+  ['multisig: public derivation starts from the wrong data', 'data.set(pub,0); data.set([(index>>>24)', 'data.set(pub,1); data.set([(index>>>24)'],
+  ['multisig: hardened index allowed', 'index>=0x80000000) throw new Error("bad index")', 'index>0x80000000) throw new Error("bad index")'],
+  ['multisig: negative index allowed', 'if(!Number.isInteger(index) || index<0 ||', 'if(!Number.isInteger(index) ||'],
+  ['multisig: child tweak not added to the parent', 'const C=eadd(emul(il,SG),pointFromPub(pub));', 'const C=emul(il,SG);'],
+  ['multisig: chain code not carried on', 'return [pubFromPoint(C), I.slice(32)];', 'return [pubFromPoint(C), chain];'],
+  ['multisig: key sort reversed', 'return a[i]-b[i]; return a.length-b.length;', 'return b[i]-a[i]; return a.length-b.length;'],
+  ['multisig: M of 0 accepted', '!Number.isInteger(m) || m<1 ||', '!Number.isInteger(m) || m<0 ||'],
+  ['multisig: M above N accepted', '|| n>15 || m>n) throw', '|| n>15 || m>n+1) throw'],
+  ['multisig: one key accepted', 'm<1 || n<2 ||', 'm<1 || n<1 ||'],
+  ['multisig: sixteen keys accepted', 'n<2 || n>15 ||', 'n<2 || n>16 ||'],
+  ['multisig: receive branch not derived', 'const [bp,bc]=await ckdPub(c.key.pub,c.key.chain,branch);', 'const [bp,bc]=[c.key.pub,c.key.chain];'],
+  ['multisig: keys not sorted', 'pubs.sort(cmpBytes);', ''],
+  ['multisig: script M opcode wrong', 'const out=[0x50+m];', 'const out=[0x50+m+1];'],
+  ['multisig: script N opcode wrong', 'out.push(0x50+n, 0xae);', 'out.push(0x50+n+1, 0xae);'],
+  ['multisig: script CHECKMULTISIG opcode wrong', 'out.push(0x50+n, 0xae);', 'out.push(0x50+n, 0xaf);'],
+  ['multisig: P2WSH uses the wrong hash', 'if(type==="ms-wsh") return bech32Encode(N.hrp,0,sh);', 'if(type==="ms-wsh") return bech32Encode(N.hrp,0,await hash160(script));'],
+  ['multisig: nested address wrong version byte', 'base58check(Uint8Array.from([N.sh, ...prog]))', 'base58check(Uint8Array.from([N.pkh, ...prog]))'],
+  ['multisig: Base58 decode skips the second SHA-256', 'sum=(await sha256bytes(h1)).slice(0,4)', 'sum=h1.slice(0,4)'],
+  ['multisig: public key parity flipped', 'pub[0]=2+Number(P[1]&1n);', 'pub[0]=3-Number(P[1]&1n);'],
+  ['multisig: nested address wrong witness program length', 'Uint8Array.from([0x00,0x20,...sh])', 'Uint8Array.from([0x00,0x14,...sh])'],
+  ['multisig: descriptor keys not sorted', 'keys.sort();', ''],
+  ['multisig: descriptor wrong function', '"sortedmulti(" + m + ","', '"multi(" + m + ","'],
+  ['multisig: descriptor branch dropped', '"]" + xp + "/" + branch + "/*");', '"]" + xp + "/0/*");'],
+  ['multisig: descriptor nested wrapper missing', 'type==="ms-sh-wsh" ? "sh(wsh(" + inner + "))" : "wsh(" + inner + ")"', '"wsh(" + inner + ")"'],
+  ['multisig: descriptor key version wrong', '...NETS[c.key.net].ver.other, ...raw.slice(4)', '...NETS.main.ver.other, ...raw.slice(4)'],
+  ['multisig: M default wrong', 'Math.max(2, Math.ceil((n + 1) / 2))', 'Math.max(2, Math.ceil(n / 2))'],
+  ['multisig: M above N offered', 'for(let i = 1; i <= n; i++){ const o = document.createElement("option");', 'for(let i = 1; i <= n + 1; i++){ const o = document.createElement("option");'],
+  ['multisig: 1-of-N allowed to start', 'if(m < 2){ err.textContent', 'if(m < 1){ err.textContent'],
+  ['multisig: account range not checked', '|| parseInt(raw, 10) > 2147483647){ err.textContent = "The account must', '|| false){ err.textContent = "The account must'],
+  ['multisig: account number not used', 'account: parseInt(raw, 10), keys: []', 'account: 0, keys: []'],
+  ['multisig: network not used', 'net: msEl("msNet").value,', 'net: "main",'],
+  ['multisig: type not used', 'type: msEl("msType").value,', 'type: "ms-wsh",'],
+  ['multisig: duplicate (first key) allowed', 'if(dup >= 0){ eb.textContent = "This is the same key as key "', 'if(dup > 0){ eb.textContent = "This is the same key as key "'],
+  ['multisig: duplicate only by fingerprint', 'k.fp === fp || hex(k.key.pub) === pk', 'k.fp === fp'],
+  ['multisig: duplicate only by key', 'k.fp === fp || hex(k.key.pub) === pk', 'hex(k.key.pub) === pk'],
+  ['multisig: pasted duplicate allowed', 'if(dup >= 0) throw new Error("This is the same key as key "', 'if(false) throw new Error("This is the same key as key "'],
+  ['multisig: seed not wiped after ADD', '    wipeSeed();\n  } catch(e) { eb.textContent = "Could not add this key: "', '  } catch(e) { eb.textContent = "Could not add this key: "'],
+  ['multisig: ADD with no seed allowed', 'if(!hasSeed() || !watchCtx){ eb.textContent = "Make the seed first', 'if(false){ eb.textContent = "Make the seed first'],
+  ['multisig: made key taken from the wrong account', 'mnemonicToSeed(watchCtx.mnemonic, watchCtx.pass), ms.type, ms.account, ms.net)', 'mnemonicToSeed(watchCtx.mnemonic, watchCtx.pass), ms.type, 0, ms.net)'],
+  ['multisig: passphrase ignored for a made key', 'mnemonicToSeed(watchCtx.mnemonic, watchCtx.pass), ms.type', 'mnemonicToSeed(watchCtx.mnemonic, ""), ms.type'],
+  ['multisig: made key origin path wrong', 'function msPathOf(){ return "48h/" + NETS[ms.net].coin + "h/"', 'function msPathOf(){ return "48h/0h/"'],
+  ['multisig: private key / seed words not refused', 'if(/^(\\s*[a-z]+){12,}\\s*$/i.test(t)) throw', 'if(false) throw'],
+  ['multisig: seed-word guard needs 13 words', '{12,}\\s*$/i.test(t)', '{13,}\\s*$/i.test(t)'],
+  ['multisig: fingerprint not checked', 'if(!/^[0-9a-f]{8}$/.test(fp)) throw', 'if(false) throw'],
+  ['multisig: wrong network accepted', 'if(key.net !== ms.net) throw', 'if(false) throw'],
+  ['multisig: single-signature key accepted', 'if(key.type !== "other" && key.type !== ms.type) throw', 'if(false) throw'],
+  ['multisig: other script type accepted', 'key.type !== "other" && key.type !== ms.type', 'key.type !== "other" && !MULTISIG[key.type]'],
+  ['multisig: depth not checked', 'if(key.depth !== 4 || key.childNum', 'if(key.childNum'],
+  ['multisig: last step not checked', 'if(key.depth !== 4 || key.childNum !== ((script + 0x80000000) >>> 0)) throw', 'if(key.depth !== 4) throw'],
+  ['multisig: path in the pasted line not checked', 'if(path && path !== want) throw', 'if(false) throw'],
+  ['multisig: path apostrophes not understood', '.replace(/[\'H]/g, "h")', ''],
+  ['multisig: /0/* suffix not stripped', 't = t.replace(/\\/(?:<0;1>|[01])\\/\\*$/, "");', ''],
+  ['multisig: pasted key stored without its fingerprint', 'ms.keys.push({fp, path: want, key, xpub, src: "pasted"});', 'ms.keys.push({fp: "00000000", path: want, key, xpub, src: "pasted"});'],
+  ['multisig: pasted key counted as made here', 'src: "pasted"});', 'src: "made"});'],
+  ['multisig: three addresses -> two', 'for(let i = 0; i < 3; i++) addrs.push(await multisigAddress', 'for(let i = 0; i < 2; i++) addrs.push(await multisigAddress'],
+  ['multisig: addresses from the change branch', 'multisigAddress(ms.type, ms.m, cos, 0, i, ms.net)', 'multisigAddress(ms.type, ms.m, cos, 1, i, ms.net)'],
+  ['multisig: change descriptor is the receive one', 'dc = await multisigDescriptor(ms.type, ms.m, cos, 1)', 'dc = await multisigDescriptor(ms.type, ms.m, cos, 0)'],
+  ['multisig: one-device warning for mixed sources', 'ms.keys.every(k => k.src === "made")', 'ms.keys.some(k => k.src === "made")'],
+  ['multisig: one-device warning never shown', 'msEl("msOneDev").style.display = ms.keys.every(k => k.src === "made") ? "" : "none";', 'msEl("msOneDev").style.display = "none";'],
+  ['multisig: banner stays when finished', 'if(!ms || ms.done || ms.mode !== "make" || ms.keys.length >= ms.n){', 'if(!ms || ms.mode !== "make" || ms.keys.length >= ms.n + 1){'],
+  ['multisig: ADD button always on', 'msEl("msAddBtn").disabled = !(hasSeed() && watchCtx && !ms.busy);', 'msEl("msAddBtn").disabled = false;'],
+  ['multisig: banner counts from 0', 'const k = ms.keys.length + 1;\n  msEl("msBanTitle")', 'const k = ms.keys.length;\n  msEl("msBanTitle")'],
+  ['multisig: testnet not shown in the banner', '(ms.net === "test" ? "  (TESTNET)" : "")', '""'],
+  ['multisig: testnet banner never shown', 'msEl("msTestBan").style.display = ms.net === "test" ? "" : "none";', 'msEl("msTestBan").style.display = "none";'],
+  ['multisig: QR of the change descriptor', 'qrMatrix(ms.descR); } catch(e) { msEl("msRunErr")', 'qrMatrix(ms.descC); } catch(e) { msEl("msRunErr")'],
+  ['multisig: recovery sheet leaves out the descriptor', 'lines.push("", "DESCRIPTOR (public keys only):", ms.descR, "",', 'lines.push("", "DESCRIPTOR (public keys only):", "", "",'],
+  ['multisig: recovery sheet leaves out the addresses', '"FIRST RECEIVING ADDRESSES:", ...ms.addrs, "",', '"FIRST RECEIVING ADDRESSES:", "",'],
+  ['multisig: recovery sheet testnet label missing', '(ms.net === "test" ? ", TESTNET (practice coins only)" : ", mainnet")', '", mainnet"'],
+  ['multisig: sheet title testnet label missing', '"VOIDFORGE MULTISIG RECOVERY SHEET" + (ms.net === "test" ? " (TESTNET)" : "")', '"VOIDFORGE MULTISIG RECOVERY SHEET"'],
+  ['multisig: sheet QR size switch (layout only)', 'q.version > 15, msSheetText()', 'q.version > 14, msSheetText()', true],
+  ['multisig: CLEAR ALL keeps the setup', 'msReset(); wipeSeed();\n}', 'wipeSeed();\n}'],
+  ['multisig: reset leaves the descriptor on screen', 'for(const id of ["msDescR","msDescC","msAddrs","msSlots","msRunErr","msBanErr","msErr"])', 'for(const id of ["msDescC","msAddrs","msSlots","msRunErr","msBanErr","msErr"])'],
+  ['multisig: reset leaves the QR on screen', 'ms = null; msHideQr();', 'ms = null;'],
+  ['multisig: saved key shows no picture', 'if(k) showFpIcon(ic.id, k.fp);', ''],
+  ['QR: version 13 table', '13:[22,[[8,37],[1,38]]]', '13:[22,[[8,37],[1,37]]]'],
+  ['QR: version 20 table', '20:[26,[[3,41],[13,42]]]', '20:[26,[[3,41],[12,42]]]'],
+  ['QR: version 30 table', '30:[28,[[19,47],[10,48]]]', '30:[28,[[19,47],[9,48]]]'],
+  ['QR: version 25 alignment', '25:[6,32,58,84,110]', '25:[6,32,58,84,111]'],
+  ['QR: version 30 alignment', '30:[6,26,52,78,104,130]', '30:[6,26,52,78,104,131]'],
 ];
 
 if (process.env.MUT_CHECK_TARGETS) { // quick mode: only check that every mutation target occurs exactly once in the page

@@ -891,6 +891,17 @@
       </ol>
       <p class="hint" style="margin:8px 0 0;">A browser is not a hardware wallet. This checklist lowers the risk; it does not remove it, which is why we also ask you to test with a small amount first.</p>
     </details>
+    <details id="multiHelp">
+      <summary>How multisig works, and what it costs<small>Several keys, any M of them can spend. Read this before you set one up.</small></summary>
+      <p class="hint" style="margin:8px 0;">A multisig wallet is built from <b>N separate seeds</b> and spends only when <b>M of them</b> agree. With 2-of-3 you can lose one seed, or have one stolen, and still be safe. It is the standard way to remove the &ldquo;one piece of paper&rdquo; risk.</p>
+      <ul>
+        <li><b>Back up the descriptor too.</b> The seeds alone are not enough: to find the money you also need the list of all the public keys (the descriptor, or the printed recovery sheet). It contains no secrets, so keep copies in several places.</li>
+        <li><b>Keep every seed in a different place,</b> and make each one on a different day or device if you can.</li>
+        <li><b>Never reuse a seed</b> as two of the keys, or the same seed in two different multisig wallets of the same account.</li>
+        <li><b>Test with a small amount first,</b> and practice recovering with M of the seeds before you trust it with real savings.</li>
+        <li><b>Spending needs a wallet app</b> (Sparrow, Nunchuk, Bitcoin Core) plus signers. VOIDFORGE only sets the wallet up; it never signs.</li>
+      </ul>
+    </details>
     <details>
       <summary>Method</summary>
       <p><code>SHA256(input string) &rarr; first 16 bytes (12 words) or 32 bytes (24 words) &rarr; BIP39 mnemonic + checksum</code></p>
@@ -933,6 +944,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.20.0</b> &mdash; <b>Multisig wallet setup</b>. A new MULTISIG WALLET card walks you through an M-of-N wallet (such as 2-of-3) one key at a time: a &ldquo;Key 1 of 3&rdquo; banner sits above the normal seed maker, and after you have written down and backed up each seed, ADD THIS KEY keeps only its public part and wipes the seed from the page. You can also paste public keys from other devices or people (private keys and seed words are refused, and so are the same key twice, the wrong network, and keys from the wrong place in the key tree). At the end you get the wallet descriptor (text, QR code and a printable recovery sheet with no seeds on it) and the first addresses to check in your wallet app. Making every key on one device is allowed but clearly warned about. QR codes now go up to version 30 so long descriptors fit. Seeds, fingerprints, addresses and watch-only keys are identical to v1.19.5.</li>
         <li><b>1.19.5</b> &mdash; <b>Word draw</b>, for people who pick their words from physical word tiles (such as SeedSigner&rsquo;s SeedPills): type the 11 (or 23) words you drew and the 7 (or 3) coin flips, and VOIDFORGE works out the last word with the standard BIP39 checksum. Nothing is hashed, repeated words are accepted (every tile goes back in the bag), the flips are never filled in for you, and a seed made this way works in any BIP39 wallet. It shows every step of how the last word was made, then uses the same fingerprint, address, SeedQR, print and watch-only tools as the dice method. Seeds made by dice or coin are identical to v1.19.4.</li>
         <li><b>1.19.4</b> &mdash; Two friendly additions. (1) The logo is now <b>three rolling dice</b>: they are thrown in with a 3D tumble, bounce and settle with a soft glow and a shadow, and roll again when you tap them. They keep the same look, and stay still if your device asks for reduced motion. (2) <b>Watch the words change (demo only)</b>, an optional switch under the roll counter: as you add rolls it shows demo words that scramble completely with every roll, so you can see why one wrong roll gives a different wallet. The demo words are made with a demo tag, so they are never your real seed; they are labelled NOT YOUR SEED, wiped when you switch it off, clear or forge, and never printed or saved. Also fixed: the GUIDE ME and TEXT A+ buttons were hard to read in the light theme. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.3.</li>
         <li><b>1.19.3</b> &mdash; Easier for first-time users. <b>GUIDE ME</b> (top left) walks you through making a seed one screen at a time: choose the length and method, roll, optional passphrase, FORGE and write down, then check and back up. Each step explains why, and NEXT stays locked until the step is done. Underlined words (passphrase, fingerprint, zpub, descriptor, watch-only) show a plain-language explanation when you hover, tap or focus them. <b>TEXT A+</b> makes everything larger. Seeds, fingerprints, addresses, keys and descriptors are identical to v1.19.2.</li>
@@ -975,7 +987,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.19.5 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.20.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 
@@ -1433,7 +1445,7 @@ async function base58decode(str){
   let zeros=0; for(const ch of str){ if(ch==="1") zeros++; else break; }
   const all=new Uint8Array(zeros+bytes.length); all.set(bytes,zeros);
   if(all.length<5) throw new Error("not a valid key: too short");
-  const payload=all.slice(0,all.length-4), sum=(await sha256bytes(await sha256bytes(payload))).slice(0,4);
+  const payload=all.slice(0,all.length-4), h1=await sha256bytes(payload), sum=(await sha256bytes(h1)).slice(0,4);
   for(let i=0;i<4;i++) if(sum[i]!==all[all.length-4+i]) throw new Error("not a valid key: checksum does not match (a typo?)");
   return payload;
 }
@@ -1451,7 +1463,7 @@ function pointFromPub(pub){
   if(!P) throw new Error("not a valid public key: point is not on the curve");
   return P;
 }
-function pubFromPoint(P){ const pub=new Uint8Array(33); pub[0]=(P[1]&1n)?3:2; pub.set(fromHex(P[0].toString(16).padStart(64,"0")),1); return pub; }
+function pubFromPoint(P){ const pub=new Uint8Array(33); pub[0]=2+Number(P[1]&1n); pub.set(fromHex(P[0].toString(16).padStart(64,"0")),1); return pub; }
 // Extended public key (xpub/ypub/zpub/Zpub/Ypub/tpub/...): checks version, length, checksum and that the key is on the curve.
 // Private keys (xprv...) are refused on purpose: a multisig setup only ever needs public keys.
 const EXT_VERSIONS=(()=>{ const m={}; for(const net of ["main","test"]) for(const [t,v] of Object.entries(NETS[net].ver)){ const k=hex(Uint8Array.from(v)); m[k]=m[k]||{net,type:t}; } return m; })();
@@ -1491,7 +1503,7 @@ async function multisigScript(m, cosigners, branch, index){
 async function multisigAddress(type, m, cosigners, branch, index, net){
   const N=NETS[net||"main"], {script}=await multisigScript(m,cosigners,branch,index), sh=await sha256bytes(script);
   if(type==="ms-wsh") return bech32Encode(N.hrp,0,sh);
-  if(type==="ms-sh-wsh") return base58check(Uint8Array.from([N.sh, ...await hash160(Uint8Array.from([0x00,0x20,...sh]))]));
+  if(type==="ms-sh-wsh"){ const prog=await hash160(Uint8Array.from([0x00,0x20,...sh])); return base58check(Uint8Array.from([N.sh, ...prog])); }
   throw new Error("unknown multisig type");
 }
 // Output descriptor, e.g. wsh(sortedmulti(2,[fp/48h/0h/0h/2h]xpub/0/*,...))#checksum. Keys are written in the common xpub form and sorted, so everyone gets the same text.
