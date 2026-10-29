@@ -510,6 +510,9 @@ async function probe(w) {
     { const off = (() => { for (let x = 5n; ; x++) { try { secp256k1.ProjectivePoint.fromHex('02' + x.toString(16).padStart(64, '0')); } catch { return x; } } })();
       const bad = enc(ser(0x0488b21e, 4, Uint8Array.from([2, ...Buffer.from(off.toString(16).padStart(64, '0'), 'hex')])));
       if (!/not on the curve/.test(await paste(bad, 'aaaaaaaa'))) fails.push('multisig paste: key not on the curve refused');
+      const P256 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2Fn, small = (() => { for (let x = 1n; ; x++) { try { secp256k1.ProjectivePoint.fromHex('02' + x.toString(16).padStart(64, '0')); return x; } catch {} } })();
+      if (!/not on the curve/.test(await paste(enc(ser(0x0488b21e, 4, Uint8Array.from([2, ...Buffer.from((P256 + small).toString(16).padStart(64, '0'), 'hex')]))), 'aaaaaaaa'))) fails.push('multisig paste: x above the field size refused');
+      if (!/unknown key type/.test(await paste(enc(ser(0x01020304, 4, Uint8Array.from([2, ...Buffer.from(small.toString(16).padStart(64, '0'), 'hex')]))), 'aaaaaaaa'))) fails.push('multisig paste: unknown key version refused');
       const long = enc(new Uint8Array(79).fill(1)); if (!/wrong length/.test(await paste(long, 'aaaaaaaa'))) fails.push('multisig paste: wrong length refused');
       const pre = ser(0x0488b21e, 4, Uint8Array.from([4, ...new Uint8Array(32).fill(9)])); if (!/not a valid public key/.test(await paste(enc(pre), 'aaaaaaaa'))) fails.push('multisig paste: bad key prefix refused'); }
     if (w.eval('ms.keys.length') !== 2) fails.push('multisig paste: refused keys add nothing');
@@ -1183,7 +1186,7 @@ const M = [
   ['multisig: Base58 radix wrong', 'n=n*58n+BigInt(v)', 'n=n*57n+BigInt(v)'],
   ['multisig: Base58 checksum not checked', 'if(sum[i]!==all[all.length-4+i]) throw new Error("not a valid key: checksum', 'if(false) throw new Error("not a valid key: checksum'],
   ['multisig: Base58 leading 1s not counted', 'for(const ch of str){ if(ch==="1") zeros++; else break; }', 'for(const ch of str){ break; }', true],
-  ['multisig: square root exponent', 'e=(SP+1n)/4n', 'e=(SP+3n)/4n'],
+  ['multisig: square root exponent', 'e=(SP+1n)/4n', 'e=(SP-3n)/4n'],
   ['multisig: y parity flipped', '(y&1n)===(odd?1n:0n) ? y : SP-y', '(y&1n)===(odd?0n:1n) ? y : SP-y'],
   ['multisig: off-curve x accepted', 'if(y*y%SP!==y2) return null;', ''],
   ['multisig: x above the field accepted', 'if(x>=SP) return null;', ''],
