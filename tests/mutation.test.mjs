@@ -367,7 +367,7 @@ async function probe(w) {
     if (!nextOff()) fails.push('guide: NEXT locked with no rolls');
     $('rolls').value = D50.slice(0, 49); $('rolls').oninput(); if (!nextOff()) fails.push('guide: NEXT still locked one roll short');
     $('rolls').value = D50; $('rolls').oninput(); if (nextOff()) fails.push('guide: NEXT unlocks with enough rolls');
-    w.guideStep(1); if (!/step 3 of 5/.test($('gTitle').textContent) || gh('advanced') || !$('advanced').open || nextOff()) fails.push('guide: step 3 shows the passphrase box and can be skipped');
+    $('advanced').open = false; w.guideStep(1); if (!/step 3 of 5/.test($('gTitle').textContent) || gh('advanced') || !$('advanced').open || nextOff()) fails.push('guide: step 3 shows the passphrase box and can be skipped');
     w.guideStep(-1); if (!/step 2 of 5/.test($('gTitle').textContent)) fails.push('guide: BACK goes back one step');
     w.guideStep(1); w.guideStep(1); if (!/step 4 of 5/.test($('gTitle').textContent) || gh('wordGrid') || gh('forgeBtn'.replace('forgeBtn', 'genResult')) || !gh('rolls') || !nextOff()) fails.push('guide: step 4 locked until FORGE');
     w.guideStep(1); if (/step 5/.test($('gTitle').textContent)) fails.push('guide: cannot skip FORGE');
