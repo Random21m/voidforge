@@ -350,6 +350,8 @@ async function probe(w) {
     await run('dice', 12, D50, ''); await w.showExplain(); w.clearAll(); if ($('exOut').textContent !== '' || $('explainBox').style.display !== 'none') fails.push('explain: CLEAR removes the steps and hides the box');
     { await run('coin', 12, C128, ''); await w.showExplain(); const eo = $('exOut'), t0 = eo.querySelector('.ex-body .ex-text').textContent;
       if (!t0.includes('128 coin flips') || !t0.includes('exactly 1 bit') || !t0.includes('roughly 128 bits') || !/^[01]( [01])*$/.test(eo.querySelector('.ex-mono').textContent)) fails.push('explain: coin flips are counted as 1 bit each'); }
+    { await run('dice', 12, D50, ''); w.eval("exCtx.words[0] = 'tampered'"); await w.showExplain(); const eo = $('exOut');
+      if (!eo.querySelector('.ex-bad') || eo.querySelector('.ex-ok') || !/do NOT match/.test(eo.textContent)) fails.push('explain: a mismatch between the steps and the seed is reported, not hidden'); }
     w.print = () => {}; w.confirm = () => true;
   } catch (e) { fails.push('explain: the probe crashed: ' + e.message); }
   if ($('fpIcon').querySelector('svg')) { /* keep icon until an error */ }
