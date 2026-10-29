@@ -1337,6 +1337,89 @@ async function watchOnlyFromSeed(seed, type, account, net){
   const [rk,rc]=await ckdPriv(k,c,0,false), [fk]=await ckdPriv(rk,rc,0,false);
   return {fp, xpub, zpub, key, receive:d(0), change:d(1), first:await addressFromKey(type, fk, net)};
 }
+// ---- Multisig (BIP48 / BIP67 sortedmulti) ----
+// Base58Check decode: returns the payload without its 4 checksum bytes, or throws.
+async function base58decode(str){
+  if(typeof str !== "string" || !str.length) throw new Error("empty key");
+  let n=0n; for(const ch of str){ const v=B58.indexOf(ch); if(v<0) throw new Error("not a valid key: unexpected character"); n=n*58n+BigInt(v); }
+  let h=n.toString(16); if(h.length%2) h="0"+h;
+  const bytes=n===0n ? new Uint8Array(0) : fromHex(h);
+  let zeros=0; for(const ch of str){ if(ch==="1") zeros++; else break; }
+  const all=new Uint8Array(zeros+bytes.length); all.set(bytes,zeros);
+  if(all.length<5) throw new Error("not a valid key: too short");
+  const payload=all.slice(0,all.length-4), sum=(await sha256bytes(await sha256bytes(payload))).slice(0,4);
+  for(let i=0;i<4;i++) if(sum[i]!==all[all.length-4+i]) throw new Error("not a valid key: checksum does not match (a typo?)");
+  return payload;
+}
+// Lift an x coordinate to a curve point (secp256k1: p = 3 mod 4). Returns null if x is not on the curve.
+function liftX(x, odd){
+  if(x>=SP) return null;
+  const y2=emod(x*x*x+7n); let y=1n, b=y2, e=(SP+1n)/4n;
+  while(e>0n){ if(e&1n) y=y*b%SP; b=b*b%SP; e>>=1n; }
+  if(y*y%SP!==y2) return null;
+  return [x, (y&1n)===(odd?1n:0n) ? y : SP-y];
+}
+function pointFromPub(pub){
+  if(pub.length!==33 || (pub[0]!==2 && pub[0]!==3)) throw new Error("not a valid public key");
+  const P=liftX(BigInt("0x"+hex(pub.slice(1))), pub[0]===3);
+  if(!P) throw new Error("not a valid public key: point is not on the curve");
+  return P;
+}
+function pubFromPoint(P){ const pub=new Uint8Array(33); pub[0]=(P[1]&1n)?3:2; pub.set(fromHex(P[0].toString(16).padStart(64,"0")),1); return pub; }
+// Extended public key (xpub/ypub/zpub/Zpub/Ypub/tpub/...): checks version, length, checksum and that the key is on the curve.
+// Private keys (xprv...) are refused on purpose: a multisig setup only ever needs public keys.
+const EXT_VERSIONS=(()=>{ const m={}; for(const net of ["main","test"]) for(const [t,v] of Object.entries(NETS[net].ver)){ const k=hex(Uint8Array.from(v)); m[k]=m[k]||{net,type:t}; } return m; })();
+const EXT_PRIVATE=["0488ade4","049d7878","04b2430c","0295b005","02aa7a99","04358394","044a4e28","045f18bc","02424c24","02575048"];
+async function parseExtendedKey(str){
+  str=String(str||"").replace(/\s+/g,"");
+  const raw=await base58decode(str);
+  if(raw.length!==78) throw new Error("not an extended public key (wrong length)");
+  const ver=hex(raw.slice(0,4));
+  if(EXT_PRIVATE.includes(ver)) throw new Error("this is a PRIVATE key. Never paste private keys here. Paste the public key (xpub, Zpub...) instead.");
+  const known=EXT_VERSIONS[ver]; if(!known) throw new Error("unknown key type (version " + ver + ")");
+  const pub=raw.slice(45,78); pointFromPub(pub);
+  return {str, net:known.net, type:known.type, depth:raw[4], parentFp:hex(raw.slice(5,9)), childNum:(raw[9]<<24|raw[10]<<16|raw[11]<<8|raw[12])>>>0, chain:raw.slice(13,45), pub};
+}
+// Public child derivation (CKDpub), non-hardened only.
+async function ckdPub(pub, chain, index){
+  if(!Number.isInteger(index) || index<0 || index>=0x80000000) throw new Error("bad index");
+  const data=new Uint8Array(37); data.set(pub,0); data.set([(index>>>24)&255,(index>>>16)&255,(index>>>8)&255,index&255],33);
+  const I=await hmac512(chain,data), il=BigInt("0x"+hex(I.slice(0,32)));
+  if(il>=SN) throw new Error("Invalid child key");
+  const C=eadd(emul(il,SG),pointFromPub(pub));
+  if(!C) throw new Error("Invalid child key");
+  return [pubFromPoint(C), I.slice(32)];
+}
+function cmpBytes(a,b){ for(let i=0;i<a.length&&i<b.length;i++) if(a[i]!==b[i]) return a[i]-b[i]; return a.length-b.length; }
+// Cosigner = {fp: 8 hex, path: "48h/0h/0h/2h", key: parsed extended key}. Multisig script type: "ms-wsh" (P2WSH) or "ms-sh-wsh" (P2SH-P2WSH).
+// The public keys at branch/index are sorted (BIP67), so the order cosigners were added in never changes an address.
+async function multisigScript(m, cosigners, branch, index){
+  const n=cosigners.length;
+  if(!Number.isInteger(m) || m<1 || n<2 || n>15 || m>n) throw new Error("bad M-of-N");
+  const pubs=[];
+  for(const c of cosigners){ const [bp,bc]=await ckdPub(c.key.pub,c.key.chain,branch); const [pk]=await ckdPub(bp,bc,index); pubs.push(pk); }
+  pubs.sort(cmpBytes);
+  const out=[0x50+m]; for(const pk of pubs){ out.push(33); out.push(...pk); } out.push(0x50+n, 0xae);
+  return {script:Uint8Array.from(out), pubs};
+}
+async function multisigAddress(type, m, cosigners, branch, index, net){
+  const N=NETS[net||"main"], {script}=await multisigScript(m,cosigners,branch,index), sh=await sha256bytes(script);
+  if(type==="ms-wsh") return bech32Encode(N.hrp,0,sh);
+  if(type==="ms-sh-wsh") return base58check(Uint8Array.from([N.sh, ...await hash160(Uint8Array.from([0x00,0x20,...sh]))]));
+  throw new Error("unknown multisig type");
+}
+// Output descriptor, e.g. wsh(sortedmulti(2,[fp/48h/0h/0h/2h]xpub/0/*,...))#checksum. Keys are written in the common xpub form and sorted, so everyone gets the same text.
+async function multisigDescriptor(type, m, cosigners, branch){
+  if(!MULTISIG[type]) throw new Error("unknown multisig type");
+  const keys=[];
+  for(const c of cosigners){
+    const raw=await base58decode(c.key.str), xp=await base58check(Uint8Array.from([...NETS[c.key.net].ver.other, ...raw.slice(4)]));
+    keys.push("[" + c.fp + "/" + c.path + "]" + xp + "/" + branch + "/*");
+  }
+  keys.sort();
+  const inner="sortedmulti(" + m + "," + keys.join(",") + ")";
+  return descriptorChecksum(type==="ms-sh-wsh" ? "sh(wsh(" + inner + "))" : "wsh(" + inner + ")");
+}
 async function mnemonicWatchOnly(mnemonic, passphrase){ return watchOnlyFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
 // QR code encoder: byte mode with error correction level M (versions 1-12) for watch-only keys, and, for SeedQR, numeric or byte mode with level L (versions 1-3).
 const QR_M={1:[10,[[1,16]]],2:[16,[[1,28]]],3:[26,[[1,44]]],4:[18,[[2,32]]],5:[24,[[2,43]]],6:[16,[[4,27]]],7:[18,[[4,31]]],8:[22,[[2,38],[2,39]]],9:[22,[[3,36],[2,37]]],10:[26,[[4,43],[1,44]]],11:[30,[[1,50],[4,51]]],12:[22,[[6,36],[2,37]]]};

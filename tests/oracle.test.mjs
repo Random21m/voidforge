@@ -355,4 +355,40 @@ R.ok(bad === 0, `${n} last-word candidate lists (11 to 23 words) equal the indep
   R.ok(bad === 0, `${n} random word draws (12 and 24 words): the mnemonic, last word and four-letter typing equal the independent code`);
 }
 
+// 2k. Multisig: random cosigner sets (keys made by @scure/bip32), addresses vs @scure/btc-signer p2ms/p2wsh/p2sh,
+// plus a fixture whose descriptors and addresses were cross-checked with embit (tests/fixtures/gen_multisig.py)
+{
+  let mbad = 0, mn2 = 0;
+  for (const [type, script] of [['ms-wsh', 2], ['ms-sh-wsh', 1]]) for (const [m, cnt] of [[2, 3], [3, 5], [1, 2], [2, 2], [7, 7]]) {
+    const keys = [], cos = [];
+    for (let i = 0; i < cnt; i++) {
+      const root = HDKey.fromMasterSeed(mnemonicToSeedSync(entropyToMnemonic(nc.randomBytes(16), wordlist)));
+      const acct = root.derive(`m/48'/0'/0'/${script}'`); keys.push(acct);
+      cos.push({ fp: root.fingerprint.toString(16).padStart(8, '0'), path: `48h/0h/0h/${script}h`, key: await w.parseExtendedKey(acct.publicExtendedKey) });
+    }
+    for (const branch of [0, 1]) for (const idx of [0, 1, 7, 500]) {
+      const pubs = keys.map((k) => k.derive(`m/${branch}/${idx}`).publicKey).sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
+      let o = btc.p2wsh(btc.p2ms(m, pubs), btc.NETWORK); if (type === 'ms-sh-wsh') o = btc.p2sh(o, btc.NETWORK);
+      mn2++;
+      const got = await w.multisigAddress(type, m, cos, branch, idx, 'main');
+      const rev = await w.multisigAddress(type, m, [...cos].reverse(), branch, idx, 'main');
+      if (got !== o.address || rev !== o.address) { mbad++; console.log('MISMATCH multisig', type, m, cnt, branch, idx); }
+    }
+  }
+  R.ok(mbad === 0, `${mn2} multisig addresses (P2WSH and P2SH-P2WSH, 1-of-2 to 7-of-7) match @scure/btc-signer, in any cosigner order (${mbad} mismatches)`);
+  const fx = JSON.parse(readFileSync(new URL('./fixtures/multisig.json', import.meta.url)));
+  let fbad = 0, fn = 0;
+  for (const r of fx) {
+    const parsed = []; for (const c of r.cosigners) parsed.push({ fp: c.fp, path: c.path, key: await w.parseExtendedKey(c.xpub) });
+    if (await w.multisigDescriptor(r.type, r.m, parsed, 0) !== r.desc0 || await w.multisigDescriptor(r.type, r.m, parsed, 1) !== r.desc1) { fbad++; console.log('MISMATCH descriptor', r.type, r.m); }
+    for (const a of r.addrs) { fn++; if (await w.multisigAddress(r.type, r.m, parsed, a.b, a.i, 'main') !== a.addr) { fbad++; console.log('MISMATCH fixture address', a); } }
+  }
+  R.ok(fbad === 0, `${fx.length} multisig descriptors and ${fn} addresses match the embit-checked fixture (${fbad} mismatches)`);
+  // key parsing: refuses private keys, bad checksums, wrong length and keys that are not on the curve
+  const root0 = HDKey.fromMasterSeed(new Uint8Array(32).fill(7));
+  const bads = [root0.privateExtendedKey, root0.publicExtendedKey.slice(0, -1) + (root0.publicExtendedKey.endsWith('a') ? 'b' : 'a'), 'xpub', '', 'hello world'];
+  let refused = 0; for (const b of bads) { try { await w.parseExtendedKey(b); } catch { refused++; } }
+  R.ok(refused === bads.length, `parser refuses private keys, typos, junk (${refused}/${bads.length})`);
+}
+
 R.done('oracle');
