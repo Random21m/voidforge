@@ -17,4 +17,5 @@ jobs:
       - name: SHA256SUMS matches voidforge.html, and tests changed nothing
         run: |
           sha256sum -c SHA256SUMS
-          git diff --exit-code HEAD -- voidforge.html SHA256SUMS
+          test "$(python3 -c "import hashlib,base64,sys; h=hashlib.sha256(open('voidforge.html','rb').read()).digest(); print('b'+base64.b32encode(bytes([1,0x55,0x12,0x20])+h).decode().lower().rstrip('='))")" = "$(cat CID.txt)"
+          git diff --exit-code HEAD -- voidforge.html SHA256SUMS CID.txt

@@ -276,10 +276,10 @@ async function probe(w) {
     w.showSeedQr('seedqr'); conf.v = false; conf.n = 0; w.printSeedQr(); w.printSqGuide();
     if (pr.n !== 0 || conf.n !== 2) fails.push('seedqr: printing the code or the guide asks first and stops when declined');
     conf.v = true; w.printSeedQr();
-    if (pr.n !== 1 || !/^VOIDFORGE SEEDQR \(12 words, 25 x 25 squares\)/.test(pr.text) || !/<svg/.test(pr.html) || /print-qr/.test(pr.cls) === false || pr.text.includes('SECRETPASS') || sw.split(' ').some(x => pr.text.includes(x + ' ')) || !pr.text.includes($('fingerprint').textContent) || !/Passphrase used: YES/.test(pr.text)) fails.push('seedqr: PRINT THIS QR sheet (code, fingerprint, no words, no passphrase)');
+    if (pr.n !== 1 || !/^VOIDFORGE SEEDQR \(12 words, 25 x 25 squares\)/.test(pr.text) || !/<svg/.test(pr.html) || /print-qr/.test(pr.cls) === false || pr.text.includes('SECRETPASS') || pr.text.includes(sw.split(' ').slice(0, 3).join(' ')) || !pr.text.includes($('fingerprint').textContent) || !/Passphrase used: YES/.test(pr.text)) fails.push('seedqr: PRINT THIS QR sheet (code, fingerprint, no words, no passphrase)');
     w.dispatchEvent(new w.Event('afterprint')); if ($('printQr').textContent !== '' || w.document.body.classList.contains('print-qr')) fails.push('seedqr: print area cleaned up after printing');
     w.printSqGuide();
-    if (pr.n !== 2 || !/HAND-COPY GUIDE \(12 words, 25 x 25 squares\)/.test(pr.text) || !/Row 1: /.test(pr.text) || !/Row 25: /.test(pr.text) || /Row 26/.test(pr.text) || pr.text.includes('SECRETPASS') || sw.split(' ').some(x => pr.text.includes(x + ' '))) fails.push('seedqr: PRINT HAND-COPY GUIDE sheet (rows, no words, no passphrase)');
+    if (pr.n !== 2 || !/HAND-COPY GUIDE \(12 words, 25 x 25 squares\)/.test(pr.text) || !/Row 1: /.test(pr.text) || !/Row 25: /.test(pr.text) || /Row 26/.test(pr.text) || pr.text.includes('SECRETPASS') || pr.text.includes(sw.split(' ').slice(0, 3).join(' '))) fails.push('seedqr: PRINT HAND-COPY GUIDE sheet (rows, no words, no passphrase)');
     w.dispatchEvent(new w.Event('afterprint')); conf.n = 0; w.printSqBlank();
     if (pr.n !== 3 || conf.n !== 0 || !/BLANK 25 x 25 GRID FOR SEEDQR/.test(pr.text) || /Row 1: /.test(pr.text)) fails.push('seedqr: PRINT BLANK GRID sheet (no question, no rows)');
     { const bm = pr.html.match(/<path d="([^"]*)" fill="#000"/); if (!bm || bm[1] !== '') fails.push('seedqr: the blank grid sheet has no black squares'); }

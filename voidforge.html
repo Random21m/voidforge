@@ -596,6 +596,21 @@
         <li>To check a backup later, type the words into VERIFY, add the passphrase if you used one, and paste the fingerprint or first address you wrote down into the last box. VERIFY tells you whether it matches without a passphrase, with it, or neither.</li>
       </ol>
     </details>
+    <details id="safetyBox">
+      <summary>Browser safety checklist<small>Eight quick habits that keep your seed on the page and nowhere else.</small></summary>
+      <p class="hint" style="margin:8px 0;">This page works offline, but the browser and computer around it can still keep copies of what you see. None of these steps is hard, and each one closes a real gap.</p>
+      <ol>
+        <li><b>Go offline first.</b> Turn off Wi-Fi and unplug the network cable <i>before</i> you open the page. The &ldquo;appears to be online&rdquo; banner is only a hint, so do not rely on it.</li>
+        <li><b>Open the file from a USB stick or a local folder,</b> never from a website. Check the file&rsquo;s SHA256 first (see the README).</li>
+        <li><b>Use a fresh browser window with extensions turned off.</b> A private window is not enough: extensions can still read every page.</li>
+        <li><b>Turn off page translation, read-aloud and screen sharing.</b> Translation tools may send the page text, including your words, to a server.</li>
+        <li><b>Mind the clipboard.</b> Copying seed words or a SeedQR can leave them in clipboard history, and some systems sync that history. Clear it afterwards, or write by hand instead of copying.</li>
+        <li><b>Printing and &ldquo;save as PDF&rdquo; make files.</b> Delete them and check the printer queue afterwards. A printer that is not on a network is best.</li>
+        <li><b>Check the Downloads folder</b> and any auto-saved files when you are done, and delete anything you made.</li>
+        <li><b>Finish by closing the page, then restart the browser or, better, the computer.</b> That clears what the page left in memory.</li>
+      </ol>
+      <p class="hint" style="margin:8px 0 0;">A browser is not a hardware wallet. This checklist lowers the risk; it does not remove it, which is why we also ask you to test with a small amount first.</p>
+    </details>
     <details>
       <summary>Method</summary>
       <p><code>SHA256(input string) &rarr; first 16 bytes (12 words) or 32 bytes (24 words) &rarr; BIP39 mnemonic + checksum</code></p>
@@ -638,6 +653,7 @@
     <details>
       <summary>Changelog</summary>
       <ul>
+        <li><b>1.19.1</b> &mdash; A new <b>Browser safety checklist</b> in About &amp; docs: eight short habits (go offline first, a clean browser window, translation, clipboard history, print and PDF copies, downloads, and restarting afterwards), each with the reason. Releases now also carry a <code>CID.txt</code>, a second way to check that your download is the right file. Seeds, fingerprints, addresses, keys, descriptors and every check are identical to v1.19.0.</li>
         <li><b>1.19.0</b> &mdash; Paper backup as a SeedQR. After FORGE you can show your seed as a SeedQR or CompactSeedQR (the formats SeedSigner uses) directly on screen, copy it onto a printed grid with a pen or pencil one 7x7 block at a time (with row and column numbers and a small map, like SeedSigner's transcribe screen), or print the QR, the hand-copy guide or a blank grid. Printing asks you to confirm first because it sends your seed to a printer. Nothing is stored or sent anywhere.</li>
         <li><b>1.18.0</b> &mdash; Visual polish only. A subtle forge-style background, a small identity badge in the header, numbered word cards, short animations when you tap a dice or coin button and when FORGE finishes, and a brief flash when something is copied. Every animation is switched off if your device is set to reduce motion. Seed words, fingerprints, addresses, keys, descriptors and every check are exactly the same as 1.17.0.</li>
         <li><b>1.17.0</b> &mdash; Friendlier layout, no change to how seeds are made. A short &ldquo;Start here&rdquo; strip says what to do first; the page is now grouped as <b>Make a seed</b>, <b>Check a backup</b> and <b>Extra tools</b>, with small tags that say what each tool is for and whether it only reads. Spacing and tap targets are better on phones. Seed words, fingerprints, addresses, keys, descriptors and every check are exactly the same as 1.16.0.</li>
@@ -675,7 +691,7 @@
   <footer>
     SHA256(rolls or flips) → BIP39 • Same method as SeedSigner dice and coin-flip modes<br>
     Enter your rolls or flips, generate the seed, then compare it and the fingerprint with a second tool on an offline device<br>
-    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.19.0 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
+    <span style="font-size:12px; margin-top:6px; display:inline-block;">VOIDFORGE v1.19.1 &bull; source: github.com/Random21m/voidforge (no links on this page by design)</span>
   </footer>
 </div>
 

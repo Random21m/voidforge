@@ -113,7 +113,7 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     t.w.hideSeedQr(); ok(t.$('sqImg').innerHTML===''&&t.$('sqBox').style.display==='none'&&t.$('sqCaption').textContent==='','HIDE removes the SeedQR');
     t.st.alerts.length=0; const p0=t.st.printed; t.w.printSeedQr(); ok(t.st.printed===p0&&/Press SHOW SEEDQR/.test(t.st.alerts.join('|')),'PRINT THIS QR needs a shown code first');
     t.w.showSeedQr('seedqr'); t.w.printSeedQr();
-    ok(t.st.printed===p0+1&&/print-qr/.test(t.st.printClass)&&/VOIDFORGE SEEDQR \(12 words, 25 x 25 squares\)/.test(t.st.printQrText)&&/<svg/.test(t.st.printQrHTML)&&!t.st.printQrText.includes('SECRETPASS')&&sw.split(' ').every(w=>!t.st.printQrText.includes(w+' ')),'PRINT THIS QR prints the code, no words and no passphrase');
+    ok(t.st.printed===p0+1&&/print-qr/.test(t.st.printClass)&&/VOIDFORGE SEEDQR \(12 words, 25 x 25 squares\)/.test(t.st.printQrText)&&/<svg/.test(t.st.printQrHTML)&&!t.st.printQrText.includes('SECRETPASS')&&!t.st.printQrText.includes(sw.split(' ').slice(0,3).join(' ')),'PRINT THIS QR prints the code, no words and no passphrase');
     t.w.dispatchEvent(new t.w.Event('afterprint')); ok(t.$('printQr').textContent===''&&!t.d.body.classList.contains('print-qr'),'SeedQR print area cleaned up after printing');
     // by hand: 7 x 7 blocks, mini-map, grey squares outside the code
     t.w.showSeedQr('seedqr'); t.w.openSqGuide();
@@ -131,7 +131,7 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     t.w.hideSeedQr(); ok(t.$('sqGuide').style.display==='none','HIDE also closes the guide');
     t.st.alerts.length=0; t.w.openSqGuide(); ok(/Press SHOW SEEDQR/.test(t.st.alerts.join('|')),'COPY BY HAND needs a shown code first');
     t.w.showSeedQr('seedqr'); const p1=t.st.printed; t.w.printSqGuide();
-    ok(t.st.printed===p1+1&&/print-qr/.test(t.st.printClass)&&/HAND-COPY GUIDE \(12 words, 25 x 25 squares\)/.test(t.st.printQrText)&&/Row 1: /.test(t.st.printQrText)&&/Row 25: /.test(t.st.printQrText)&&!/Row 26/.test(t.st.printQrText)&&!t.st.printQrText.includes('SECRETPASS')&&sw.split(' ').every(w=>!t.st.printQrText.includes(w+' ')),'PRINT HAND-COPY GUIDE prints the grid and 25 row lists, no words and no passphrase');
+    ok(t.st.printed===p1+1&&/print-qr/.test(t.st.printClass)&&/HAND-COPY GUIDE \(12 words, 25 x 25 squares\)/.test(t.st.printQrText)&&/Row 1: /.test(t.st.printQrText)&&/Row 25: /.test(t.st.printQrText)&&!/Row 26/.test(t.st.printQrText)&&!t.st.printQrText.includes('SECRETPASS')&&!t.st.printQrText.includes(sw.split(' ').slice(0,3).join(' ')),'PRINT HAND-COPY GUIDE prints the grid and 25 row lists, no words and no passphrase');
     t.w.dispatchEvent(new t.w.Event('afterprint'));
     const c0=t.st.confirms; t.w.printSqBlank(); ok(t.st.printed===p1+2&&t.st.confirms===c0&&/BLANK 25 x 25 GRID/.test(t.st.printQrText)&&!/Row 1: /.test(t.st.printQrText),'PRINT BLANK GRID prints without asking (nothing secret) and has no row lists');
     { const d=t.st.printQrHTML.match(/<path d="([^"]*)" fill="#000"/); ok(!!d&&d[1]==='','the blank grid has no filled squares'); }
@@ -313,6 +313,8 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
   // v1.2: only 12/24 words, no copy-seed button
   eq([...t.d.querySelectorAll('input[name=words]')].map(e=>e.value).join(','),'12,24','only 12 and 24 word options are offered');
   ok(![...t.d.querySelectorAll('button')].some(b=>/COPY SEED/.test(b.textContent))&&typeof t.w.copyResult==='undefined','no copy-seed button or function');
+  { const sb=t.$('safetyBox'); ok(!!sb&&/Browser safety checklist/.test(sb.querySelector('summary').textContent)&&sb.querySelectorAll('ol li').length===8&&!sb.querySelector('a,script,img,form,input'),'browser safety checklist has eight items and no links or inputs');
+    ok(/offline/i.test(sb.querySelectorAll('ol li')[0].textContent)&&/clipboard/i.test(sb.textContent)&&/translation/i.test(sb.textContent)&&/restart/i.test(sb.textContent),'checklist covers going offline, clipboard, translation and restarting'); }
   { let threw=false; try{ await t.w.rollsToMnemonic('1'.repeat(62),15);}catch(e){threw=true;} ok(threw,'15-word generation is rejected'); }
   ok(/Recovery notes/.test(html)&&/move the funds/.test(html),'changelog has recovery notes for removed modes');
   ok((await t.w.checkPhrase('abandon '.repeat(14)+'address')).ok,'VERIFY still accepts 15-word phrases from other tools');

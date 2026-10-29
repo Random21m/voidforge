@@ -1,7 +1,7 @@
 # When a release is published (or you run this by hand for an existing tag), this workflow:
 #   1. checks that the tagged voidforge.html matches SHA256SUMS and passes all tests,
 #   2. records a signed GitHub build-provenance attestation for voidforge.html and SHA256SUMS,
-#   3. attaches both files to the release.
+#   3. attaches the files (voidforge.html, SHA256SUMS, CID.txt) to the release.
 # The tests run in a SEPARATE job that has read-only access and no signing rights. The job that attests and
 # uploads installs no npm packages and runs no third-party code; it re-checks the files against the git tag itself.
 # It proves WHICH repo, commit and workflow the files came from. It does not make the code safe;
@@ -61,18 +61,20 @@ jobs:
           persist-credentials: false
       - name: Files are exactly what the tag contains, and match SHA256SUMS
         run: |
-          git diff --exit-code HEAD -- voidforge.html SHA256SUMS
-          for f in voidforge.html SHA256SUMS; do
+          git diff --exit-code HEAD -- voidforge.html SHA256SUMS CID.txt
+          for f in voidforge.html SHA256SUMS CID.txt; do
             test "$(git show "refs/tags/$TAG:$f" | sha256sum | cut -d' ' -f1)" = "$(sha256sum "$f" | cut -d' ' -f1)"
           done
           sha256sum -c SHA256SUMS
+          test "$(python3 -c "import hashlib,base64,sys; h=hashlib.sha256(open('voidforge.html','rb').read()).digest(); print('b'+base64.b32encode(bytes([1,0x55,0x12,0x20])+h).decode().lower().rstrip('='))")" = "$(cat CID.txt)"
       - name: Attest build provenance
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
           subject-path: |
             voidforge.html
             SHA256SUMS
+            CID.txt
       - name: Attach files to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$TAG" voidforge.html SHA256SUMS --clobber
+        run: gh release upload "$TAG" voidforge.html SHA256SUMS CID.txt --clobber
