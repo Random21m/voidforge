@@ -433,6 +433,22 @@
   .ms-bad { color: var(--danger); font-size: 14px; margin: 6px 0; }
   .ms-warn { border: 1px solid var(--danger); border-radius: 8px; padding: 8px 10px; font-size: 14px; line-height: 1.5; margin: 8px 0; }
   .ms-test { background: var(--danger); color: #000; font-weight: 700; font-size: 13px; text-align: center; padding: 6px 8px; border-radius: 8px; margin: 8px 0; }
+  .ms-why { display: grid; gap: 8px; margin: 10px 0 12px; }
+  .ms-why-i { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 9px 12px; font-size: 13.5px; line-height: 1.55; }
+  .ms-prog2 { margin: 8px 0 4px; font-size: 13.5px; color: var(--muted); }
+  .ms-prog2 .ms-bar { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+  .ms-prog2 .ms-bar i { display: block; height: 100%; background: var(--ok-text); border-radius: 4px; transition: width .4s; }
+  .ms-num { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex: none; color: var(--muted); }
+  .ms-slot.cur .ms-num { border-color: var(--accent); color: var(--accent); }
+  .ms-slot.done .ms-num { border-color: var(--ok-text); background: var(--ok-text); color: #000; }
+  .ms-chip { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .8px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--border); color: var(--muted); margin-left: 8px; vertical-align: middle; }
+  .ms-slot.cur .ms-chip { color: var(--accent); border-color: var(--accent); }
+  .ms-slot.done .ms-chip { color: var(--ok-text); border-color: var(--ok-text); }
+  .ms-slot { padding: 10px 12px; margin: 8px 0; }
+  .ms-done-head { display: flex; align-items: center; gap: 10px; margin: 16px 0 8px; font-size: 16px; font-weight: 800; color: var(--ok-text); }
+  .ms-done-head .ms-tick { width: 26px; height: 26px; border-radius: 50%; background: var(--ok-text); color: #000; display: flex; align-items: center; justify-content: center; font-size: 15px; flex: none; }
+  .ms-sub { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 10px 0; }
+  .ms-sub .wlabel:first-child { margin-top: 0; }
   @media print { #msBanner { display: none !important; } }
   #demoBox { margin-top: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
   #demoBox summary { cursor: pointer; font-weight: 600; }
@@ -750,7 +766,11 @@
     <details id="msBox">
       <summary>Set up a multisig wallet<small>Guided, one key at a time. Seeds are wiped from this page after each key.</small></summary>
       <div id="msIntro">
-        <p class="hint" style="margin:8px 0;">A <span class="term" tabindex="0" data-tip="A wallet that needs several keys to approve a payment, for example any 2 out of 3. Each key is its own seed with its own backup.">multisig</span> wallet is made of <b>N keys</b> and needs <b>M of them</b> to spend. With 2-of-3, losing one key loses nothing, and a thief with one key gets nothing. The price: more things to back up, and setup takes longer. Every key is a separate seed with its own paper backup, kept in a different place.</p>
+        <div class="ms-why">
+          <div class="ms-why-i"><b>What it is.</b> A <span class="term" tabindex="0" data-tip="A wallet that needs several keys to approve a payment, for example any 2 out of 3. Each key is its own seed with its own backup.">multisig</span> wallet is built from <b>N keys</b> and spends only when <b>M of them</b> agree. With 2-of-3, losing one key loses nothing, and a thief with one key gets nothing.</div>
+          <div class="ms-why-i"><b>What it costs.</b> More to back up, and setup takes longer. Every key is its own seed with its own paper backup, kept in a different place.</div>
+          <div class="ms-why-i"><b>How this works.</b> You make one key at a time. After each, the seed is wiped from the page and only the public key is kept.</div>
+        </div>
         <div class="ms-row">
           <label>Keys needed to spend (M)<select id="msM" aria-label="Keys needed to spend"></select></label>
           <label>Total keys (N)<select id="msN" aria-label="Total keys" onchange="msUpdateM()"><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></label>
@@ -766,6 +786,7 @@
       </div>
       <div id="msRun" style="display:none">
         <div class="ms-t" id="msRunTitle" style="font-weight:800; color:var(--accent);"></div>
+        <div id="msProg" class="ms-prog2"></div>
         <div class="ms-test" id="msTestBan" style="display:none">TESTNET: PRACTICE COINS ONLY. Not real money.</div>
         <div id="msSlots"></div>
         <div id="msPasteBox" style="display:none">
@@ -776,8 +797,9 @@
         </div>
         <div class="ms-bad" id="msRunErr"></div>
         <div id="msDone" style="display:none">
-          <h3 style="margin:14px 0 6px; font-size:15px;">Your multisig wallet is ready</h3>
+          <div class="ms-done-head"><span class="ms-tick" aria-hidden="true">&#10003;</span>Your multisig wallet is ready</div>
           <div class="ms-warn" id="msOneDev" style="display:none"><b>All keys were made on this one device.</b> That is convenient, but it puts every key in one place for a while: anyone who could read this device&rsquo;s memory during setup could get all of them. For real protection, make each key on a different device (or at least after a restart), store each backup in a different place, and use the paste option above to combine only the public keys.</div>
+          <div class="ms-sub">
           <div class="wlabel" id="msDescLabel">Descriptor (public, safe to keep): import it in Sparrow, Nunchuk or Bitcoin Core</div>
           <div class="wval" id="msDescR"></div>
           <div class="btn-row"><button type="button" class="secondary small" onclick="msCopy(this,'msDescR')">COPY DESCRIPTOR</button><button type="button" class="secondary small" onclick="msShowQr()">SHOW QR</button><button type="button" class="secondary small" onclick="msPrint()">PRINT RECOVERY SHEET</button></div>
@@ -786,11 +808,16 @@
             <div id="msQrImg" style="width:min(100%,340px); margin:8px auto; background:#fff; line-height:0;"></div>
             <button type="button" class="secondary small" onclick="msHideQr()">HIDE QR</button>
           </div>
+          </div>
+          <div class="ms-sub">
           <div class="wlabel">Change descriptor (only if your app asks for it separately)</div>
           <div class="wval" id="msDescC"></div>
           <button type="button" class="secondary small" onclick="msCopy(this,'msDescC')">COPY CHANGE DESCRIPTOR</button>
+          </div>
+          <div class="ms-sub">
           <div class="wlabel">First receiving addresses: after importing, your app must show exactly these</div>
           <ol class="wval" id="msAddrs" style="padding-left:22px;"></ol>
+          </div>
           <p class="hint" style="margin:8px 0;">The descriptor contains only public keys. It lets a wallet app watch the balance and make receiving addresses; it cannot spend. To spend you need M of the seeds, so keep every seed backup safe, and keep a copy of this descriptor (the recovery sheet) with them: without it, the seeds alone are not enough to find the funds.</p>
         </div>
         <div class="btn-row" style="margin-top:10px;"><button type="button" class="secondary small" onclick="msCancel()">START OVER</button></div>
@@ -2705,13 +2732,16 @@ async function msRender(){
   const full = ms.keys.length >= ms.n, N = NETS[ms.net];
   msEl("msRunTitle").textContent = ms.m + "-of-" + ms.n + " multisig, " + msTypeName(ms.type) + ", account " + ms.account + (ms.net === "test" ? ", TESTNET" : "");
   msEl("msTestBan").style.display = ms.net === "test" ? "" : "none";
+  { const pr = msEl("msProg"); pr.textContent = ms.keys.length + " of " + ms.n + " keys saved"; const bar = document.createElement("div"); bar.className = "ms-bar"; const fill = document.createElement("i"); fill.style.width = Math.round(100 * ms.keys.length / ms.n) + "%"; bar.appendChild(fill); pr.appendChild(bar); }
   const slots = msEl("msSlots"); slots.textContent = "";
   for(let i = 0; i < ms.n; i++){
     const row = document.createElement("div"), k = ms.keys[i], cur = i === ms.keys.length;
     row.className = "ms-slot" + (k ? " done" : cur ? " cur" : "");
+    const nm = document.createElement("div"); nm.className = "ms-num"; nm.textContent = k ? "\u2713" : String(i + 1); row.appendChild(nm);
     const ic = document.createElement("div"); ic.className = "ms-icon"; ic.id = "msIcon" + i; if(k) row.appendChild(ic);
     const tx = document.createElement("div"); tx.className = "ms-txt";
     const b = document.createElement("b"); b.textContent = "Key " + (i + 1); tx.appendChild(b);
+    const chip = document.createElement("span"); chip.className = "ms-chip"; chip.textContent = k ? "SAVED" : cur ? "UP NEXT" : "WAITING"; tx.appendChild(chip);
     const st = document.createElement("div");
     if(k){
       st.textContent = k.src === "made" ? "Made here. Fingerprint " + k.fp + ". The seed was wiped; only the public key is kept." : "Pasted from elsewhere. Fingerprint " + k.fp + ".";
