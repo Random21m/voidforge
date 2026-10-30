@@ -472,6 +472,8 @@ async function probe(w) {
     const accKey = (mn, path, ver) => HDKey.fromMasterSeed(mnemonicToSeedSync(mn, ''), ver ? { private: 0x0488ade4, public: ver } : undefined).derive(path);
     const mns = [A11 + 'about', LEG + ' yellow', ZOO + ' wrong'];
     $('msN').value = '3'; w.msUpdateM(); if ($('msM').value !== '2') fails.push('multisig: 3 keys default to 2-of-3');
+    $('msN').value = '7'; w.msUpdateM(); if ($('msM').options.length !== 7) fails.push('multisig: M choices run from 1 to N'); $('msM').value = '7'; $('msN').value = '4'; w.msUpdateM(); if ($('msM').value !== '3' || $('msM').options.length !== 4) fails.push('multisig: shrinking N resets M to a majority');
+    $('msN').value = '3'; w.msUpdateM();
     $('msM').value = '1'; w.msMNote(); if (!/not real multisig protection/.test($('msMNote').textContent)) fails.push('multisig: 1-of-N note');
     $('msM').value = '3'; w.msMNote(); if (!/lose even one/.test($('msMNote').textContent)) fails.push('multisig: N-of-N note');
     $('msM').value = '1'; w.msStart(); if (w.eval('ms') !== null || !/at least 2/.test($('msErr').textContent)) fails.push('multisig: 1-of-N refused at start');
@@ -537,10 +539,10 @@ async function probe(w) {
       threw = false; try { await w.ckdPub(key.pub, key.chain, -1); } catch { threw = true; } if (!threw) fails.push('multisig: negative index refused'); }
     w.clearAll(); await slp(20); if (w.eval('ms') !== null || $('msDescR').textContent !== '' || $('msRun').style.display !== 'none') fails.push('multisig: CLEAR ALL forgets the setup');
     // 2-of-2 nested, testnet, all made here
-    $('msN').value = '2'; w.msUpdateM(); $('msNet').value = 'test'; $('msType').value = 'ms-sh-wsh'; w.msStart();
+    $('msN').value = '2'; w.msUpdateM(); $('msNet').value = 'test'; $('msType').value = 'ms-sh-wsh'; $('msAcct').value = '1'; w.msStart(); if (w.eval('ms.account') !== 1) fails.push('multisig: account number is used');
     if ($('msTestBan').style.display !== '' || !/TESTNET/.test($('msBanTitle').textContent)) fails.push('multisig: testnet banner');
     for (const s of [sd[0], sd[1]]) { await mk(...s); await w.msAddMade(); }
-    { const ks = [mns[0], mns[1]].map((m) => accKey(m, "m/48'/1'/0'/1'")), want = [0, 1, 2].map((i) => btc.p2sh(btc.p2wsh(btc.p2ms(2, ks.map((k) => k.derive('m/0/' + i).publicKey).sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)))), btc.TEST_NETWORK), btc.TEST_NETWORK).address);
+    { const ks = [mns[0], mns[1]].map((m) => accKey(m, "m/48'/1'/1'/1'")), want = [0, 1, 2].map((i) => btc.p2sh(btc.p2wsh(btc.p2ms(2, ks.map((k) => k.derive('m/0/' + i).publicKey).sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)))), btc.TEST_NETWORK), btc.TEST_NETWORK).address);
       if (!w.eval('ms.done') || [...w.document.querySelectorAll('#msAddrs li')].map((l) => l.textContent).join() !== want.join()) fails.push('multisig: nested testnet addresses');
       if (!/^sh\(wsh\(sortedmulti\(2,/.test($('msDescR').textContent) || !/\)\)\)#/.test($('msDescR').textContent) || !/tpub/.test($('msDescR').textContent) || $('msOneDev').style.display !== '') fails.push('multisig: nested testnet descriptor and one-device warning');
       let pr = 0; w.print = () => { pr++; }; w.msPrint(); if (!/TESTNET/.test(w.document.getElementById('printQr').textContent)) fails.push('multisig: testnet sheet says so'); }
