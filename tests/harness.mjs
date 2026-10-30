@@ -9,7 +9,7 @@ export const HTML_PATH = process.argv.find(a => a.endsWith('.html')) ||
   path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'voidforge.html');
 export const readHtml = () => fs.readFileSync(HTML_PATH, 'utf8');
 
-export function loadPage(html) {
+export function loadPage(html, pre) {
   const dom = new JSDOM(html, {
     runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.org/',
     beforeParse(w) {
@@ -18,6 +18,7 @@ export function loadPage(html) {
       if (!w.TextDecoder) w.TextDecoder = TextDecoder;
       w.alert = () => {}; w.confirm = () => true;
       w.HTMLAnchorElement.prototype.click = function () {};
+      if (pre) pre(w);
     },
   });
   return dom.window;

@@ -15,6 +15,7 @@ function load(opts={}){
       w.addEventListener('error',e=>errors.push(e.message));
       w.URL.createObjectURL=b=>{st.blob=b;return 'blob:x';}; w.URL.revokeObjectURL=()=>{};
       w.HTMLAnchorElement.prototype.click=function(){}; w.Element.prototype.scrollIntoView=function(){};
+      if(opts.focusSpy){ st.focus=[]; w.HTMLElement.prototype.focus=function(o){ st.focus.push([this.id,o]); }; }
       w.print=()=>{ st.printed++; st.printHTML=w.document.getElementById('printOnly').textContent; st.printCells=[...w.document.querySelectorAll('#printOnly .ps-cell')].map(c=>c.textContent); st.printClass=w.document.body.className; st.printQrText=w.document.getElementById('printQr').textContent; st.printQrHTML=w.document.getElementById('printQr').innerHTML; };
       Object.defineProperty(w.navigator,'clipboard',{value:{writeText:async t=>{st.clip.push(t);}}});
     }});
@@ -418,6 +419,8 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     ok(t2.w.eval('ms.done')&&t2.$('msOneDev').style.display===''&&/^sh\(wsh\(sortedmulti\(2,/.test(t2.$('msDescR').textContent)&&/^2/.test(t2.$('msAddrs').textContent)&&/tpub/.test(t2.$('msDescR').textContent),'multisig: 2-of-2 testnet nested: sh(wsh()), 2... addresses, tpub keys, one-device warning');
     const t3=load(); await t3.ready(); t3.w.msStart(); t3.w.msCancel(); ok(t3.w.eval('ms')===null,'multisig: START OVER with nothing collected just resets');
   }
+  { const tf=load({focusSpy:true}); await tf.ready(); await new Promise(r=>setTimeout(r,100));
+    const f=tf.st.focus.find(x=>x[0]==='rolls'); ok(!!f&&f[1]&&f[1].preventScroll===true,'opening the page focuses the rolls box without scrolling the page down to it'); }
   // item 8: changelog
   ok(/Changelog/.test(html)&&/Breaking/.test(html),'changelog documents the H/T breaking change');
 

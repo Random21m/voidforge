@@ -2918,7 +2918,7 @@ updateOnlineWarning();
 updateCount();
 
 document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("rolls").focus();
+  document.getElementById("rolls").focus({preventScroll: true});
 });
 
 const DIE_PIPS = {1:[[50,50]], 2:[[28,28],[72,72]], 3:[[26,26],[50,50],[74,74]], 4:[[28,28],[72,28],[28,72],[72,72]],

@@ -691,13 +691,14 @@ async function probe(w) {
   const parts = expect.d50.split(' '); parts[11] = parts[11] === 'zoo' ? 'abandon' : 'zoo';
   const corrupted = parts.join(' ');
   if ((await w.checkPhrase(corrupted)).ok !== validateMnemonic(corrupted, wordlist)) fails.push('checker rejects bad checksum');
+  { const f0 = (w.__focus || []).find((x) => x[0] === 'rolls'); if (!f0 || !f0[1] || f0[1].preventScroll !== true) fails.push('page open: rolls box focused without scrolling'); }
   const meta = w.document.querySelector('meta[http-equiv="Content-Security-Policy"]');
   if (!meta || !/default-src 'none'/.test(meta.content)) fails.push('CSP present');
   return fails;
 }
 
 async function detect(mutated) {
-  const w = loadPage(mutated);
+  const w = loadPage(mutated, (win) => { win.__focus = []; win.HTMLElement.prototype.focus = function (o) { win.__focus.push([this.id, o]); }; });
   if (!w.selfTestDone) return { by: 'page failed to run' };
   await ready(w);
   const badge = w.document.getElementById('selfTestBadge').textContent;
@@ -1277,6 +1278,7 @@ const M = [
   ['multisig: sheet QR size switch (layout only)', 'q.version > 15, msSheetText()', 'q.version > 14, msSheetText()', true],
   ['multisig: CLEAR ALL keeps the setup', 'msReset(); wipeSeed();\n}', 'wipeSeed();\n}'],
   ['multisig: reset leaves the descriptor on screen', 'for(const id of ["msDescR","msDescC","msAddrs","msSlots","msRunErr","msBanErr","msErr"])', 'for(const id of ["msDescC","msAddrs","msSlots","msRunErr","msBanErr","msErr"])'],
+  ['page open: scrolls down to the rolls box', 'getElementById("rolls").focus({preventScroll: true});', 'getElementById("rolls").focus();'],
   ['multisig: reset leaves the QR on screen', 'ms = null; msHideQr();', 'ms = null;'],
   ['multisig: saved key shows no picture', 'if(k) showFpIcon(ic.id, k.fp);', ''],
   ['QR: version 13 table', '13:[22,[[8,37],[1,38]]]', '13:[22,[[8,37],[1,37]]]'],
