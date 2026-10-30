@@ -58,3 +58,8 @@ A multisig wallet made with VOIDFORGE needs two things to be recovered: **M of t
 3. To spend, each signer uses its own seed in a signing device or wallet; VOIDFORGE does not sign.
 
 Key origin used: `m/48'/0'/<account>'/2'` for native SegWit (P2WSH) or `.../1'` for nested SegWit (P2SH-P2WSH); testnet uses `1'` instead of `0'`.
+
+## Bitcoin Core watch-only import and Silent Payment addresses (v1.21.0)
+
+- **Bitcoin Core:** in the Watch-only box, open *Import into Bitcoin Core*, choose whether the wallet is new or has history, then run the two commands (Core console or `bitcoin-cli`). The wallet is watch-only and cannot spend. Check the first receiving address against VOIDFORGE's before you send anything. The commands are a template: check them against `bitcoin-cli help importdescriptors` for your Core version.
+- **Silent Payment address:** it is made from the same seed at `m/352'/coin'/account'` (BIP-352). To receive you need a wallet that supports Silent Payments, plus the same seed words (and passphrase, if you used one). Few wallets support it yet, so test with a small amount first.

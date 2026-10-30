@@ -433,6 +433,9 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
   }
   { const tf=load({focusSpy:true}); await tf.ready(); await new Promise(r=>setTimeout(r,100));
     const f=tf.st.focus.find(x=>x[0]==='rolls'); ok(!!f&&f[1]&&f[1].preventScroll===true,'opening the page focuses the rolls box without scrolling the page down to it'); }
+  { const tc=load(); await tc.ready(); const h=await tc.w.sha256bytes(new TextEncoder().encode('123456'));
+    const m24=await tc.w.entropyToMnemonic(h), m12=await tc.w.entropyToMnemonic(h.slice(0,16));
+    ok(m24==='mirror reject rookie talk pudding throw happy era myth already payment own sentence push head sting video explain letter bomb casual hotel rather garment'&&m12==='mirror reject rookie talk pudding throw happy era myth already payment owner','Coldcard compatibility: its documented example (rolls 123456) gives the same 24 and 12 words'); }
   // item 8: changelog
   ok(/Changelog/.test(html)&&/Breaking/.test(html),'changelog documents the H/T breaking change');
 
