@@ -46,10 +46,10 @@
     white-space: nowrap;
   }
   body.light {
-    --bg: #f8f9fc;
-    --surface: #ffffff;
-    --surface2: #f1f3f8;
-    --border: #d8dce6;
+    --bg: #e6e9f0;
+    --surface: #f4f6fa;
+    --surface2: #e3e8f1;
+    --border: #c3cbda;
     --text: #1c1e26;
     --muted: #4b5563;
     --accent: #0066cc;
@@ -253,7 +253,7 @@
   #selfTestBadge { font-size: 13px; font-weight: 700; text-align: center; margin-bottom: 12px; color: var(--muted); }
   #selfTestBadge.ok { color: var(--success); }
   #selfTestBadge.bad { color: var(--danger); }
-  body.light #selfTestBadge.ok, body.light .status.ok { color: #0a7a46; }
+  body.light #selfTestBadge.ok, body.light .status.ok { color: #07683a; }
   button:disabled { opacity: .55; cursor: not-allowed; }
   #statusLine { display: flex; justify-content: center; gap: 4px 14px; flex-wrap: wrap; margin-bottom: 12px; }
   #statusLine #netTag, #statusLine #selfTestBadge { margin: 0; }
@@ -756,7 +756,7 @@
       <details id="spBox" class="ms-sub" style="margin-top:12px;">
         <summary style="cursor:pointer; font-weight:600;">Silent Payment address (advanced, new)</summary>
         <p class="hint" style="margin:8px 0;">A <span class="term" tabindex="0" data-tip="A newer kind of Bitcoin address (BIP-352). You publish one address and reuse it; each sender secretly derives a fresh, different address from it, so people cannot link your payments by looking at the blockchain.">Silent Payment</span> address is one address you can give out again and again. Each sender makes a fresh hidden address from it, so nobody can link your payments together by address reuse.</p>
-        <div class="ms-test" style="background:var(--warn-text);">LIMITED WALLET SUPPORT. Few wallets can send to or receive at these addresses yet. Test with a small amount first.</div>
+        <div class="ms-test" style="background:#ffb020;">LIMITED WALLET SUPPORT. Few wallets can send to or receive at these addresses yet. Test with a small amount first.</div>
         <div class="wlabel" id="spLabel">Silent Payment address</div>
         <div class="wval" id="spAddr"></div>
         <button class="secondary small" onclick="copyWatch(this,'spAddr')">COPY ADDRESS</button>
