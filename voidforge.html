@@ -2683,8 +2683,16 @@ function msStart(){
   if(m < 2){ err.textContent = "1-of-" + n + " gives no multisig protection (any one key can spend). Choose at least 2 keys needed."; return; }
   if(!/^[0-9]{1,10}$/.test(raw) || parseInt(raw, 10) > 2147483647){ err.textContent = "The account must be a whole number from 0 to 2147483647 (almost always 0)."; return; }
   ms = {m, n, type: msEl("msType").value, net: msEl("msNet").value, account: parseInt(raw, 10), keys: [], mode: "make", busy: false, done: false};
-  msEl("msBox").open = true; msRender();
-  try { msEl("msBanner").scrollIntoView({behavior: "smooth", block: "center"}); } catch(e) {}
+  msEl("msBox").open = true; msDock(true); msRender();
+  try { msEl("cardMulti").scrollIntoView({behavior: "smooth", block: "start"}); } catch(e) {}
+}
+// While a multisig setup is running, its card sits directly above the seed maker so progress, instructions and seed maker are all in one place.
+// START OVER puts it back where it was.
+let msHome = null;
+function msDock(on){
+  const card = msEl("cardMulti"), gen = msEl("cardGen");
+  if(on){ if(!msHome){ msHome = document.createComment("multisig card home"); card.parentNode.insertBefore(msHome, card); } gen.parentNode.insertBefore(card, gen); }
+  else if(msHome){ msHome.parentNode.insertBefore(card, msHome.nextSibling); }
 }
 function msPathOf(){ return "48h/" + NETS[ms.net].coin + "h/" + ms.account + "h/" + MULTISIG[ms.type].script + "h"; }
 function msCosigner(k){ return "[" + k.fp + "/" + k.path + "]" + k.xpub; }
@@ -2696,10 +2704,12 @@ function msReset(){
   msEl("msPaste").value = ""; msEl("msPasteFp").value = "";
   msEl("msIntro").style.display = ""; msEl("msRun").style.display = "none"; msEl("msDone").style.display = "none"; msEl("msPasteBox").style.display = "none";
   msEl("msBanner").style.display = "none"; msEl("msBox").open = false;
+  msDock(false);
 }
 function msCancel(){
   if(ms && ms.keys.length && !confirm("Start over? The public keys collected so far will be forgotten here (your seed backups are not affected).")) return;
   msReset();
+  try { msEl("cardMulti").scrollIntoView({behavior: "smooth", block: "start"}); } catch(e) {}
 }
 function msBanner(){
   const b = msEl("msBanner");
@@ -2779,7 +2789,7 @@ async function msRender(){
       cb.onclick = () => safeCopy(msCosigner(k)).then(() => showCopied(cb)).catch(() => alert("Copy failed. Select the text and copy it manually."));
       row.appendChild(tx); row.appendChild(cb);
     } else {
-      st.textContent = cur ? (ms.mode === "paste" ? "Next: paste its public key below." : "Next: make this seed in the MAKE A SEED card above.") : "Waiting.";
+      st.textContent = cur ? (ms.mode === "paste" ? "Next: paste its public key below." : "Next: make this seed in the MAKE A SEED card just below.") : "Waiting.";
       tx.appendChild(st); row.appendChild(tx);
     }
     slots.appendChild(row);
@@ -2799,6 +2809,7 @@ async function msFinish(){
   addrs.forEach(a => { const li = document.createElement("li"); li.textContent = a; ol.appendChild(li); });
   msEl("msOneDev").style.display = ms.keys.every(k => k.src === "made") ? "" : "none";
   msEl("msDone").style.display = "";
+  try { msEl("msDone").scrollIntoView({behavior: "smooth", block: "start"}); } catch(e) {}
   msBanner();
 }
 function msCopy(btn, id){

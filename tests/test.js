@@ -422,6 +422,11 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     for(const [w0,f0] of [seeds[0],seeds[1]]){ t2.$('wdLen').value='12'; t2.$('wdWords').value=w0; t2.$('wdFlips').value=f0; t2.w.wdUpdate(); await t2.w.wdGenerate(); await new Promise(r=>setTimeout(r,1200)); await t2.w.msAddMade(); }
     ok(t2.w.eval('ms.done')&&t2.$('msOneDev').style.display===''&&/^sh\(wsh\(sortedmulti\(2,/.test(t2.$('msDescR').textContent)&&/^2/.test(t2.$('msAddrs').textContent)&&/tpub/.test(t2.$('msDescR').textContent),'multisig: 2-of-2 testnet nested: sh(wsh()), 2... addresses, tpub keys, one-device warning');
     const t3=load(); await t3.ready(); t3.w.msStart(); t3.w.msCancel(); ok(t3.w.eval('ms')===null,'multisig: START OVER with nothing collected just resets');
+    { const t4=load(); await t4.ready(); const ids=()=>[...t4.d.querySelectorAll('.card')].map(c=>c.id).join(','); const before=ids();
+      t4.w.msStart(); ok(t4.$('cardMulti').nextElementSibling===t4.$('cardGen')&&/^cardMulti,cardGen/.test(ids()),'multisig: while setting up, the card sits directly above the seed maker');
+      t4.w.msCancel(); ok(ids()===before&&t4.w.eval('ms')===null,'multisig: START OVER puts the card back where it was');
+      t4.w.msStart(); t4.w.msReset(); ok(ids()===before,'multisig: CLEAR ALL also puts the card back'); }
+
   }
   { const tf=load({focusSpy:true}); await tf.ready(); await new Promise(r=>setTimeout(r,100));
     const f=tf.st.focus.find(x=>x[0]==='rolls'); ok(!!f&&f[1]&&f[1].preventScroll===true,'opening the page focuses the rolls box without scrolling the page down to it'); }

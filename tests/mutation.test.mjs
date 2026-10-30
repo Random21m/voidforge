@@ -88,12 +88,13 @@ async function probe(w) {
     { const dr = $('wDescR').textContent, dc = $('wDescC').textContent; // Bitcoin Core guide: built here from the page's own descriptors, with Core's documented importdescriptors fields
       const exp = (ts) => 'bitcoin-cli createwallet "voidforge-watch" true true "" false true\nbitcoin-cli -rpcwallet=voidforge-watch importdescriptors \'' + JSON.stringify([{ desc: dr, timestamp: ts, active: true, internal: false, range: [0, 999], next_index: 0 }, { desc: dc, timestamp: ts, active: true, internal: true, range: [0, 999], next_index: 0 }]) + '\'';
       if ($('coreBox').style.display !== '' || $('coreCmd').textContent !== exp('now')) fails.push('core guide: new wallet commands');
-      $('coreWhen').value = '0'; w.updateCore(); if ($('coreCmd').textContent !== exp(0)) fails.push('core guide: used wallet scans from the start');
-      $('coreWhen').value = 'now'; w.updateCore();
+      $('coreWhen').value = '0'; $('coreWhen').dispatchEvent(new w.Event('change')); if ($('coreCmd').textContent !== exp(0)) fails.push('core guide: used wallet scans from the start');
+      $('coreWhen').value = 'now'; $('coreWhen').dispatchEvent(new w.Event('change'));
       if ($('wTestBan').style.display !== 'none') fails.push('testnet banner hidden on mainnet');
       $('wNet').value = 'test'; await w.refreshWatch(); if ($('wTestBan').style.display !== '' || !/TESTNET/.test($('wTestBan').textContent)) fails.push('testnet banner shown on testnet');
       $('wType').value = 'ms-wsh'; await w.refreshWatch(); if ($('coreBox').style.display !== 'none' || $('coreCmd').textContent !== '') fails.push('core guide hidden for a cosigner key');
       $('wType').value = 'wpkh'; $('wNet').value = 'main'; await w.refreshWatch(); if ($('wTestBan').style.display !== 'none' || $('coreCmd').textContent !== exp('now')) fails.push('core guide and banner restored on mainnet');
+      $('wNet').value = 'test'; await w.refreshWatch();
       w.clearAll(); await new Promise((r2) => setTimeout(r2, 20)); if ($('coreCmd').textContent !== '' || $('coreBox').style.display !== 'none' || $('wTestBan').style.display !== 'none') fails.push('core guide cleared with the seed');
       await run('dice', 12, D50); }
   { const ABOUT = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'; const seedB = mnemonicToSeedSync(ABOUT, ''); const VER = { wpkh: 0x04b24746, 'sh-wpkh': 0x049d7cb2, pkh: 0x0488b21e, tr: 0x0488b21e }, PUR = { wpkh: 84, 'sh-wpkh': 49, pkh: 44, tr: 86 };
@@ -549,8 +550,10 @@ async function probe(w) {
     }
     { const key = await w.parseExtendedKey(k3x); let threw = false; try { await w.ckdPub(key.pub, key.chain, 0x80000000); } catch { threw = true; } if (!threw) fails.push('multisig: hardened public derivation refused');
       threw = false; try { await w.ckdPub(key.pub, key.chain, -1); } catch { threw = true; } if (!threw) fails.push('multisig: negative index refused'); }
+    if ($('cardMulti').nextElementSibling !== $('cardGen')) fails.push('multisig: card sits above the seed maker during setup');
     w.msShowQr(); if ($('msQrBox').style.display !== '') fails.push('multisig: QR shown before reset');
     w.clearAll(); await slp(20); if (w.eval('ms') !== null || $('msDescR').textContent !== '' || $('msRun').style.display !== 'none' || $('msQrImg').innerHTML !== '' || $('msQrBox').style.display !== 'none' || $('msAddrs').textContent !== '') fails.push('multisig: CLEAR ALL forgets the setup');
+    if ($('cardGen').nextElementSibling !== $('cardMulti')) fails.push('multisig: card goes back after reset');
     // 2-of-2 nested, testnet, all made here
     $('msN').value = '2'; w.msUpdateM(); $('msNet').value = 'test'; $('msType').value = 'ms-sh-wsh'; $('msAcct').value = '1'; w.msStart(); if (w.eval('ms.account') !== 1) fails.push('multisig: account number is used');
     if ($('msTestBan').style.display !== '' || !/TESTNET/.test($('msBanTitle').textContent)) fails.push('multisig: testnet banner');
@@ -1298,14 +1301,16 @@ const M = [
   ['core guide: new wallet scans everything', 'const ts = when === "0" ? 0 : "now";', 'const ts = 0;'],
   ['core guide: range too small', 'range: [0, 999]', 'range: [0, 99]'],
   ['core guide: not active', 'active: true, internal', 'active: false, internal'],
-  ['core guide: wrong rpc wallet name', 'importdescriptors \'" + JSON', 'importdescriptors \\\'" + JSON'],
-  ['core guide: shown for multisig cosigner key', '&& document.getElementById("wDescGroupC").style.display !== "none"; // a multisig', '; // a multisig'],
+  ['core guide: wrong rpc wallet name', '-rpcwallet=voidforge-watch importdescriptors', '-rpcwallet=voidforge importdescriptors'],
+  ['core guide: shown for multisig cosigner key', '&& document.getElementById("wDescGroupC").style.display !== "none"; // a multisig', '; // a multisig', true],  // equivalent: a cosigner key has no change descriptor, so the box already stays hidden
   ['core guide: not refreshed on key change', 'document.getElementById("wTestBan").style.display = net === "test" ? "" : "none";\n  updateCore();', 'document.getElementById("wTestBan").style.display = net === "test" ? "" : "none";'],
   ['core guide: birthday change ignored', 'document.getElementById("coreWhen").addEventListener("change", updateCore);', ''],
   ['core guide: left after clearing', 'document.getElementById("wTestBan").style.display = "none"; updateCore();\n  const b', 'const b'],
   ['testnet banner never shown', 'style.display = net === "test" ? "" : "none";', 'style.display = "none";'],
   ['testnet banner always shown', 'style.display = net === "test" ? "" : "none";', 'style.display = "";'],
   ['testnet banner left after clearing', 'document.getElementById("wTestBan").style.display = "none"; updateCore();', 'updateCore();'],
+  ['multisig: card not moved above the seed maker', 'gen.parentNode.insertBefore(card, gen); }', '}'],
+  ['multisig: card not put back after reset', '  msDock(false);\n}', '}'],
   ['page open: scrolls down to the rolls box', 'getElementById("rolls").focus({preventScroll: true});', 'getElementById("rolls").focus();'],
   ['multisig: reset leaves the QR on screen', 'ms = null; msHideQr();', 'ms = null;'],
   ['multisig: saved key shows no picture', 'if(k) showFpIcon(ic.id, k.fp);', ''],
