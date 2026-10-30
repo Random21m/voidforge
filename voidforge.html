@@ -333,6 +333,7 @@
   .guide-btn, .size-btn { position: static; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 11px; border-radius: 20px; font-size: 13px; cursor: pointer; letter-spacing: .6px; white-space: nowrap; }
   .guide-btn.on { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
   body.big { zoom: 1.25; }
+  @media (min-width: 900px) { body { zoom: 1.18; } body.big { zoom: 1.45; } }
   .term { border-bottom: 1px dotted var(--accent); cursor: help; }
   #tipBox { position: fixed; z-index: 50; display: none; max-width: min(300px, 86vw); background: var(--surface2); color: var(--text); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; font-size: 13px; line-height: 1.4; box-shadow: 0 6px 22px rgba(0,0,0,.45); pointer-events: none; }
   #guideNew { text-align: center; font-size: 13px; color: var(--muted); margin: 10px 0 0; }
@@ -349,7 +350,7 @@
   #guidePanel .gnav { display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-top: 8px; }
   #guideWhy { font-size: 13px; color: var(--muted); min-height: 16px; }
   body.guided .gh { display: none !important; }
-  @media print { body.big { zoom: 1; } .guide-btn, .size-btn, #guidePanel, #guideNew, #tipBox { display: none !important; } }
+  @media print { body, body.big { zoom: 1 !important; } .guide-btn, .size-btn, #guidePanel, #guideNew, #tipBox { display: none !important; } }
 
   .logo { display: inline-flex; align-items: flex-end; justify-content: center; gap: 6px; cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; padding: 8px 10px 14px; perspective: 560px; }
   .logo .die { position: relative; display: block; width: 58px; height: 58px; animation: dieFloat 6s ease-in-out calc(var(--dl, 0s) + 2.6s) infinite; }
@@ -2979,9 +2980,9 @@ try { if(localStorage.getItem("voidforge-big") === "1") toggleSize(); } catch(e)
   const tip = document.getElementById("tipBox");
   function show(el){
     tip.textContent = el.getAttribute("data-tip") || ""; tip.style.display = "block";
-    const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
-    let x = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
-    let y = r.top - h - 8; if(y < 8) y = r.bottom + 8;
+    const z = parseFloat(getComputedStyle(document.body).zoom) || 1, r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+    let x = Math.max(8, Math.min(r.left / z, window.innerWidth / z - w - 8));
+    let y = r.top / z - h - 8; if(y < 8) y = r.bottom / z + 8;
     tip.style.left = x + "px"; tip.style.top = y + "px";
   }
   function hide(){ tip.style.display = "none"; }
