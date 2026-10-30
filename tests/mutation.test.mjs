@@ -528,8 +528,9 @@ async function probe(w) {
       if ([...w.document.querySelectorAll('#msAddrs li')].map((l) => l.textContent).join() !== want.join()) fails.push('multisig: first three addresses'); }
     if ($('msOneDev').style.display !== 'none' || $('msBanner').style.display !== 'none' || $('msDone').style.display === 'none') fails.push('multisig: finished state (banner gone, mixed sources hide the one-device warning)');
     w.msShowQr(); if ($('msQrBox').style.display !== '' || !/81 x 81/.test($('msQrCaption').textContent)) fails.push('multisig: QR');
+    { const tmp = w.document.createElement('div'); tmp.innerHTML = w.qrSvg(w.qrMatrix($('msDescR').textContent).rows); if (tmp.innerHTML !== $('msQrImg').innerHTML) fails.push('multisig: QR encodes the receive descriptor'); }
     w.msHideQr(); if ($('msQrBox').style.display !== 'none' || $('msQrImg').textContent !== '') fails.push('multisig: hide QR');
-    { let pr = 0; w.print = () => { pr++; }; w.msPrint(); const pq = w.document.getElementById('printQr').textContent; if (pr !== 1 || !/NO seed words/.test(pq) || !pq.includes($('msDescR').textContent) || !/2-of-3 multisig/.test(pq) || /abandon|legal winner|\bzoo\b/.test(pq)) fails.push('multisig: recovery sheet'); }
+    { let pr = 0; w.print = () => { pr++; }; w.msPrint(); const pq = w.document.getElementById('printQr').textContent; if (pr !== 1 || !/NO seed words/.test(pq) || !pq.includes($('msDescR').textContent) || !/2-of-3 multisig/.test(pq) || !pq.includes(w.document.querySelector('#msAddrs li').textContent) || !pq.includes(w.document.querySelectorAll('#msAddrs li')[2].textContent) || /abandon|legal winner|\bzoo\b/.test(pq)) fails.push('multisig: recovery sheet'); }
     // refused key check pieces of the library
     for (const [m, n, label] of [[0, 3, 'M of 0'], [4, 3, 'M above N'], [1, 1, 'one key'], [2, 16, 'sixteen keys']]) {
       const cs = []; const key = await w.parseExtendedKey(k3x); for (let i = 0; i < n; i++) cs.push({ fp: fp3, path: '48h/0h/0h/2h', key });
@@ -546,7 +547,7 @@ async function probe(w) {
       if (!w.eval('ms.done') || [...w.document.querySelectorAll('#msAddrs li')].map((l) => l.textContent).join() !== want.join()) fails.push('multisig: nested testnet addresses');
       if (!/\/48h\/1h\/1h\/1h\]/.test($('msDescR').textContent)) fails.push('multisig: made keys carry the right origin path');
       if (!/^sh\(wsh\(sortedmulti\(2,/.test($('msDescR').textContent) || !/\)\)\)#/.test($('msDescR').textContent) || !/tpub/.test($('msDescR').textContent) || $('msOneDev').style.display !== '') fails.push('multisig: nested testnet descriptor and one-device warning');
-      let pr = 0; w.print = () => { pr++; }; w.msPrint(); if (!/TESTNET/.test(w.document.getElementById('printQr').textContent)) fails.push('multisig: testnet sheet says so'); }
+      let pr = 0; w.print = () => { pr++; }; w.msPrint(); const pqt = w.document.getElementById('printQr'); if (!/TESTNET/.test(pqt.firstChild.textContent)) fails.push('multisig: testnet sheet title says so'); if (!/practice coins only/.test(pqt.textContent)) fails.push('multisig: testnet sheet text says so'); }
     w.msCancel(); if (w.eval('ms') !== null) fails.push('multisig: START OVER resets');
     w.clearAll(); await slp(20);
   } catch (e) { fails.push('multisig: the probe crashed: ' + e.message); }
