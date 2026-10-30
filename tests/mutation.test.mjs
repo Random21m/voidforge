@@ -538,7 +538,7 @@ async function probe(w) {
     }
     { const key = await w.parseExtendedKey(k3x); let threw = false; try { await w.ckdPub(key.pub, key.chain, 0x80000000); } catch { threw = true; } if (!threw) fails.push('multisig: hardened public derivation refused');
       threw = false; try { await w.ckdPub(key.pub, key.chain, -1); } catch { threw = true; } if (!threw) fails.push('multisig: negative index refused'); }
-    w.clearAll(); await slp(20); if (w.eval('ms') !== null || $('msDescR').textContent !== '' || $('msRun').style.display !== 'none') fails.push('multisig: CLEAR ALL forgets the setup');
+    w.clearAll(); await slp(20); if (w.eval('ms') !== null || $('msDescR').textContent !== '' || $('msRun').style.display !== 'none' || $('msQrImg').innerHTML !== '' || $('msQrBox').style.display !== 'none' || $('msAddrs').textContent !== '') fails.push('multisig: CLEAR ALL forgets the setup');
     // 2-of-2 nested, testnet, all made here
     $('msN').value = '2'; w.msUpdateM(); $('msNet').value = 'test'; $('msType').value = 'ms-sh-wsh'; $('msAcct').value = '1'; w.msStart(); if (w.eval('ms.account') !== 1) fails.push('multisig: account number is used');
     if ($('msTestBan').style.display !== '' || !/TESTNET/.test($('msBanTitle').textContent)) fails.push('multisig: testnet banner');
