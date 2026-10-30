@@ -725,6 +725,7 @@
         <select id="wNet" aria-label="Network" style="width:104px; flex:none;"><option value="main">Mainnet</option><option value="test">Testnet</option></select>
         <input type="text" id="wAcct" value="0" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="Account number" title="Account number" style="width:64px; flex:none;">
       </div>
+      <div class="ms-test" id="wTestBan" style="display:none">TESTNET: PRACTICE COINS ONLY. These keys and addresses are not for real money.</div>
       <div class="hint" id="wErr" style="margin:0; color:var(--danger);"></div>
       <div class="hint" style="margin:0 0 6px;">Pick the address type your wallet app uses and the account number (almost always 0). The default is native SegWit, account 0.</div>
       <div class="wlabel" id="wKeyLabel">Extended public key (zpub): Electrum, Blue Wallet, Sparrow</div>
@@ -752,6 +753,16 @@
         <div id="qrImg" style="width:min(100%,340px); margin:8px auto; background:#fff; line-height:0;"></div>
         <button class="secondary small" onclick="hideQr()">HIDE QR</button>
       </div>
+      <details id="coreBox" class="ms-sub" style="margin-top:12px;">
+        <summary style="cursor:pointer; font-weight:600;">Import into Bitcoin Core (advanced)</summary>
+        <p class="hint" style="margin:8px 0;">Bitcoin Core can watch this wallet without holding any private key. These two commands first make an empty watch-only wallet, then load the descriptors into it. Core then shows the balance and addresses but can never spend. Run them in Core&rsquo;s console or with <code>bitcoin-cli</code>.</p>
+        <label for="coreWhen" style="font-weight:600; font-size:13.5px;">Has this wallet been used before?</label>
+        <select id="coreWhen" aria-label="Has this wallet been used before" style="width:100%; margin:4px 0 6px;"><option value="now">No, it is brand new (no scan needed)</option><option value="0">Yes, it already has history (scan the whole chain, slow)</option></select>
+        <div class="hint" style="margin:0 0 4px;">The &ldquo;birthday&rdquo; tells Core where to start looking. New wallet: from now. Used wallet: from the beginning, which can take hours but never misses a payment.</div>
+        <div class="wval" id="coreCmd" style="white-space:pre-wrap;"></div>
+        <button class="secondary small" onclick="copyWatch(this,'coreCmd')">COPY COMMANDS</button>
+        <div class="hint" style="margin:8px 0 0;">This is a template. Check it against your version with <code>bitcoin-cli help importdescriptors</code>. The first line makes the wallet called <code>voidforge-watch</code>; change the name if you like. Afterwards compare Core&rsquo;s first receiving address with the one shown above. Core must be on a computer you trust: a watch-only wallet reveals your balance to anyone who can read that computer.</div>
+      </details>
       <p class="hint" style="margin:8px 0 0;">In your wallet app choose &ldquo;watch-only&rdquo;, &ldquo;import xpub/zpub&rdquo; or &ldquo;import descriptor&rdquo; and paste. Then check that its first receiving address equals the First receive address shown above. See RECOVERY.md for steps per app.</p>
     </details>
     <div id="printOnly"></div>
@@ -2294,7 +2305,7 @@ async function refreshWatch(){
   if(!/^[0-9]{1,10}$/.test(raw) || parseInt(raw, 10) > 2147483647){
     err.textContent = "The account must be a whole number from 0 to 2147483647.";
     for(const id of ids) document.getElementById(id).textContent = "";
-    hideQr(); return;
+    updateCore(); hideQr(); return;
   }
   err.textContent = "";
   const net = document.getElementById("wNet").value, M = MULTISIG[type], T = M || SCRIPT_TYPES[type], acct = parseInt(raw, 10), coin = NETS[net].coin;
@@ -2310,14 +2321,31 @@ async function refreshWatch(){
   document.getElementById("wDescR").textContent = w.receive;
   document.getElementById("wDescC").textContent = w.change;
   document.getElementById("wFirst").textContent = w.first;
+  document.getElementById("wTestBan").style.display = net === "test" ? "" : "none";
+  updateCore();
   hideQr();
 }
+// Bitcoin Core import commands (createwallet + importdescriptors) for a descriptor pair. "when" is "now" (new wallet) or 0 (scan everything).
+function coreImportText(recv, change, when){
+  const ts = when === "0" ? 0 : "now";
+  const one = (desc, internal) => ({desc, timestamp: ts, active: true, internal, range: [0, 999], next_index: 0});
+  const req = [one(recv, false), one(change, true)];
+  return 'bitcoin-cli createwallet "voidforge-watch" true true "" false true\n' + "bitcoin-cli -rpcwallet=voidforge-watch importdescriptors '" + JSON.stringify(req) + "'";
+}
+function updateCore(){
+  const r = document.getElementById("wDescR").textContent, c = document.getElementById("wDescC").textContent, box = document.getElementById("coreBox");
+  const full = !!(r && c) && document.getElementById("wDescGroupC").style.display !== "none"; // a multisig cosigner key is not a whole wallet
+  box.style.display = full ? "" : "none";
+  document.getElementById("coreCmd").textContent = full ? coreImportText(r, c, document.getElementById("coreWhen").value) : "";
+}
+document.getElementById("coreWhen").addEventListener("change", updateCore);
 function clearWatch(){
   clearAddrs();
   hideQr();
   watchCtx = null; watchSeq++;
   document.getElementById("wErr").textContent = "";
   for(const id of ["wZpub","wDescR","wDescC","wFirst"]) document.getElementById(id).textContent = "";
+  document.getElementById("wTestBan").style.display = "none"; updateCore();
   const b = document.getElementById("watchBox"); b.style.display = "none"; b.open = false;
 }
 function copyWatch(btn, id){

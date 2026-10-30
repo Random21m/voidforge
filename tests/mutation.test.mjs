@@ -85,6 +85,17 @@ async function probe(w) {
     if (!dc.startsWith(`wpkh([${wo.fp}/84h/0h/0h]${wo.xpub}/1/*)#`)) fails.push('watch-only change descriptor');
     if (dr.split('#')[1] === dc.split('#')[1]) fails.push('descriptor checksums differ per branch');
     if ($('watchBox').style.display !== '') fails.push('watch-only box shown after FORGE'); }
+    { const dr = $('wDescR').textContent, dc = $('wDescC').textContent; // Bitcoin Core guide: built here from the page's own descriptors, with Core's documented importdescriptors fields
+      const exp = (ts) => 'bitcoin-cli createwallet "voidforge-watch" true true "" false true\nbitcoin-cli -rpcwallet=voidforge-watch importdescriptors \'' + JSON.stringify([{ desc: dr, timestamp: ts, active: true, internal: false, range: [0, 999], next_index: 0 }, { desc: dc, timestamp: ts, active: true, internal: true, range: [0, 999], next_index: 0 }]) + '\'';
+      if ($('coreBox').style.display !== '' || $('coreCmd').textContent !== exp('now')) fails.push('core guide: new wallet commands');
+      $('coreWhen').value = '0'; w.updateCore(); if ($('coreCmd').textContent !== exp(0)) fails.push('core guide: used wallet scans from the start');
+      $('coreWhen').value = 'now'; w.updateCore();
+      if ($('wTestBan').style.display !== 'none') fails.push('testnet banner hidden on mainnet');
+      $('wNet').value = 'test'; await w.refreshWatch(); if ($('wTestBan').style.display !== '' || !/TESTNET/.test($('wTestBan').textContent)) fails.push('testnet banner shown on testnet');
+      $('wType').value = 'ms-wsh'; await w.refreshWatch(); if ($('coreBox').style.display !== 'none' || $('coreCmd').textContent !== '') fails.push('core guide hidden for a cosigner key');
+      $('wType').value = 'wpkh'; $('wNet').value = 'main'; await w.refreshWatch(); if ($('wTestBan').style.display !== 'none' || $('coreCmd').textContent !== exp('now')) fails.push('core guide and banner restored on mainnet');
+      w.clearAll(); await new Promise((r2) => setTimeout(r2, 20)); if ($('coreCmd').textContent !== '' || $('coreBox').style.display !== 'none' || $('wTestBan').style.display !== 'none') fails.push('core guide cleared with the seed');
+      await run('dice', 12, D50); }
   { const ABOUT = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'; const seedB = mnemonicToSeedSync(ABOUT, ''); const VER = { wpkh: 0x04b24746, 'sh-wpkh': 0x049d7cb2, pkh: 0x0488b21e, tr: 0x0488b21e }, PUR = { wpkh: 84, 'sh-wpkh': 49, pkh: 44, tr: 86 };
     for (const [type, acct] of [['wpkh', 0], ['sh-wpkh', 0], ['pkh', 0], ['tr', 0], ['sh-wpkh', 3], ['pkh', 7], ['tr', 2147483647]]) {
       const wo = await w.watchOnlyFromSeed(seedB, type, acct), pu = PUR[type], hk = HDKey.fromMasterSeed(seedB, { private: 0, public: VER[type] }), hx = HDKey.fromMasterSeed(seedB);
@@ -1278,6 +1289,23 @@ const M = [
   ['multisig: sheet QR size switch (layout only)', 'q.version > 15, msSheetText()', 'q.version > 14, msSheetText()', true],
   ['multisig: CLEAR ALL keeps the setup', 'msReset(); wipeSeed();\n}', 'wipeSeed();\n}'],
   ['multisig: reset leaves the descriptor on screen', 'for(const id of ["msDescR","msDescC","msAddrs","msSlots","msRunErr","msBanErr","msErr"])', 'for(const id of ["msDescC","msAddrs","msSlots","msRunErr","msBanErr","msErr"])'],
+  ['core guide: new wallet is not watch-only', 'createwallet "voidforge-watch" true true "" false true', 'createwallet "voidforge-watch" false true "" false true'],
+  ['core guide: wallet is not descriptor type', 'true true "" false true', 'true true "" false false'],
+  ['core guide: receive marked internal', 'one(recv, false), one(change, true)', 'one(recv, true), one(change, true)'],
+  ['core guide: change not marked internal', 'one(recv, false), one(change, true)', 'one(recv, false), one(change, false)'],
+  ['core guide: descriptors in the wrong order', 'const req = [one(recv, false), one(change, true)];', 'const req = [one(change, true), one(recv, false)];'],
+  ['core guide: used wallet does not rescan', 'const ts = when === "0" ? 0 : "now";', 'const ts = "now";'],
+  ['core guide: new wallet scans everything', 'const ts = when === "0" ? 0 : "now";', 'const ts = 0;'],
+  ['core guide: range too small', 'range: [0, 999]', 'range: [0, 99]'],
+  ['core guide: not active', 'active: true, internal', 'active: false, internal'],
+  ['core guide: wrong rpc wallet name', 'importdescriptors \'" + JSON', 'importdescriptors \\\'" + JSON'],
+  ['core guide: shown for multisig cosigner key', '&& document.getElementById("wDescGroupC").style.display !== "none"; // a multisig', '; // a multisig'],
+  ['core guide: not refreshed on key change', 'document.getElementById("wTestBan").style.display = net === "test" ? "" : "none";\n  updateCore();', 'document.getElementById("wTestBan").style.display = net === "test" ? "" : "none";'],
+  ['core guide: birthday change ignored', 'document.getElementById("coreWhen").addEventListener("change", updateCore);', ''],
+  ['core guide: left after clearing', 'document.getElementById("wTestBan").style.display = "none"; updateCore();\n  const b', 'const b'],
+  ['testnet banner never shown', 'style.display = net === "test" ? "" : "none";', 'style.display = "none";'],
+  ['testnet banner always shown', 'style.display = net === "test" ? "" : "none";', 'style.display = "";'],
+  ['testnet banner left after clearing', 'document.getElementById("wTestBan").style.display = "none"; updateCore();', 'updateCore();'],
   ['page open: scrolls down to the rolls box', 'getElementById("rolls").focus({preventScroll: true});', 'getElementById("rolls").focus();'],
   ['multisig: reset leaves the QR on screen', 'ms = null; msHideQr();', 'ms = null;'],
   ['multisig: saved key shows no picture', 'if(k) showFpIcon(ic.id, k.fp);', ''],
