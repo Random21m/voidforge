@@ -753,6 +753,16 @@
         <div id="qrImg" style="width:min(100%,340px); margin:8px auto; background:#fff; line-height:0;"></div>
         <button class="secondary small" onclick="hideQr()">HIDE QR</button>
       </div>
+      <details id="spBox" class="ms-sub" style="margin-top:12px;">
+        <summary style="cursor:pointer; font-weight:600;">Silent Payment address (advanced, new)</summary>
+        <p class="hint" style="margin:8px 0;">A <span class="term" tabindex="0" data-tip="A newer kind of Bitcoin address (BIP-352). You publish one address and reuse it; each sender secretly derives a fresh, different address from it, so people cannot link your payments by looking at the blockchain.">Silent Payment</span> address is one address you can give out again and again. Each sender makes a fresh hidden address from it, so nobody can link your payments together by address reuse.</p>
+        <div class="ms-test" style="background:var(--warn-text);">LIMITED WALLET SUPPORT. Few wallets can send to or receive at these addresses yet. Test with a small amount first.</div>
+        <div class="wlabel" id="spLabel">Silent Payment address</div>
+        <div class="wval" id="spAddr"></div>
+        <button class="secondary small" onclick="copyWatch(this,'spAddr')">COPY ADDRESS</button>
+        <button class="secondary small" onclick="showQr('spAddr','Silent Payment address')">SHOW QR</button>
+        <div class="hint" style="margin:8px 0 0;">Made from your seed at <code>m/352&rsquo;/coin&rsquo;/account&rsquo;</code> (BIP-352), so it follows the Network and Account choices above. It contains only public keys. To receive you need a wallet that supports Silent Payments and scans the blockchain for you, together with this same seed, so keep your seed backup safe. Your normal addresses and descriptors are not affected.</div>
+      </details>
       <details id="coreBox" class="ms-sub" style="margin-top:12px;">
         <summary style="cursor:pointer; font-weight:600;">Import into Bitcoin Core (advanced)</summary>
         <p class="hint" style="margin:8px 0;">Bitcoin Core can watch this wallet without holding any private key. These two commands first make an empty watch-only wallet, then load the descriptors into it. Core then shows the balance and addresses but can never spend. Run them in Core&rsquo;s console or with <code>bitcoin-cli</code>.</p>
@@ -1564,6 +1574,31 @@ async function multisigDescriptor(type, m, cosigners, branch){
   const inner="sortedmulti(" + m + "," + keys.join(",") + ")";
   return descriptorChecksum(type==="ms-sh-wsh" ? "sh(wsh(" + inner + "))" : "wsh(" + inner + ")");
 }
+// ---- Silent Payments (BIP352) ----
+// A Silent Payment address is "sp" (testnet "tsp") plus bech32m text of: version 0, the scan public key (33 bytes) and the spend public key (33 bytes).
+// Its length (about 116 characters) is allowed to exceed the usual bech32 limit of 90.
+function bech32mText(hrp, data){
+  const G=[0x3b6a57b2,0x26508e6d,0x1ea119fa,0x3d4233dd,0x2a1462b3];
+  const poly=(v)=>{ let c=1; for(const x of v){ const b=c>>>25; c=((c&0x1ffffff)<<5)^x; for(let i=0;i<5;i++) if((b>>i)&1) c^=G[i]; } return c; };
+  const hb=Array.from(hrp).map(ch=>ch.charCodeAt(0));
+  const mod=poly(hb.map(c=>c>>5).concat([0],hb.map(c=>c&31),data,[0,0,0,0,0,0]))^0x2bc830a3;
+  const out=data.slice(); for(let i=0;i<6;i++) out.push((mod>>(5*(5-i)))&31);
+  return hrp+"1"+out.map(d=>B32[d]).join("");
+}
+function spEncode(scanPub, spendPub, net){
+  const data=[0]; let acc=0, bits=0;
+  for(const byte of [...scanPub, ...spendPub]){ acc=(acc<<8)|byte; bits+=8; while(bits>=5){ bits-=5; data.push((acc>>bits)&31); } acc&=(1<<bits)-1; }
+  if(bits>0) data.push((acc<<(5-bits))&31);
+  return bech32mText(net==="test" ? "tsp" : "sp", data);
+}
+// Keys come from m/352'/coin'/account'/1'/0 (scan) and m/352'/coin'/account'/0'/0 (spend).
+async function spAddressFromSeed(seed, net, account){
+  let [k,c]=await masterFromSeed(seed);
+  for(const [i,h] of [[352,true],[NETS[net].coin,true],[account,true]]) [k,c]=await ckdPriv(k,c,i,h);
+  const keyAt=async(branch)=>{ const [bk,bc]=await ckdPriv(k,c,branch,true); const [lk]=await ckdPriv(bk,bc,0,false); return lk; };
+  const scan=await keyAt(1), spend=await keyAt(0);
+  return spEncode(pubkeyBytes(scan), pubkeyBytes(spend), net);
+}
 async function mnemonicWatchOnly(mnemonic, passphrase){ return watchOnlyFromSeed(await mnemonicToSeed(mnemonic, passphrase)); }
 // QR code encoder: byte mode with error correction level M (versions 1-30) for watch-only keys, and, for SeedQR, numeric or byte mode with level L (versions 1-3).
 const QR_M={1:[10,[[1,16]]],2:[16,[[1,28]]],3:[26,[[1,44]]],4:[18,[[2,32]]],5:[24,[[2,43]]],6:[16,[[4,27]]],7:[18,[[4,31]]],8:[22,[[2,38],[2,39]]],9:[22,[[3,36],[2,37]]],10:[26,[[4,43],[1,44]]],11:[30,[[1,50],[4,51]]],12:[22,[[6,36],[2,37]]],13:[22,[[8,37],[1,38]]],14:[24,[[4,40],[5,41]]],15:[24,[[5,41],[5,42]]],16:[28,[[7,45],[3,46]]],17:[28,[[10,46],[1,47]]],18:[26,[[9,43],[4,44]]],19:[26,[[3,44],[11,45]]],20:[26,[[3,41],[13,42]]],21:[26,[[17,42]]],22:[28,[[17,46]]],23:[28,[[4,47],[14,48]]],24:[28,[[6,45],[14,46]]],25:[28,[[8,47],[13,48]]],26:[28,[[19,46],[4,47]]],27:[28,[[22,45],[3,46]]],28:[28,[[3,45],[23,46]]],29:[28,[[21,45],[7,46]]],30:[28,[[19,47],[10,48]]]};
@@ -2304,7 +2339,7 @@ async function refreshWatch(){
   const ids = ["wZpub","wDescR","wDescC","wFirst"];
   if(!/^[0-9]{1,10}$/.test(raw) || parseInt(raw, 10) > 2147483647){
     err.textContent = "The account must be a whole number from 0 to 2147483647.";
-    for(const id of ids) document.getElementById(id).textContent = "";
+    for(const id of ids.concat(["spAddr"])) document.getElementById(id).textContent = "";
     updateCore(); hideQr(); return;
   }
   err.textContent = "";
@@ -2321,6 +2356,10 @@ async function refreshWatch(){
   document.getElementById("wDescR").textContent = w.receive;
   document.getElementById("wDescC").textContent = w.change;
   document.getElementById("wFirst").textContent = w.first;
+  const spA = await spAddressFromSeed(await mnemonicToSeed(watchCtx.mnemonic, watchCtx.pass), net, acct);
+  if(mine !== watchSeq || !watchCtx) return;
+  document.getElementById("spAddr").textContent = spA;
+  document.getElementById("spBox").style.display = M ? "none" : "";
   document.getElementById("wTestBan").style.display = net === "test" ? "" : "none";
   updateCore();
   hideQr();
@@ -2344,7 +2383,7 @@ function clearWatch(){
   hideQr();
   watchCtx = null; watchSeq++;
   document.getElementById("wErr").textContent = "";
-  for(const id of ["wZpub","wDescR","wDescC","wFirst"]) document.getElementById(id).textContent = "";
+  for(const id of ["wZpub","wDescR","wDescC","wFirst","spAddr"]) document.getElementById(id).textContent = "";
   document.getElementById("wTestBan").style.display = "none"; updateCore();
   const b = document.getElementById("watchBox"); b.style.display = "none"; b.open = false;
 }

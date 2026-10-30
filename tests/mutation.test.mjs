@@ -85,6 +85,13 @@ async function probe(w) {
     if (!dc.startsWith(`wpkh([${wo.fp}/84h/0h/0h]${wo.xpub}/1/*)#`)) fails.push('watch-only change descriptor');
     if (dr.split('#')[1] === dc.split('#')[1]) fails.push('descriptor checksums differ per branch');
     if ($('watchBox').style.display !== '') fails.push('watch-only box shown after FORGE'); }
+    { const sd0 = mnemonicToSeedSync(expect.d50, ''), root0 = HDKey.fromMasterSeed(sd0), spExp = (coin, hrp) => bech32m.encode(hrp, [0, ...bech32m.toWords(new Uint8Array([...root0.derive(`m/352'/${coin}'/0'/1'/0`).publicKey, ...root0.derive(`m/352'/${coin}'/0'/0'/0`).publicKey]))], 1023);
+      if ($('spAddr').textContent !== spExp(0, 'sp') || $('spBox').style.display !== '') fails.push('silent payments: mainnet address');
+      $('wNet').value = 'test'; await w.refreshWatch(); if ($('spAddr').textContent !== spExp(1, 'tsp')) fails.push('silent payments: testnet address');
+      $('wAcct').value = '5'; await w.refreshWatch(); { const r5 = HDKey.fromMasterSeed(sd0); const e5 = bech32m.encode('tsp', [0, ...bech32m.toWords(new Uint8Array([...r5.derive("m/352'/1'/5'/1'/0").publicKey, ...r5.derive("m/352'/1'/5'/0'/0").publicKey]))], 1023); if ($('spAddr').textContent !== e5) fails.push('silent payments: account number used'); }
+      $('wAcct').value = '0'; $('wNet').value = 'main'; await w.refreshWatch();
+      $('wType').value = 'ms-wsh'; await w.refreshWatch(); if ($('spBox').style.display !== 'none') fails.push('silent payments: hidden for a cosigner key');
+      $('wType').value = 'wpkh'; await w.refreshWatch(); }
     { const dr = $('wDescR').textContent, dc = $('wDescC').textContent; // Bitcoin Core guide: built here from the page's own descriptors, with Core's documented importdescriptors fields
       const exp = (ts) => 'bitcoin-cli createwallet "voidforge-watch" true true "" false true\nbitcoin-cli -rpcwallet=voidforge-watch importdescriptors \'' + JSON.stringify([{ desc: dr, timestamp: ts, active: true, internal: false, range: [0, 999], next_index: 0 }, { desc: dc, timestamp: ts, active: true, internal: true, range: [0, 999], next_index: 0 }]) + '\'';
       if ($('coreBox').style.display !== '' || $('coreCmd').textContent !== exp('now')) fails.push('core guide: new wallet commands');
@@ -95,7 +102,8 @@ async function probe(w) {
       $('wType').value = 'ms-wsh'; await w.refreshWatch(); if ($('coreBox').style.display !== 'none' || $('coreCmd').textContent !== '') fails.push('core guide hidden for a cosigner key');
       $('wType').value = 'wpkh'; $('wNet').value = 'main'; await w.refreshWatch(); if ($('wTestBan').style.display !== 'none' || $('coreCmd').textContent !== exp('now')) fails.push('core guide and banner restored on mainnet');
       $('wNet').value = 'test'; await w.refreshWatch();
-      w.clearAll(); await new Promise((r2) => setTimeout(r2, 20)); if ($('coreCmd').textContent !== '' || $('coreBox').style.display !== 'none' || $('wTestBan').style.display !== 'none') fails.push('core guide cleared with the seed');
+      w.clearAll(); await new Promise((r2) => setTimeout(r2, 20)); if ($('spAddr').textContent !== '') fails.push('silent payments: cleared with the seed');
+      if ($('coreCmd').textContent !== '' || $('coreBox').style.display !== 'none' || $('wTestBan').style.display !== 'none') fails.push('core guide cleared with the seed');
       await run('dice', 12, D50); }
   { const ABOUT = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'; const seedB = mnemonicToSeedSync(ABOUT, ''); const VER = { wpkh: 0x04b24746, 'sh-wpkh': 0x049d7cb2, pkh: 0x0488b21e, tr: 0x0488b21e }, PUR = { wpkh: 84, 'sh-wpkh': 49, pkh: 44, tr: 86 };
     for (const [type, acct] of [['wpkh', 0], ['sh-wpkh', 0], ['pkh', 0], ['tr', 0], ['sh-wpkh', 3], ['pkh', 7], ['tr', 2147483647]]) {
@@ -1311,6 +1319,21 @@ const M = [
   ['testnet banner left after clearing', 'document.getElementById("wTestBan").style.display = "none"; updateCore();', 'updateCore();'],
   ['multisig: card not moved above the seed maker', 'gen.parentNode.insertBefore(card, gen); }', '}'],
   ['multisig: card not put back after reset', '  msDock(false);\n}', '}'],
+  ['sp: mainnet prefix wrong', 'net==="test" ? "tsp" : "sp"', 'net==="test" ? "tsp" : "tsp"'],
+  ['sp: testnet prefix wrong', 'net==="test" ? "tsp" : "sp"', 'net==="test" ? "sp" : "sp"'],
+  ['sp: version byte changed', 'const data=[0]; let acc=0, bits=0;\n  for(const byte of [...scanPub', 'const data=[1]; let acc=0, bits=0;\n  for(const byte of [...scanPub'],
+  ['sp: scan and spend keys swapped in the address', '[...scanPub, ...spendPub]', '[...spendPub, ...scanPub]'],
+  ['sp: bech32 checksum instead of bech32m', 'data,[0,0,0,0,0,0]))^0x2bc830a3;\n  const out', 'data,[0,0,0,0,0,0]))^1;\n  const out'],
+  ['sp: last partial group of bits dropped', 'if(bits>0) data.push((acc<<(5-bits))&31);\n  return bech32mText', 'return bech32mText'],
+  ['sp: wrong BIP number in the path', '[[352,true],[NETS[net].coin,true]', '[[84,true],[NETS[net].coin,true]'],
+  ['sp: coin type ignored', '[[352,true],[NETS[net].coin,true]', '[[352,true],[0,true]'],
+  ['sp: account ignored', '[account,true]]) [k,c]=await ckdPriv(k,c,i,h);\n  const keyAt', '[0,true]]) [k,c]=await ckdPriv(k,c,i,h);\n  const keyAt'],
+  ['sp: scan and spend branches swapped', 'const scan=await keyAt(1), spend=await keyAt(0);', 'const scan=await keyAt(0), spend=await keyAt(1);'],
+  ['sp: branch not hardened', 'ckdPriv(k,c,branch,true)', 'ckdPriv(k,c,branch,false)'],
+  ['sp: key index hardened', 'ckdPriv(bk,bc,0,false)', 'ckdPriv(bk,bc,0,true)'],
+  ['sp: box shown for a multisig cosigner key', 'document.getElementById("spBox").style.display = M ? "none" : "";', 'document.getElementById("spBox").style.display = "";'],
+  ['sp: address left after clearing', '["wZpub","wDescR","wDescC","wFirst","spAddr"]', '["wZpub","wDescR","wDescC","wFirst"]'],
+  ['sp: not refreshed for account or network', 'document.getElementById("spAddr").textContent = spA;', 'document.getElementById("spAddr").textContent = document.getElementById("spAddr").textContent || spA;'],
   ['page open: scrolls down to the rolls box', 'getElementById("rolls").focus({preventScroll: true});', 'getElementById("rolls").focus();'],
   ['multisig: reset leaves the QR on screen', 'ms = null; msHideQr();', 'ms = null;'],
   ['multisig: saved key shows no picture', 'if(k) showFpIcon(ic.id, k.fp);', ''],

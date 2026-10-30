@@ -391,4 +391,25 @@ R.ok(bad === 0, `${n} last-word candidate lists (11 to 23 words) equal the indep
   R.ok(refused === bads.length, `parser refuses private keys, typos, junk (${refused}/${bads.length})`);
 }
 
+// 2l. Silent Payments (BIP352): the official test vectors (key material -> address), plus addresses from random seeds
+// made with @scure/bip32 (paths m/352'/coin'/account'/{1'|0'}/0) and @scure/base bech32m with the length limit lifted.
+{
+  const fx = JSON.parse(readFileSync(new URL('./fixtures/bip352.json', import.meta.url)));
+  let vbad = 0;
+  for (const v of fx.vectors) {
+    const addr = w.spEncode(w.pubkeyBytes(BigInt('0x' + v.scan)), w.pubkeyBytes(BigInt('0x' + v.spend)), 'main');
+    if (!v.addresses.includes(addr)) vbad++;
+  }
+  R.ok(vbad === 0 && fx.vectors.length >= 30, `silent payments: ${fx.vectors.length} official BIP-352 receivers give the expected address (${vbad} mismatches)`);
+  let sbad = 0, sn = 0;
+  for (const [net, coin, hrp] of [['main', 0, 'sp'], ['test', 1, 'tsp']]) for (let i = 0; i < 12; i++) {
+    const seed = nc.randomBytes(i % 2 ? 64 : 32), acct = i % 4, root = HDKey.fromMasterSeed(seed);
+    const scan = root.derive(`m/352'/${coin}'/${acct}'/1'/0`).publicKey, spend = root.derive(`m/352'/${coin}'/${acct}'/0'/0`).publicKey;
+    const exp = bech32m.encode(hrp, [0, ...bech32m.toWords(new Uint8Array([...scan, ...spend]))], 1023);
+    const got = await w.spAddressFromSeed(new Uint8Array(seed), net, acct); sn++;
+    if (got !== exp || !got.startsWith(hrp + '1q') || got.length !== (net === 'main' ? 116 : 117)) sbad++;
+  }
+  R.ok(sbad === 0, `silent payments: ${sn} random seeds, both networks and accounts match @scure/bip32 + bech32m (${sbad} mismatches)`);
+}
+
 R.done('oracle');
