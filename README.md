@@ -2,7 +2,7 @@
 
 # VOIDFORGE
 
-Offline dice- and coin-based BIP39 seed phrase generator (12 or 24 words). One HTML file, no dependencies, no network.
+An offline, educational tool that turns dice rolls or coin flips into a BIP39 seed phrase (12 or 24 words), then helps you back it up and set up a wallet, including multisig. One HTML file, no dependencies, no network.
 
 <p align="center"><a href="https://github.com/Random21m/voidforge/releases/latest"><b>&#11015; Download the latest release</b></a><br>
 Get <code>voidforge.html</code> and <code>SHA256SUMS</code> from the release page, check the hash, then copy the file to a USB stick for your offline computer. This is the only place to download it; there is no hosted web version, by design.</p>
