@@ -1295,7 +1295,13 @@ R.ok(base.by === null, "control: the unmodified file passes the self-test and ev
 
 const survivors = [];
 const ONLY = process.env.MUT_ONLY ? new RegExp(process.env.MUT_ONLY) : null; // optional: run only the mutations whose name matches
+// Optional sharding for CI: MUT_SHARD="i/n" runs only every n-th mutation starting at i, so n jobs together run them all.
+const SHARD = process.env.MUT_SHARD ? process.env.MUT_SHARD.split('/').map(Number) : null;
+if (SHARD && !(Number.isInteger(SHARD[0]) && Number.isInteger(SHARD[1]) && SHARD[1] > 0 && SHARD[0] >= 0 && SHARD[0] < SHARD[1])) { console.log('bad MUT_SHARD (use i/n, for example 0/4)'); process.exit(1); }
+let mutIndex = -1;
 for (const [name, find, rep, equivalent] of M) {
+  mutIndex++;
+  if (SHARD && mutIndex % SHARD[1] !== SHARD[0]) continue;
   if (ONLY && !ONLY.test(name)) continue;
   const count = html.split(find).length - 1;
   if (count !== 1) { R.ok(false, `mutation target must occur exactly once (${count}x): ${name}`); continue; }

@@ -5,7 +5,7 @@ VOIDFORGE must run offline. Do **not** enable GitHub Pages or any hosting for th
 
 ## For maintainers: cutting a release
 1. Edit `voidforge.html`; bump the version in the footer and the changelog card.
-2. `npm ci && npm test` must pass (unit tests, oracle tests against `@scure`, mutation tests).
+2. `npm ci && npm test` must pass (unit tests, oracle tests against `@scure`, mutation tests). CI runs the mutation tests in 4 parallel shards (`MUT_SHARD=i/4`) because GitHub stops any single job after 6 hours; all shards must pass.
 3. `sha256sum voidforge.html > SHA256SUMS` and write the file's content ID to `CID.txt` (CIDv1, raw, sha2-256: `python3 -c "import hashlib,base64; h=hashlib.sha256(open('voidforge.html','rb').read()).digest(); print('b'+base64.b32encode(bytes([1,0x55,0x12,0x20])+h).decode().lower().rstrip('='))" > CID.txt`), commit, push, and wait for the green check on the `test` workflow.
 4. On GitHub: Releases, Create a new release, create the tag (for example `v1.2.3`), and paste the SHA256 into the description. Publish.
 5. The `release` workflow then runs by itself: it re-runs the tests, checks `SHA256SUMS`, records a signed build-provenance attestation, and attaches `voidforge.html`, `SHA256SUMS` and `CID.txt` to the release (from v1.19.1; for older tags that have no `CID.txt` the workflow cannot be re-run). Check the Actions tab for a green run.
