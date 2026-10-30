@@ -2678,7 +2678,7 @@ async function msAddPasted(){
     if(o){ fp = o[1].toLowerCase(); path = o[2].replace(/^\//, "").replace(/['H]/g, "h"); t = o[3]; }
     t = t.replace(/\/(?:<0;1>|[01])\/\*$/, "");
     if(!/^[0-9a-f]{8}$/.test(fp)) throw new Error("The fingerprint is 8 characters (0-9, a-f). Paste the whole [fingerprint/path]key line, or type the fingerprint in the box.");
-    if(/^(\s*[a-z]+){12,}\s*$/i.test(t)) throw new Error("That looks like seed words. Never type seed words here: paste a PUBLIC key (Zpub/xpub) instead.");
+    if(/^\s*[a-z]+(\s+[a-z]+){11,}\s*$/i.test(t)) throw new Error("That looks like seed words. Never type seed words here: paste a PUBLIC key (Zpub/xpub) instead.");
     const key = await parseExtendedKey(t), want = msPathOf(), script = MULTISIG[ms.type].script;
     if(key.net !== ms.net) throw new Error("This key is for " + (key.net === "test" ? "Testnet" : "Mainnet") + ", but this wallet is on " + (ms.net === "test" ? "Testnet" : "Mainnet") + ".");
     if(key.type !== "other" && key.type !== ms.type) throw new Error("This key type does not fit this wallet. It looks like a " + (MULTISIG[key.type] ? "different multisig script type" : "single-signature (zpub/ypub/vpub) key") + ". A multisig wallet needs the cosigner key for " + msTypeName(ms.type) + ", path m/48'/" + NETS[ms.net].coin + "'/" + ms.account + "'/" + script + "'.");

@@ -541,9 +541,10 @@ async function probe(w) {
     // 2-of-2 nested, testnet, all made here
     $('msN').value = '2'; w.msUpdateM(); $('msNet').value = 'test'; $('msType').value = 'ms-sh-wsh'; $('msAcct').value = '1'; w.msStart(); if (w.eval('ms.account') !== 1) fails.push('multisig: account number is used');
     if ($('msTestBan').style.display !== '' || !/TESTNET/.test($('msBanTitle').textContent)) fails.push('multisig: testnet banner');
-    for (const s of [sd[0], sd[1]]) { await mk(...s); await w.msAddMade(); }
-    { const ks = [mns[0], mns[1]].map((m) => accKey(m, "m/48'/1'/1'/1'")), want = [0, 1, 2].map((i) => btc.p2sh(btc.p2wsh(btc.p2ms(2, ks.map((k) => k.derive('m/0/' + i).publicKey).sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)))), btc.TEST_NETWORK), btc.TEST_NETWORK).address);
+    for (const [i, s] of [sd[0], sd[1]].entries()) { await mk(...s); if (i === 1) { $('passphrase').value = 'pw'; $('passphrase2').value = 'pw'; w.wdUpdate(); await w.wdGenerate(); for (let j = 0; j < 200 && !w.eval('watchCtx'); j++) await slp(25); } await w.msAddMade(); }
+    { const ks = [mns[0], mns[1]].map((m, i) => HDKey.fromMasterSeed(mnemonicToSeedSync(m, i === 1 ? 'pw' : '')).derive("m/48'/1'/1'/1'")), want = [0, 1, 2].map((i) => btc.p2sh(btc.p2wsh(btc.p2ms(2, ks.map((k) => k.derive('m/0/' + i).publicKey).sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)))), btc.TEST_NETWORK), btc.TEST_NETWORK).address);
       if (!w.eval('ms.done') || [...w.document.querySelectorAll('#msAddrs li')].map((l) => l.textContent).join() !== want.join()) fails.push('multisig: nested testnet addresses');
+      if (!/\/48h\/1h\/1h\/1h\]/.test($('msDescR').textContent)) fails.push('multisig: made keys carry the right origin path');
       if (!/^sh\(wsh\(sortedmulti\(2,/.test($('msDescR').textContent) || !/\)\)\)#/.test($('msDescR').textContent) || !/tpub/.test($('msDescR').textContent) || $('msOneDev').style.display !== '') fails.push('multisig: nested testnet descriptor and one-device warning');
       let pr = 0; w.print = () => { pr++; }; w.msPrint(); if (!/TESTNET/.test(w.document.getElementById('printQr').textContent)) fails.push('multisig: testnet sheet says so'); }
     w.msCancel(); if (w.eval('ms') !== null) fails.push('multisig: START OVER resets');
@@ -1242,8 +1243,8 @@ const M = [
   ['multisig: made key taken from the wrong account', 'mnemonicToSeed(watchCtx.mnemonic, watchCtx.pass), ms.type, ms.account, ms.net)', 'mnemonicToSeed(watchCtx.mnemonic, watchCtx.pass), ms.type, 0, ms.net)'],
   ['multisig: passphrase ignored for a made key', 'mnemonicToSeed(watchCtx.mnemonic, watchCtx.pass), ms.type', 'mnemonicToSeed(watchCtx.mnemonic, ""), ms.type'],
   ['multisig: made key origin path wrong', 'function msPathOf(){ return "48h/" + NETS[ms.net].coin + "h/"', 'function msPathOf(){ return "48h/0h/"'],
-  ['multisig: private key / seed words not refused', 'if(/^(\\s*[a-z]+){12,}\\s*$/i.test(t)) throw', 'if(false) throw'],
-  ['multisig: seed-word guard needs 13 words', '{12,}\\s*$/i.test(t)', '{13,}\\s*$/i.test(t)'],
+  ['multisig: private key / seed words not refused', 'if(/^\\s*[a-z]+(\\s+[a-z]+){11,}\\s*$/i.test(t)) throw', 'if(false) throw'],
+  ['multisig: seed-word guard needs 13 words', '{11,}\\s*$/i.test(t)', '{12,}\\s*$/i.test(t)'],
   ['multisig: fingerprint not checked', 'if(!/^[0-9a-f]{8}$/.test(fp)) throw', 'if(false) throw'],
   ['multisig: wrong network accepted', 'if(key.net !== ms.net) throw', 'if(false) throw'],
   ['multisig: single-signature key accepted', 'if(key.type !== "other" && key.type !== ms.type) throw', 'if(false) throw'],
