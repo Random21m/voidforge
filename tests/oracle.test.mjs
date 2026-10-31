@@ -359,7 +359,7 @@ R.ok(bad === 0, `${n} last-word candidate lists (11 to 23 words) equal the indep
 // plus a fixture whose descriptors and addresses were cross-checked with embit (tests/fixtures/gen_multisig.py)
 {
   let mbad = 0, mn2 = 0;
-  for (const [type, script] of [['ms-wsh', 2], ['ms-sh-wsh', 1]]) for (const [m, cnt] of [[2, 3], [3, 5], [1, 2], [2, 2], [7, 7]]) {
+  for (const [type, script] of [['ms-wsh', 2], ['ms-sh-wsh', 1]]) for (const [m, cnt] of [[2, 3], [3, 5], [1, 2], [2, 2], [7, 7], [8, 15], [15, 15]]) {
     const keys = [], cos = [];
     for (let i = 0; i < cnt; i++) {
       const root = HDKey.fromMasterSeed(mnemonicToSeedSync(entropyToMnemonic(nc.randomBytes(16), wordlist)));
@@ -375,7 +375,7 @@ R.ok(bad === 0, `${n} last-word candidate lists (11 to 23 words) equal the indep
       if (got !== o.address || rev !== o.address) { mbad++; console.log('MISMATCH multisig', type, m, cnt, branch, idx); }
     }
   }
-  R.ok(mbad === 0, `${mn2} multisig addresses (P2WSH and P2SH-P2WSH, 1-of-2 to 7-of-7) match @scure/btc-signer, in any cosigner order (${mbad} mismatches)`);
+  R.ok(mbad === 0, `${mn2} multisig addresses (P2WSH and P2SH-P2WSH, 1-of-2 to 15-of-15) match @scure/btc-signer, in any cosigner order (${mbad} mismatches)`);
   const fx = JSON.parse(readFileSync(new URL('./fixtures/multisig.json', import.meta.url)));
   let fbad = 0, fn = 0;
   for (const r of fx) {

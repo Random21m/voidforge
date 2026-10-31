@@ -384,6 +384,14 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     const seeds=[[A11,'0000000'],['legal winner thank year wave sausage worth useful legal winner thank','1111111'],['zoo '.repeat(11).trim(),'1111111']];
     ok($('msBanner').style.display==='none'&&$('msBox').open===false,'multisig: no banner until setup is started');
     $('msN').value='3'; tm.w.msUpdateM(); eq($('msM').value,'2','multisig: 3 keys default to 2-of-3');
+    $('msN').value='5'; tm.w.msUpdateM(); eq($('msMr').value,$('msM').value,'multisig slider: M handle follows M'); eq($('msNr').value,'5','multisig slider: N handle follows N');
+    $('msMr').value='5'; $('msMr').oninput(); eq($('msN').value,'5','multisig slider: M at the top keeps N'); $('msNr').value='9'; $('msNr').oninput(); eq($('msN').value,'9','multisig slider: dragging N sets N');
+    $('msMr').value='12'; $('msMr').oninput(); eq($('msN').value,'12','multisig slider: M cannot pass N, so N is pushed up');
+    $('msNr').value='4'; $('msNr').oninput(); eq($('msM').value,'3','multisig slider: shrinking N below M resets M to a majority'); eq($('msBig').firstChild.textContent,'3-of-4','multisig slider: big label shows M-of-N');
+    $('msN').value='99'; $('msN').onchange(); eq($('msN').value,'15','multisig: N is capped at 15');
+    tm.w.document.querySelector('.ms-preset[data-n="5"]').onclick(); eq($('msM').value+'/'+$('msN').value,'3/5','multisig: preset 3-of-5 fills both numbers');
+    $('msN').value='3'; tm.w.msUpdateM();
+    $('msN').value='20'; $('msM').value='2'; tm.w.msStart(); ok(tm.w.eval('ms')===null&&/from 2 to 15/.test($('msErr').textContent),'multisig: more than 15 keys is refused at start'); $('msN').value='3'; tm.w.msUpdateM();
     $('msM').value='1'; tm.w.msMNote(); ok(/not real multisig protection/.test($('msMNote').textContent),'multisig: 1-of-N is called out as weak');
     $('msM').value='3'; tm.w.msMNote(); ok(/lose even one/.test($('msMNote').textContent),'multisig: N-of-N warns that one lost key loses the money');
     $('msM').value='1'; tm.w.msStart(); ok(tm.w.eval('ms')===null&&/at least 2/.test($('msErr').textContent),'multisig: 1-of-N is refused at start');

@@ -60,6 +60,7 @@
   body.light textarea,
   body.light select,
   body.light input[type="text"],
+  body.light input[type="number"],
   body.light input[type="password"],
   body.light .result {
     background: #ffffff;
@@ -134,7 +135,7 @@
   }
   .radio-group input { display: none; }
   .radio-group input:checked + span { color: var(--accent); font-weight: 600; }
-  textarea, input[type="text"], input[type="password"], select {
+  textarea, input[type="text"], input[type="password"], input[type="number"], select {
     width: 100%;
     background: #0a0a10;
     border: 1px solid var(--border);
@@ -422,6 +423,29 @@
   #msBox summary small { display: block; font-weight: 400; font-size: 13.5px; color: var(--muted); }
   #msBox select, #msBox input[type=text] { min-width: 0; }
   .ms-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+  .ms-big { text-align: center; font-size: 34px; font-weight: 800; letter-spacing: .04em; margin: 6px 0 0; color: var(--text); }
+  .ms-big small { display: block; font-size: 13px; font-weight: 500; letter-spacing: 0; color: var(--muted); }
+  .ms-slider { position: relative; height: 34px; margin: 10px 11px 0; }
+  .ms-track, .ms-fill { position: absolute; top: 15px; height: 4px; border-radius: 2px; }
+  .ms-track { left: 0; right: 0; background: var(--border); }
+  .ms-fill { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .ms-slider input { position: absolute; left: -11px; width: calc(100% + 22px); top: 5px; margin: 0; height: 24px; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
+  .ms-slider input::-webkit-slider-runnable-track { background: none; }
+  .ms-slider input::-moz-range-track { background: none; }
+  .ms-slider input::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 22px; height: 22px; border-radius: 50%; cursor: grab; border: 2px solid var(--bg); }
+  .ms-slider input::-moz-range-thumb { pointer-events: auto; width: 18px; height: 18px; border-radius: 50%; cursor: grab; border: 2px solid var(--bg); }
+  #msMr::-webkit-slider-thumb { background: var(--accent); } #msMr::-moz-range-thumb { background: var(--accent); }
+  #msNr::-webkit-slider-thumb { background: var(--accent2); } #msNr::-moz-range-thumb { background: var(--accent2); }
+  .ms-slider input:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--text); outline-offset: 2px; }
+  .ms-slider input:focus-visible::-moz-range-thumb { outline: 2px solid var(--text); outline-offset: 2px; }
+  .ms-ticks { position: relative; height: 18px; margin: 2px 11px 0; color: var(--muted); font-size: 12px; }
+  .ms-ticks span { position: absolute; transform: translateX(-50%); }
+  .ms-legend { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); margin: 4px 0; }
+  .ms-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
+  .ms-pop { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin: 8px 0 2px; }
+  #msBox .ms-preset, body.light #msBox .ms-preset { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  #msBox .ms-preset:hover, #msBox .ms-preset:focus-visible { border-color: var(--accent); }
+  #msM, #msN { width: 90px; font-size: 17px; font-weight: 700; }
   .ms-row label { font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
   .ms-slot { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin: 6px 0; flex-wrap: wrap; }
   .ms-slot.cur { border-color: var(--accent); }
@@ -792,11 +816,20 @@
           <div class="ms-why-i"><b>What it costs.</b> More to back up, and setup takes longer. Every key is its own seed with its own paper backup, kept in a different place.</div>
           <div class="ms-why-i"><b>How this works.</b> You make one key at a time. After each, the seed is wiped from the page and only the public key is kept.</div>
         </div>
+        <div class="ms-big" id="msBig" aria-live="polite">2-of-3<small id="msBigSub">2 keys needed to spend, out of 3 total</small></div>
         <div class="ms-row">
-          <label>Keys needed to spend (M)<select id="msM" aria-label="Keys needed to spend"></select></label>
-          <label>Total keys (N)<select id="msN" aria-label="Total keys" onchange="msUpdateM()"><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></label>
+          <label>Keys needed to spend (M)<input id="msM" type="number" min="1" max="3" step="1" value="2" inputmode="numeric" aria-label="Keys needed to spend (M)"></label>
+          <label>Total keys (N)<input id="msN" type="number" min="2" max="15" step="1" value="3" inputmode="numeric" aria-label="Total keys (N)"></label>
         </div>
-        <div class="hint" id="msMNote" style="margin:0 0 6px;"></div>
+        <div class="ms-slider" id="msSlider">
+          <div class="ms-track"></div><div class="ms-fill" id="msFill"></div>
+          <input id="msMr" type="range" min="1" max="15" step="1" value="2" aria-label="Keys needed to spend (M)">
+          <input id="msNr" type="range" min="1" max="15" step="1" value="3" aria-label="Total keys (N)">
+        </div>
+        <div class="ms-ticks" id="msTicks" aria-hidden="true"></div>
+        <div class="ms-legend"><span><i style="background:var(--accent)"></i>keys needed to spend (M)</span><span><i style="background:var(--accent2)"></i>total keys (N)</span></div>
+        <div class="ms-pop">Popular: <button type="button" class="ms-preset" data-m="2" data-n="3">2-of-3 (most common)</button><button type="button" class="ms-preset" data-m="3" data-n="5">3-of-5 (more safety)</button><button type="button" class="ms-preset" data-m="2" data-n="2">2-of-2</button></div>
+        <div class="hint" id="msMNote" style="margin:8px 0 6px;"></div>
         <div class="ms-row">
           <label>Address type<select id="msType" aria-label="Multisig address type"><option value="ms-wsh">Native SegWit (bc1q...), recommended</option><option value="ms-sh-wsh">Nested SegWit (3...), older wallets</option></select></label>
           <label>Network<select id="msNet" aria-label="Network"><option value="main">Mainnet</option><option value="test">Testnet (practice)</option></select></label>
@@ -2703,23 +2736,50 @@ function wipeSeed(){
 // ---- Multisig wizard: collect M-of-N public keys one at a time, wiping each seed after its key is saved ----
 const msEl = (id) => document.getElementById(id);
 const msTypeName = (t) => t === "ms-sh-wsh" ? "Nested SegWit (3...)" : "Native SegWit (bc1q...)";
+const MS_MAX = 15;
+function msClamp(v, lo, hi){ v = parseInt(v, 10); return isNaN(v) ? lo : Math.min(hi, Math.max(lo, v)); }
+// N changed (typed, dragged or preset): keep M if it still fits, otherwise fall back to a majority.
 function msUpdateM(){
-  const sel = msEl("msM"), n = parseInt(msEl("msN").value, 10), old = parseInt(sel.value, 10);
-  sel.textContent = "";
-  for(let i = 1; i <= n; i++){ const o = document.createElement("option"); o.value = o.textContent = String(i); sel.appendChild(o); }
-  sel.value = String(old >= 1 && old <= n ? old : Math.max(2, Math.ceil((n + 1) / 2)));
-  sel.onchange = msMNote; msMNote();
+  const n = msClamp(msEl("msN").value, 2, MS_MAX), old = parseInt(msEl("msM").value, 10);
+  msEl("msN").value = String(n);
+  msEl("msM").value = String(old >= 1 && old <= n ? old : Math.max(2, Math.ceil((n + 1) / 2)));
+  msMNote();
 }
+// M changed: it can never be more than N, so asking for more keys needed pushes N up with it.
+function msFromM(v){
+  const m = msClamp(v, 1, MS_MAX);
+  if(m > parseInt(msEl("msN").value, 10)) msEl("msN").value = String(m);
+  msEl("msM").value = String(m);
+  msMNote();
+}
+function msPreset(m, n){ msEl("msN").value = String(n); msEl("msM").value = String(m); msMNote(); }
 function msMNote(){
-  const m = parseInt(msEl("msM").value, 10), n = parseInt(msEl("msN").value, 10);
+  const n = msClamp(msEl("msN").value, 2, MS_MAX), m = msClamp(msEl("msM").value, 1, n);
+  msEl("msM").max = String(n);
+  msEl("msM").value = String(m); msEl("msN").value = String(n);
+  msEl("msMr").value = String(m); msEl("msNr").value = String(n);
+  const pos = (v) => (v - 1) / (MS_MAX - 1) * 100;
+  msEl("msFill").style.left = pos(m) + "%"; msEl("msFill").style.width = (pos(n) - pos(m)) + "%";
+  msEl("msBig").firstChild.textContent = m + "-of-" + n;
+  msEl("msBigSub").textContent = m + (m === 1 ? " key needed" : " keys needed") + " to spend, out of " + n + " total";
   let t = "Any " + m + " of the " + n + " keys can spend. You can lose " + (n - m) + " key" + (n - m === 1 ? "" : "s") + " and still get your money; a thief needs " + m + ".";
   if(m === 1) t = "1-of-" + n + " means any single key can spend, so one stolen key loses everything. That is not real multisig protection. Pick 2 or more.";
   else if(m === n) t = "All " + n + " keys are needed to spend. If you lose even one, the money is gone for good. Most people choose fewer, such as 2-of-3.";
   msEl("msMNote").textContent = t;
 }
+function msInitSlider(){
+  const tk = msEl("msTicks");
+  for(let i = 1; i <= MS_MAX; i++){ const sp = document.createElement("span"); sp.textContent = String(i); sp.style.left = ((i - 1) / (MS_MAX - 1) * 100) + "%"; tk.appendChild(sp); }
+  msEl("msN").onchange = msUpdateM; msEl("msM").onchange = () => msFromM(msEl("msM").value);
+  msEl("msNr").oninput = () => { msEl("msN").value = msEl("msNr").value; msUpdateM(); };
+  msEl("msMr").oninput = () => msFromM(msEl("msMr").value);
+  document.querySelectorAll(".ms-preset").forEach(b => { b.onclick = () => msPreset(parseInt(b.dataset.m, 10), parseInt(b.dataset.n, 10)); });
+  msUpdateM();
+}
 function msStart(){
   const err = msEl("msErr"); err.textContent = "";
   const m = parseInt(msEl("msM").value, 10), n = parseInt(msEl("msN").value, 10), raw = msEl("msAcct").value.trim();
+  if(!(n >= 2 && n <= MS_MAX && m >= 1 && m <= n)){ err.textContent = "Total keys must be from 2 to " + MS_MAX + ", and keys needed cannot be more than total keys."; return; }
   if(m < 2){ err.textContent = "1-of-" + n + " gives no multisig protection (any one key can spend). Choose at least 2 keys needed."; return; }
   if(!/^[0-9]{1,10}$/.test(raw) || parseInt(raw, 10) > 2147483647){ err.textContent = "The account must be a whole number from 0 to 2147483647 (almost always 0)."; return; }
   ms = {m, n, type: msEl("msType").value, net: msEl("msNet").value, account: parseInt(raw, 10), keys: [], mode: "make", busy: false, done: false};
@@ -3037,7 +3097,7 @@ function updateLabels(){
   });
   updateCount();
 }
-updateLabels(); msUpdateM();
+updateLabels(); msInitSlider();
 
 // ---- Guide me, plain-word term tips, larger text (v1.19.3) ----
 const GUIDE_STEPS = 5;

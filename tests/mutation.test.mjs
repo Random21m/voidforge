@@ -492,7 +492,14 @@ async function probe(w) {
     const accKey = (mn, path, ver) => HDKey.fromMasterSeed(mnemonicToSeedSync(mn, ''), ver ? { private: 0x0488ade4, public: ver } : undefined).derive(path);
     const mns = [A11 + 'about', LEG + ' yellow', ZOO + ' wrong'];
     $('msN').value = '3'; w.msUpdateM(); if ($('msM').value !== '2') fails.push('multisig: 3 keys default to 2-of-3');
-    $('msN').value = '7'; w.msUpdateM(); if ($('msM').options.length !== 7) fails.push('multisig: M choices run from 1 to N'); $('msM').value = '7'; $('msN').value = '4'; w.msUpdateM(); if ($('msM').value !== '3' || $('msM').options.length !== 4) fails.push('multisig: shrinking N resets M to a majority');
+    $('msN').value = '7'; w.msUpdateM(); if ($('msM').max !== '7') fails.push('multisig: M choices run from 1 to N'); $('msM').value = '7'; $('msN').value = '4'; w.msUpdateM(); if ($('msM').value !== '3' || $('msM').max !== '4') fails.push('multisig: shrinking N resets M to a majority');
+    $('msN').value = '5'; w.msUpdateM(); if ($('msNr').value !== '5' || $('msMr').value !== $('msM').value) fails.push('multisig slider: handles follow the numbers');
+    $('msNr').value = '9'; $('msNr').oninput(); if ($('msN').value !== '9') fails.push('multisig slider: dragging N sets N');
+    $('msMr').value = '12'; $('msMr').oninput(); if ($('msN').value !== '12') fails.push('multisig slider: M cannot pass N');
+    $('msNr').value = '4'; $('msNr').oninput(); if ($('msM').value !== '3' || $('msBig').firstChild.textContent !== '3-of-4') fails.push('multisig slider: shrinking N resets M and updates the label');
+    $('msN').value = '99'; $('msN').onchange(); if ($('msN').value !== '15') fails.push('multisig: N capped at 15');
+    w.document.querySelector('.ms-preset[data-n="5"]').onclick(); if ($('msM').value + '/' + $('msN').value !== '3/5') fails.push('multisig: preset fills both numbers');
+    $('msN').value = '20'; $('msM').value = '2'; w.msStart(); if (w.eval('ms') !== null) fails.push('multisig: more than 15 keys refused');
     $('msN').value = '3'; w.msUpdateM();
     $('msM').value = '1'; w.msMNote(); if (!/not real multisig protection/.test($('msMNote').textContent)) fails.push('multisig: 1-of-N note');
     $('msM').value = '3'; w.msMNote(); if (!/lose even one/.test($('msMNote').textContent)) fails.push('multisig: N-of-N note');
@@ -1254,10 +1261,17 @@ const M = [
   ['multisig: descriptor nested wrapper missing', 'type==="ms-sh-wsh" ? "sh(wsh(" + inner + "))" : "wsh(" + inner + ")"', '"wsh(" + inner + ")"'],
   ['multisig: descriptor key version wrong', '...NETS[c.key.net].ver.other, ...raw.slice(4)', '...NETS.main.ver.other, ...raw.slice(4)'],
   ['multisig: M default wrong', 'Math.max(2, Math.ceil((n + 1) / 2))', 'Math.max(2, Math.ceil(n / 2))'],
-  ['multisig: M above N offered', 'for(let i = 1; i <= n; i++){ const o = document.createElement("option");', 'for(let i = 1; i <= n + 1; i++){ const o = document.createElement("option");'],
+  ['multisig: M above N offered', 'msEl("msM").max = String(n);', 'msEl("msM").max = String(n + 1);'],
   ['multisig: 1-of-N allowed to start', 'if(m < 2){ err.textContent', 'if(m < 1){ err.textContent'],
   ['multisig: account range not checked', '|| parseInt(raw, 10) > 2147483647){ err.textContent = "The account must', '|| false){ err.textContent = "The account must'],
   ['multisig: account number not used', 'account: parseInt(raw, 10), keys: []', 'account: 0, keys: []'],
+  ['multisig slider: N cap', 'const MS_MAX = 15;', 'const MS_MAX = 99;'],
+  ['multisig slider: M pushes N up', 'if(m > parseInt(msEl("msN").value, 10)) msEl("msN").value = String(m);', ''],
+  ['multisig slider: M clamped to N', 'm = msClamp(msEl("msM").value, 1, n);', 'm = msClamp(msEl("msM").value, 1, MS_MAX);'],
+  ['multisig slider: label', 'msEl("msBig").firstChild.textContent = m + "-of-" + n;', ''],
+  ['multisig slider: N handle sync', 'msEl("msMr").value = String(m); msEl("msNr").value = String(n);', 'msEl("msMr").value = String(m);'],
+  ['multisig slider: start range check', 'if(!(n >= 2 && n <= MS_MAX && m >= 1 && m <= n)){', 'if(false){'],
+  ['multisig slider: preset', 'function msPreset(m, n){ msEl("msN").value = String(n); msEl("msM").value = String(m); msMNote(); }', 'function msPreset(m, n){ msEl("msN").value = String(n); msMNote(); }'],
   ['multisig: network not used', 'net: msEl("msNet").value,', 'net: "main",'],
   ['multisig: type not used', 'type: msEl("msType").value,', 'type: "ms-wsh",'],
   ['multisig: duplicate (first key) allowed', 'if(dup >= 0){ eb.textContent = "This is the same key as key "', 'if(dup > 0){ eb.textContent = "This is the same key as key "'],
