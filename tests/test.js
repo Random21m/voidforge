@@ -388,6 +388,7 @@ const rnd=(n,k)=>Array.from({length:n},()=>String(k===2?nc.randomInt(2):1+nc.ran
     $('msMr').value='5'; $('msMr').oninput(); eq($('msN').value,'5','multisig slider: M at the top keeps N'); $('msNr').value='9'; $('msNr').oninput(); eq($('msN').value,'9','multisig slider: dragging N sets N');
     $('msMr').value='12'; $('msMr').oninput(); eq($('msN').value,'12','multisig slider: M cannot pass N, so N is pushed up');
     $('msNr').value='4'; $('msNr').oninput(); eq($('msM').value,'3','multisig slider: shrinking N below M resets M to a majority'); eq($('msBig').firstChild.textContent,'3-of-4','multisig slider: big label shows M-of-N');
+    $('msN').value='4'; $('msM').value='9'; tm.w.msMNote(); eq($('msM').value,'4','multisig slider: M never above N');
     $('msN').value='99'; $('msN').onchange(); eq($('msN').value,'15','multisig: N is capped at 15');
     tm.w.document.querySelector('.ms-preset[data-n="5"]').onclick(); eq($('msM').value+'/'+$('msN').value,'3/5','multisig: preset 3-of-5 fills both numbers');
     $('msN').value='3'; tm.w.msUpdateM();

@@ -497,6 +497,7 @@ async function probe(w) {
     $('msNr').value = '9'; $('msNr').oninput(); if ($('msN').value !== '9') fails.push('multisig slider: dragging N sets N');
     $('msMr').value = '12'; $('msMr').oninput(); if ($('msN').value !== '12') fails.push('multisig slider: M cannot pass N');
     $('msNr').value = '4'; $('msNr').oninput(); if ($('msM').value !== '3' || $('msBig').firstChild.textContent !== '3-of-4') fails.push('multisig slider: shrinking N resets M and updates the label');
+    $('msN').value = '4'; $('msM').value = '9'; w.msMNote(); if ($('msM').value !== '4') fails.push('multisig slider: M never above N');
     $('msN').value = '99'; $('msN').onchange(); if ($('msN').value !== '15') fails.push('multisig: N capped at 15');
     w.document.querySelector('.ms-preset[data-n="5"]').onclick(); if ($('msM').value + '/' + $('msN').value !== '3/5') fails.push('multisig: preset fills both numbers');
     $('msN').value = '20'; $('msM').value = '2'; w.msStart(); if (w.eval('ms') !== null) fails.push('multisig: more than 15 keys refused');
